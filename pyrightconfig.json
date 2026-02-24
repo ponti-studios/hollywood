@@ -1,4 +1,8 @@
 {
   "venvPath": ".",
-  "venv": ".venv"
+  "venv": ".venv",
+  "pythonPath": "./src",
+  "typeCheckingMode": "strict",
+  "exclude": ["**/__pycache__", "./typings", ".venv"],
+  "stubPath": "./typings"
 }

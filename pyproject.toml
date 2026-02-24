@@ -30,6 +30,7 @@ dependencies = [
     "scikit-learn>=1.6.1",
     "scipy>=1.15.1",
     "spacy>=3.7.5",
+    "torch==2.2.2",
     "tqdm>=4.64.1",
     "typer>=0.12.5",
     "uvicorn",
@@ -42,19 +43,21 @@ dev = [
     "pre-commit>=3.8.0",
     "pytest>=8.3.3",
     "ruff>=0.6.4",
+    "black>=24.0.0",
+    "mypy>=1.0.0",
 ]
 
 [project.scripts]
-snakesss = "cli.main:app"
-notes = "cli.notes.notes_cli:notes_app"
-user-story = "cli.user_story.user_story_generator:user_story_app"
-crawler = "cli.crawler:app"
-fibonacci = "cli.calculations.fibonacci:app"
-distance-matrix = "cli.calculations.distance_matrix:app"
-csv-to-sqlite = "cli.csv_to_sqlite:csv_to_sqlite"
+snakesss = "snakesss.cli.main:app"
+notes = "snakesss.cli.notes.notes_cli:notes_app"
+user-story = "snakesss.cli.user_story.user_story_generator:user_story_app"
+crawler = "snakesss.cli.crawler:app"
+fibonacci = "snakesss.cli.calculations.fibonacci:app"
+distance-matrix = "snakesss.cli.calculations.distance_matrix:app"
+csv-to-sqlite = "snakesss.cli.csv_to_sqlite:csv_to_sqlite"
 
 [tool.hatch.build.targets.wheel]
-packages = ["cli"]
+packages = ["snakesss"]
 
 [build-system]
 requires = ["hatchling"]
@@ -89,5 +92,25 @@ docstring-code-format = true
 [tool.ruff.lint.isort]
 combine-as-imports = true
 force-wrap-aliases = true
-known-local-folder = ["src"]
-known-first-party = ["flux"]
+known-local-folder = ["snakesss"]
+known-first-party = ["snakesss"]
+
+[tool.black]
+line-length = 110
+target-version = ['py311']
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+strict = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+ignore_missing_imports = true

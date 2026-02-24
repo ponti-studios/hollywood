@@ -5,7 +5,7 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Python: Get File Sections", 
+			"name": "Python: Get File Sections",
 			"type": "debugpy",
 			"request": "launch",
 			"module": "uv",
