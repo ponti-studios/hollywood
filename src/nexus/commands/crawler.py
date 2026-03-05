@@ -4,7 +4,6 @@ import typer
 
 from nexus.commands.job_post import convert_text_to_job_post
 from nexus.lib.scrapers.base import get_filename_from_url, scrape_website
-from nexus.lib.scrapers.zillow import scrape_zillow
 
 app = typer.Typer()
 
@@ -35,19 +34,6 @@ def crawl_job_post(url: str = typer.Option(..., help="The URL to crawl")):
     )
     with open(output_path, "w") as f:
         f.write(response.model_dump_json())
-
-
-@app.command(name="zillow")
-def crawl_zillow(url: str = typer.Option(..., help="The URL to scrape")):
-    # Get home details using the extracted scraper function
-    result, filename, markdown_filename = scrape_zillow(url)
-    with open(os.path.join(os.getcwd(), markdown_filename), "w") as f:
-        f.write(result.text)
-        print(f"Home details saved to ./{markdown_filename}")
-
-    with open(os.path.join(os.getcwd(), filename), "w") as f:
-        f.write(result.model_dump_json(indent=2))
-        print(f"Home details saved to ./{filename}")
 
 
 if __name__ == "__main__":
