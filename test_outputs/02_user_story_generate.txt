@@ -1,5 +1,0 @@
-{
-  "story": "As a user, I want to have a secure login system so that I can access my account safely and protect my personal information.",
-  "user_persona": "end user",
-  "industry": "Technology and Security"
-}
