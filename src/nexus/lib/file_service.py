@@ -1,9 +1,7 @@
 import os
 from datetime import datetime
 from typing import List, Tuple
-from urllib.parse import urlparse
 
-import requests
 from nexus.config import ROOT_DIR
 
 
@@ -44,30 +42,4 @@ class FileRepository:
 
         return lines, (end_time - start_time).total_seconds()
 
-    @staticmethod
-    def download_file(url: str, directory: str) -> dict[str, str | bool]:
-        """Download a file from a URL and save it to the specified directory."""
-        try:
-            response = requests.get(url, stream=True)
-            response.raise_for_status()
 
-            # Extract the filename from the URL
-            parsed_url = urlparse(url)
-            file_name = os.path.basename(parsed_url.path)
-
-            # Define the path where the will be saved
-            destination_path = os.path.join(directory, file_name)
-
-            # Check if the file already exists
-            if os.path.exists(destination_path):
-                return {"success": False, "error": "File already exists. Skipping download."}
-
-            # Save the image to the specified directory
-            with open(destination_path, "wb") as download_file:
-                for chunk in response.iter_content(1024):
-                    download_file.write(chunk)
-
-            return {"success": True, "error": False}
-
-        except requests.RequestException as e:
-            raise requests.RequestException(f"Failed to download '{url}': {e}")
