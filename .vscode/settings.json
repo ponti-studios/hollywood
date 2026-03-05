@@ -1,32 +1,46 @@
 {
-	"git.ignoreLimitWarning": true,
-	"[python]": {
-		"diffEditor.ignoreTrimWhitespace": false,
-		"editor.formatOnSave": true,
-		"editor.formatOnType": true,
-		"editor.defaultFormatter": "charliermarsh.ruff",
-		"editor.wordBasedSuggestions": "off"
-	},
-	"cSpell.ignoreWords": ["langchain", "openai"],
-	"cSpell.words": [
-		"boto",
-		"chromadb",
-		"crewai",
-		"dataframe",
-		"dataframes",
-		"deduped",
-		"dotenv",
-		"fastapi",
-		"iterrows",
-		"levelname",
-		"ndarray",
-		"ollama",
-		"pydantic",
-		"snakesss",
-		"spacy",
-		"supabase",
-		"tqdm",
-		"typer",
-		"uvicorn"
-	]
+    "git.ignoreLimitWarning": true,
+    "[python]": {
+        "diffEditor.ignoreTrimWhitespace": false,
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true,
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.wordBasedSuggestions": "off"
+    },
+    "cSpell.ignoreWords": [
+        "langchain",
+        "openai"
+    ],
+    "cSpell.words": [
+        "boto",
+        "chromadb",
+        "crewai",
+        "dataframe",
+        "dataframes",
+        "deduped",
+        "dotenv",
+        "fastapi",
+        "iterrows",
+        "levelname",
+        "ndarray",
+        "ollama",
+        "pydantic",
+        "snakesss",
+        "spacy",
+        "supabase",
+        "tqdm",
+        "typer",
+        "uvicorn"
+    ],
+    "chat.promptFilesRecommendations": {
+        "speckit.constitution": true,
+        "speckit.specify": true,
+        "speckit.plan": true,
+        "speckit.tasks": true,
+        "speckit.implement": true
+    },
+    "chat.tools.terminal.autoApprove": {
+        ".specify/scripts/bash/": true,
+        ".specify/scripts/powershell/": true
+    }
 }

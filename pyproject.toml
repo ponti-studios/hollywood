@@ -1,81 +1,62 @@
 [project]
-name = "snakesss"
+name = "nexus"
 version = "0.1.0"
-description = "Add your description here"
+description = "Your terminal AI workbench"
 readme = "README.md"
 requires-python = ">=3.11"
+authors = [
+    { name = "Charles Ponti", email = "charles@example.com" }
+]
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = [
     "chromadb",
     "crawl4ai>=0.4.247",
-    "crewai[tools]>=0.86.0",
-    "freezegun>=1.5.1",
     "langchain-chroma>=0.1.2",
     "langchain-community>=0.2.16",
-    "langchain-ollama>=0.2.2",
     "langchain-openai>=0.1.23",
     "langchain>=0.2.16",
-    "langgraph>=0.2.19",
-    "ollama>=0.4.7",
     "openai",
     "pandas>=2.2.3",
-    "pip>=24.3.1",
-    "pre-commit>=3.8.0",
-    "pydantic-ai>=0.0.0",
+    "pydantic>=2.0",
     "pydantic-settings>=2.5.2",
-    "pytest>=8.3.3",
     "python-dotenv",
-    "python-multipart>=0.0.17",
     "pytz>=2024.2",
-    "ruff>=0.6.4",
-    "scikit-learn>=1.6.1",
     "scipy>=1.15.1",
-    "spacy>=3.7.5",
-    "torch==2.2.2",
     "tqdm>=4.64.1",
     "typer>=0.12.5",
-    "uvicorn",
     "markdown>=3.7",
+    "pillow>=10.4.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pip>=24.3.1",
-    "pre-commit>=3.8.0",
     "pytest>=8.3.3",
+    "pytest-cov>=6.0",
     "ruff>=0.6.4",
-    "black>=24.0.0",
-    "mypy>=1.0.0",
+    "pyright>=1.1.0",
 ]
 
 [project.scripts]
-snakesss = "snakesss.cli.main:app"
-notes = "snakesss.cli.notes.notes_cli:notes_app"
-user-story = "snakesss.cli.user_story.user_story_generator:user_story_app"
-crawler = "snakesss.cli.crawler:app"
-fibonacci = "snakesss.cli.calculations.fibonacci:app"
-distance-matrix = "snakesss.cli.calculations.distance_matrix:app"
-csv-to-sqlite = "snakesss.cli.csv_to_sqlite:csv_to_sqlite"
-
-[tool.hatch.build.targets.wheel]
-packages = ["snakesss"]
+nexus = "nexus.main:app"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.pyright]
-venvPath = "."
-venv = ".venv"
-exclude = [
-    "**/__pycache__", # cache directories
-    "./typings",      # generated type stubs
-]
-stubPath = "./typings"
+[tool.hatch.build.targets.wheel]
+packages = ["nexus"]
+package-dir = { "nexus" = "src/nexus" }
 
 [tool.ruff]
 line-length = 110
-target-version = "py310"
+target-version = "py311"
 extend-exclude = ["/usr/lib/*"]
+src = ["src"]
 
 [tool.ruff.lint]
 ignore = [
@@ -89,28 +70,20 @@ line-ending = "auto"
 skip-magic-trailing-comma = false
 docstring-code-format = true
 
+
 [tool.ruff.lint.isort]
 combine-as-imports = true
 force-wrap-aliases = true
-known-local-folder = ["snakesss"]
-known-first-party = ["snakesss"]
+known-local-folder = ["nexus"]
+known-first-party = ["nexus"]
 
-[tool.black]
-line-length = 110
-target-version = ['py311']
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
 
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-strict = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
-ignore_missing_imports = true
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+exclude = ["**/__pycache__", "./typings"]
+stubPath = "./typings"
+typeCheckingMode = "strict"

@@ -1,61 +1,58 @@
-# Python-related commands
-.PHONY: install test lint format
+# Nexus - Python CLI Toolkit
+# ==========================
 
-install-tool:
-	uv tool install . -e
+.PHONY: help install test lint format typecheck clean
 
+# Installation
 install:
-	pip install -r requirements.txt
+	uv sync
 
+# Testing
 test:
-	pytest
+	uv run pytest -v
 
+# Linting
 lint:
-	ruff check
+	uv run ruff check src/
 
+# Formatting
 format:
-	ruff format
+	uv run ruff format src/
 
+# Type checking
+typecheck:
+	uv run pyright src/
 
-# Docker-related commands
-.PHONY: docker-build docker-run docker-stop docker-clean
-
-docker-build:
-	docker build -t snakesss .
-
-docker-run:
-	docker run -d --name snakesss_fastapi snakesss
-
-docker-stop:
-	docker stop snakesss_fastapi
-
-docker-clean:
-	docker rm snakesss_fastapi
-
-
-# Development shortcuts
-.PHONY: dev clean
-
-dev:
-	uvicorn cli:server:main:app --reload --port 5555
-
+# Clean up
 clean:
 	find . -type f -name "*.pyc" -delete
-	find . -type d -name "__pycache__" -delete
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 
-# Helpful shortcuts
-.PHONY: help
+# Quick commands
+.PHONY: run version help-commands
 
+run:
+	uv run nexus
+
+version:
+	uv run nexus --version
+
+help-commands:
+	uv run nexus --help
+
+# Help
 help:
+	@echo "Nexus - Your terminal AI workbench"
+	@echo ""
 	@echo "Available commands:"
-	@echo "  install      - Install project dependencies"
-	@echo "  test         - Run tests"
-	@echo "  lint         - Run linter"
-	@echo "  format       - Format code"
-	@echo "  docker-build - Build Docker image"
-	@echo "  docker-run   - Run Docker container"
-	@echo "  docker-stop  - Stop Docker container"
-	@echo "  docker-clean - Remove Docker container"
-	@echo "  dev          - Run development server"
-	@echo "  clean        - Remove compiled Python files"
-	@echo "  help         - Show this help message"
+	@echo "  make install       - Install dependencies (uv sync)"
+	@echo "  make test         - Run tests"
+	@echo "  make lint         - Run linter (ruff)"
+	@echo "  make format       - Format code (ruff)"
+	@echo "  make typecheck    - Type check (pyright)"
+	@echo "  make clean        - Remove cache files"
+	@echo "  make run          - Run CLI"
+	@echo "  make version      - Show version"
+	@echo "  make help-commands - Show CLI help"

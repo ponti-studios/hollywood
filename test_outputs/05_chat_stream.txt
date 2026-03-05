@@ -1,0 +1,58 @@
+Streaming response:
+Hello! How can I assist you today?╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /Users/charlesponti/Developer/nexus/src/nexus/commands/chat.py:41 in stream  │
+│                                                                              │
+│   38 │                                                                       │
+│   39 │   typer.echo("Streaming response:")                                   │
+│   40 │   for chunk in stream_response:                                       │
+│ ❱ 41 │   │   content = chunk.choices[0].delta.content                        │
+│   42 │   │   if content:                                                     │
+│   43 │   │   │   typer.echo(content, nl=False)                               │
+│   44 │   typer.echo()                                                        │
+│                                                                              │
+│ ╭───────────────────────────────── locals ─────────────────────────────────╮ │
+│ │           chunk = ChatCompletionChunk(                                   │ │
+│ │                   │   id='gen-1772713846-RLKSxWbKM1zs6WB1PV6l',          │ │
+│ │                   │   choices=[],                                        │ │
+│ │                   │   created=1772713846,                                │ │
+│ │                   │   model='openai/gpt-4o-mini',                        │ │
+│ │                   │   object='chat.completion.chunk',                    │ │
+│ │                   │   service_tier=None,                                 │ │
+│ │                   │   system_fingerprint='fp_373a14eb6f',                │ │
+│ │                   │   usage=CompletionUsage(                             │ │
+│ │                   │   │   completion_tokens=9,                           │ │
+│ │                   │   │   prompt_tokens=9,                               │ │
+│ │                   │   │   total_tokens=18,                               │ │
+│ │                   │   │                                                  │ │
+│ │                   completion_tokens_details=CompletionTokensDetails(     │ │
+│ │                   │   │   │   accepted_prediction_tokens=None,           │ │
+│ │                   │   │   │   audio_tokens=0,                            │ │
+│ │                   │   │   │   reasoning_tokens=0,                        │ │
+│ │                   │   │   │   rejected_prediction_tokens=None,           │ │
+│ │                   │   │   │   image_tokens=0                             │ │
+│ │                   │   │   ),                                             │ │
+│ │                   │   │   prompt_tokens_details=PromptTokensDetails(     │ │
+│ │                   │   │   │   audio_tokens=0,                            │ │
+│ │                   │   │   │   cached_tokens=0,                           │ │
+│ │                   │   │   │   cache_write_tokens=0,                      │ │
+│ │                   │   │   │   video_tokens=0                             │ │
+│ │                   │   │   ),                                             │ │
+│ │                   │   │   cost=6.75e-06,                                 │ │
+│ │                   │   │   is_byok=False,                                 │ │
+│ │                   │   │   cost_details={                                 │ │
+│ │                   │   │   │   'upstream_inference_cost': 6.75e-06,       │ │
+│ │                   │   │   │   'upstream_inference_prompt_cost':          │ │
+│ │                   1.35e-06,                                              │ │
+│ │                   │   │   │   'upstream_inference_completions_cost':     │ │
+│ │                   5.4e-06                                                │ │
+│ │                   │   │   }                                              │ │
+│ │                   │   ),                                                 │ │
+│ │                   │   provider='OpenAI'                                  │ │
+│ │                   )                                                      │ │
+│ │         content = ''                                                     │ │
+│ │           model = 'gpt-4o-mini'                                          │ │
+│ │ stream_response = <openai.Stream object at 0x1350b4ce0>                  │ │
+│ │            text = 'Say hello'                                            │ │
+│ ╰──────────────────────────────────────────────────────────────────────────╯ │
+╰──────────────────────────────────────────────────────────────────────────────╯
+IndexError: list index out of range

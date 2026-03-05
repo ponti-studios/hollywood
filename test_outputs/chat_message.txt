@@ -1,0 +1,2 @@
+INFO:httpx:HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+1 + 1 equals 2.
