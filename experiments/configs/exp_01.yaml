@@ -1,0 +1,65 @@
+name: exp_01_baseline
+description: >
+  Phase 1 — Closed-book baseline.
+  Runs a small (4B) and large (70B) model on three benchmark types:
+    - TriviaQA (knowledge-heavy: expects large model to dominate)
+    - MMLU     (knowledge-heavy: expects large model to dominate)
+    - Synthetic (pure logic: expects small model to be competitive)
+  The gap on Synthetic vs the gap on TriviaQA/MMLU is the key finding.
+phase: 1
+
+models:
+  - model_id: google/gemma-3-4b-it
+    role: small
+    inference_backend: transformers
+    max_new_tokens: 128
+    temperature: 0.0
+    batch_size: 8
+
+  # Uncomment to add a large model comparison.
+  # Requires significant VRAM / a remote inference endpoint.
+  # - model_id: meta-llama/Meta-Llama-3-70B-Instruct
+  #   role: large
+  #   inference_backend: transformers
+  #   max_new_tokens: 128
+  #   temperature: 0.0
+  #   batch_size: 4
+
+benchmarks:
+  - name: triviaqa
+    samples: 500          # 500 questions → ~15-20 min on Apple Silicon M-series
+    seed: 42
+
+  - name: mmlu
+    samples: 500
+    seed: 42
+    mmlu_subjects:        # 12 subjects — one per broad domain
+      - high_school_mathematics
+      - high_school_physics
+      - college_computer_science
+      - high_school_biology
+      - high_school_us_history
+      - philosophy
+      - high_school_psychology
+      - econometrics
+      - professional_medicine
+      - nutrition
+      - logical_fallacies
+      - machine_learning
+
+  - name: synthetic
+    samples: 500
+    seed: 42
+
+synthetic:
+  depth_range: [2, 4]     # 2-step to 4-step reasoning chains
+  puzzle_types:
+    - syllogism
+    - conditional
+    - negation
+  vocab_size: 200
+
+logging:
+  wandb_project: "3b-logic-broker"
+  output_dir: "experiments/results"
+  save_transcripts: true

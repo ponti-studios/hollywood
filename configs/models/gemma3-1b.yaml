@@ -1,0 +1,21 @@
+# Gemma 3 1B Instruction-Tuned
+#
+# The 1B model is the right starting point because:
+#   - Fits comfortably in 8 GB Mac RAM (even without quantisation)
+#   - Trains in minutes to hours rather than hours to days
+#   - Good for learning — you can see results quickly
+#   - Surprisingly capable for its size
+
+model_id: "google/gemma-3-1b-it"  # -it = instruction-tuned
+
+# bfloat16: half-precision float that Gemma 3 was trained with.
+# Using float32 doubles memory usage. Never use float16 with Gemma 3.
+dtype: "bfloat16"
+
+# 2048 tokens ≈ 1500 words. Good for most instruction-following tasks.
+# Increase to 4096 if your data has long contexts (more memory required).
+max_seq_len: 2048
+
+# MPS doesn't support FlashAttention2. "eager" is the safe default.
+# "sdpa" (scaled dot-product attention) also works on MPS and is slightly faster.
+attn_implementation: "eager"

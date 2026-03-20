@@ -1,0 +1,25 @@
+# UltraFeedback Binarized — for DPO / ORPO experiments
+#
+# UltraFeedback (Cui et al., 2023) is a large-scale preference dataset.
+# "Binarized" means each example has been reduced to one (chosen, rejected) pair.
+#
+# Format: {"prompt": "...", "chosen": [...messages...], "rejected": [...messages...]}
+# The chosen response is the one rated higher by GPT-4.
+#
+# Used to train:
+#   - Zephyr-beta (HuggingFace's alignment model)
+#   - Many other instruction-following models
+#
+# 61K examples — can take 2-4 hours per epoch on Apple Silicon with Gemma 3 1B.
+# For quick experiments, set max_samples to 5000.
+
+dataset_name: "trl-lib/ultrafeedback_binarized"
+split: "train"
+val_split: 0.05
+max_samples: null        # set to 5000 for quick smoke tests
+seed: 42
+
+# Column names for DPO/ORPO — these match the dataset's actual column names
+prompt_column: "prompt"
+chosen_column: "chosen"
+rejected_column: "rejected"

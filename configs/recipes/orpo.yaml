@@ -1,0 +1,62 @@
+# Recipe: ORPO on Gemma 3 1B
+#
+# What you'll learn:
+#   - How ORPO combines SFT and preference tuning in one pass
+#   - Why no reference model is needed (saves memory vs. DPO)
+#   - How the beta (λ) parameter balances the SFT and odds-ratio terms
+#
+# ORPO vs DPO:
+#   ORPO  — single training stage, no reference model, slightly less memory
+#   DPO   — two-stage (SFT then DPO), well-understood, more papers/tuning advice
+#
+# When to choose ORPO:
+#   - You have preference data but want to do SFT and alignment in one run
+#   - Memory is tight (Mac with 8-16 GB)
+#   - You want to experiment quickly
+#
+# ORPO-specific metrics in W&B:
+#   nll_loss     — the standard SFT loss component
+#   odds_ratio   — the preference component (should become positive)
+#   log_odds_*   — log odds for chosen vs rejected
+
+name: "gemma3-1b-orpo"
+description: "ORPO single-stage SFT + preference tuning on Gemma 3 1B."
+
+model:
+  model_id: "google/gemma-3-1b-it"
+  dtype: "bfloat16"
+  max_seq_len: 2048
+  attn_implementation: "eager"
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+  bias: "none"
+
+data:
+  dataset_name: "trl-lib/ultrafeedback_binarized"
+  split: "train"
+  val_split: 0.05
+  max_samples: null
+  seed: 42
+
+training:
+  method: "orpo"
+  learning_rate: 8.0e-6   # ORPO paper recommends lower LR than SFT
+  num_epochs: 1
+  batch_size: 2
+  gradient_accumulation_steps: 8
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  output_dir: "experiments/{name}"
+  save_steps: 100
+  logging_steps: 10
+  eval_steps: 100
+  max_grad_norm: 1.0
+
+wandb:
+  enabled: true
+  project: "nexus-posttraining"
+  tags: ["orpo", "lora", "gemma3-1b", "ultrafeedback"]

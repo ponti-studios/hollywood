@@ -1,24 +1,37 @@
-"""Pytest configuration and fixtures."""
+"""
+Shared test fixtures and configuration.
 
-import os
-import sys
-from pathlib import Path
+These fixtures are automatically available to all test files in this directory.
+pytest loads conftest.py before any tests run.
+"""
 
 import pytest
 
-# Add src to path for imports
-src_path = Path(__file__).parent.parent / "src"
-sys.path.insert(0, str(src_path))
-
 
 @pytest.fixture
-def sample_text() -> str:
-    """Sample text for testing."""
-    return "This is a test message."
-
-
-@pytest.fixture
-def mock_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Set up mock environment variables."""
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    monkeypatch.setenv("ENVIRONMENT", "local")
+def sample_recipe_dict() -> dict:
+    """A minimal valid recipe dictionary for testing config parsing."""
+    return {
+        "name": "test-recipe",
+        "description": "A test recipe",
+        "model": {
+            "model_id": "google/gemma-3-1b-it",
+            "dtype": "bfloat16",
+            "max_seq_len": 512,
+        },
+        "data": {
+            "dataset_name": "tatsu-lab/alpaca",
+            "split": "train",
+            "max_samples": 100,
+        },
+        "training": {
+            "method": "sft",
+            "learning_rate": 2e-4,
+            "num_epochs": 1,
+            "batch_size": 2,
+        },
+        "lora": {
+            "r": 8,
+            "alpha": 16,
+        },
+    }

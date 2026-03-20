@@ -1,0 +1,63 @@
+# Recipe: GRPO on Gemma 3 1B (reasoning / GSM8K)
+#
+# What you'll learn:
+#   - How reward-based training differs from supervised fine-tuning
+#   - How to design reward functions (the most important skill for GRPO)
+#   - Why GRPO enables "emergent reasoning" (the model learns to think step-by-step)
+#   - The DeepSeek R1 training paradigm
+#
+# This recipe uses GSM8K (grade school math word problems).
+# The reward function checks if the final numerical answer is correct.
+# The model learns to show its work to get higher rewards.
+#
+# Important: the reward function is defined in code, NOT in this YAML.
+# See nexus/trainers/grpo.py for examples, or write your own in scripts/.
+#
+# GRPO metrics in W&B:
+#   reward       — average reward across the batch (higher = better)
+#   reward_std   — reward variance (useful — you want diversity in rewards)
+#   kl           — KL divergence from reference (should stay bounded)
+#   num_generations — how many responses generated per prompt per step
+
+name: "gemma3-1b-grpo-math"
+description: "GRPO reasoning training on Gemma 3 1B using GSM8K math problems."
+
+model:
+  model_id: "google/gemma-3-1b-it"
+  dtype: "bfloat16"
+  max_seq_len: 1024        # math problems are shorter — save memory
+  attn_implementation: "eager"
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.0             # GRPO papers often use 0 dropout
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+  bias: "none"
+
+data:
+  dataset_name: "gsm8k"
+  split: "train"
+  val_split: 0.05
+  max_samples: null        # 7.5K training examples
+  seed: 42
+
+training:
+  method: "grpo"
+  learning_rate: 1.0e-5   # GRPO uses lower LR — updates are less stable
+  num_epochs: 2
+  batch_size: 1            # GRPO generates multiple responses per prompt — very memory-intensive
+  gradient_accumulation_steps: 16
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  output_dir: "experiments/{name}"
+  save_steps: 50
+  logging_steps: 5
+  eval_steps: 50
+  max_grad_norm: 0.1       # lower for GRPO — prevents catastrophic updates
+
+wandb:
+  enabled: true
+  project: "nexus-posttraining"
+  tags: ["grpo", "lora", "gemma3-1b", "gsm8k", "reasoning"]
+  notes: "GRPO reasoning experiment — reward function: correct final answer"

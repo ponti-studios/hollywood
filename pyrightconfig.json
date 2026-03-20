@@ -1,8 +1,7 @@
 {
   "venvPath": ".",
   "venv": ".venv",
-  "pythonPath": "./src",
-  "typeCheckingMode": "strict",
-  "exclude": ["**/__pycache__", "./typings", ".venv"],
+  "typeCheckingMode": "standard",
+  "exclude": ["**/__pycache__", "./typings", ".venv", "experiments/**/dataset/raw/**", "experiments/**/notebooks/*.ipynb", "experiments/**/web_app/**"],
   "stubPath": "./typings"
 }

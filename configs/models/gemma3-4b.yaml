@@ -1,0 +1,20 @@
+# Gemma 3 4B Instruction-Tuned
+#
+# The 4B model is significantly more capable than 1B, particularly for:
+#   - Reasoning and multi-step problem solving
+#   - Code generation
+#   - Complex instruction following
+#
+# Memory requirements on Apple Silicon:
+#   bfloat16 weights: ~8 GB
+#   + LoRA adapters + optimiser state: ~3 GB extra
+#   → Recommended: 16 GB+ unified memory (M1 Pro/Max, M2 Pro/Max, M3+)
+#
+# If you have 8 GB RAM, use the 4-bit quantised version for inference:
+#   mlx-community/gemma-3-4b-it-4bit
+# For training, use the full model or reduce batch_size to 1.
+
+model_id: "google/gemma-3-4b-it"
+dtype: "bfloat16"
+max_seq_len: 2048
+attn_implementation: "eager"
