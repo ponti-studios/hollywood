@@ -1,12 +1,8 @@
-name: exp_01_baseline
+name: exp_03_reflection
 description: >
-  Phase 1 — Closed-book baseline.
-  Runs a small (4B) model and a larger reference model on three benchmark types:
-    - TriviaQA (knowledge-heavy: expects large model to dominate)
-    - MMLU     (knowledge-heavy: expects large model to dominate)
-    - Synthetic (pure logic: expects small model to be competitive)
-  The gap on Synthetic vs the gap on TriviaQA/MMLU is the key finding.
-phase: 1
+  Phase 3 — Draft, critique, and refine on the existing benchmark suite.
+  Measures whether an explicit self-review pass improves answer accuracy.
+phase: 3
 
 models:
   - model_id: google/gemma-3-4b-it
@@ -16,9 +12,7 @@ models:
     temperature: 0.0
     batch_size: 8
 
-  # Uncomment to add a large model comparison.
-  # MiniMax M2.7 is API-only and uses its OpenAI-compatible endpoint.
-  # Export MINIMAX_API_KEY before running.
+  # Optional reference model.
   # - model_id: MiniMax-M2.7
   #   role: large
   #   inference_backend: openai-compatible
@@ -30,13 +24,13 @@ models:
 
 benchmarks:
   - name: triviaqa
-    samples: 500          # 500 questions → ~15-20 min on Apple Silicon M-series
+    samples: 500
     seed: 42
 
   - name: mmlu
     samples: 500
     seed: 42
-    mmlu_subjects:        # 12 subjects — one per broad domain
+    mmlu_subjects:
       - high_school_mathematics
       - high_school_physics
       - college_computer_science
@@ -55,7 +49,7 @@ benchmarks:
     seed: 42
 
 synthetic:
-  depth_range: [2, 4]     # 2-step to 4-step reasoning chains
+  depth_range: [2, 4]
   puzzle_types:
     - syllogism
     - conditional
@@ -66,3 +60,6 @@ logging:
   wandb_project: "3b-logic-broker"
   output_dir: "experiments/results"
   save_transcripts: true
+  reference_cache_dir: "experiments/cache"
+  use_reference_cache: true
+  refresh_reference_cache: false

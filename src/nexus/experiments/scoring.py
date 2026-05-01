@@ -71,6 +71,7 @@ class BenchmarkScore:
     tool_call_rate:   fraction of questions that triggered a tool call (Phase 2+)
     avg_tool_calls:   mean tool calls per question (Phase 2+)
     correction_delta: improvement from reflection loop (Phase 3+), in percentage points
+    provenance:       whether this row came from live inference or cache
     """
 
     model_id: str
@@ -81,6 +82,7 @@ class BenchmarkScore:
     tool_call_rate: float = 0.0
     avg_tool_calls: float = 0.0
     correction_delta: Optional[float] = None   # only set in Phase 3
+    provenance: str = "live"
 
     @property
     def accuracy_pct(self) -> str:
@@ -98,6 +100,7 @@ class BenchmarkScore:
             "tool_call_rate": round(self.tool_call_rate, 4),
             "avg_tool_calls": round(self.avg_tool_calls, 2),
             "correction_delta": self.correction_delta,
+            "provenance": self.provenance,
         }
 
 

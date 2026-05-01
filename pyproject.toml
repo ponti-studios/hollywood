@@ -39,6 +39,7 @@ dependencies = [
     # --- Utilities ---
     "tqdm>=4.64",
     "numpy>=1.26",
+    "httpx>=0.28.0",
 ]
 
 [project.optional-dependencies]

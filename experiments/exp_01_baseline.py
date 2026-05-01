@@ -36,6 +36,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import sys
 from pathlib import Path
 
@@ -45,6 +47,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from rich.console import Console
 
 from nexus.experiments.config import ExperimentConfig, ModelSpec, BenchmarkSpec
+from nexus.experiments.reference_cache import load_cache_metadata, load_reference_cache, save_reference_cache
 from nexus.experiments.runner import BaseRunner
 from nexus.experiments.scoring import (
     BenchmarkScore,
@@ -86,17 +89,42 @@ class BaselineRunner(BaseRunner):
                 model_results = [r for r in results_per_benchmark if r.model_id == model_spec.model_id]
                 if model_results:
                     score = aggregate_scores(model_results)
+                    score.provenance = self.result_provenance(model_spec.model_id, benchmark_spec.name)
                     key = f"{model_spec.role}/{benchmark_spec.name}"
                     scores[key] = score
 
         return scores, all_results
+
+    def __init__(self, cfg: ExperimentConfig) -> None:
+        super().__init__(cfg)
+        self._benchmark_questions: dict[str, list] = {}
+        self._benchmark_signatures: dict[str, str] = {}
+
+    @property
+    def reference_cache_score_version(self) -> str:
+        return "phase1_v1"
+
+    def load_models(self) -> None:
+        """Load only models that are not fully satisfied by reference cache."""
+        self._prepare_benchmarks()
+
+        for spec in self.cfg.models:
+            if self._can_use_cached_reference(spec):
+                console.print(
+                    f"Using cached reference results for [cyan]{spec.model_id}[/cyan] ({spec.role}); skipping model load."
+                )
+                continue
+
+            console.print(f"Loading [cyan]{spec.model_id}[/cyan] ({spec.role}) …")
+            self._pipelines[spec.model_id] = self._build_pipeline(spec)
+        console.print()
 
     def _run_benchmark(self, spec: BenchmarkSpec) -> list[QuestionResult]:
         """Run all configured models on a single benchmark dataset."""
         console.rule(f"[cyan]{spec.name}[/cyan]")
         results: list[QuestionResult] = []
 
-        questions = self._load_benchmark(spec)
+        questions = self._benchmark_questions[spec.name]
         console.print(f"  {len(questions)} questions loaded\n")
 
         for model_spec in self.cfg.models:
@@ -132,6 +160,117 @@ class BaselineRunner(BaseRunner):
 
         raise ValueError(f"Unknown benchmark: {spec.name}")
 
+    def _prepare_benchmarks(self) -> None:
+        """Load benchmark inputs once and compute deterministic cache signatures."""
+        if self._benchmark_questions:
+            return
+
+        for spec in self.cfg.benchmarks:
+            questions = self._load_benchmark(spec)
+            self._benchmark_questions[spec.name] = questions
+            self._benchmark_signatures[spec.name] = self._compute_benchmark_signature(spec.name, questions)
+
+    def _compute_benchmark_signature(self, benchmark_name: str, questions: list) -> str:
+        payload: list[dict[str, str]] = []
+        for item in questions:
+            prompt, expected, question_id = self._format_item(benchmark_name, item)
+            payload.append(
+                {
+                    "id": question_id,
+                    "prompt": prompt,
+                    "expected": json.dumps(expected, sort_keys=True),
+                }
+            )
+
+        digest = hashlib.sha256(
+            json.dumps(
+                {
+                    "score_version": self.reference_cache_score_version,
+                    "benchmark": benchmark_name,
+                    "questions": payload,
+                },
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        return digest[:16]
+
+    def _can_use_cached_reference(self, model_spec: ModelSpec) -> bool:
+        if model_spec.role != "large":
+            return False
+        if not self.cfg.logging.use_reference_cache or self.cfg.logging.refresh_reference_cache:
+            return False
+
+        return all(
+            self._cache_path(model_spec, benchmark_spec.name).exists()
+            for benchmark_spec in self.cfg.benchmarks
+        )
+
+    def _cache_path(self, model_spec: ModelSpec, benchmark_name: str) -> Path:
+        signature = self._benchmark_signatures[benchmark_name]
+        return self.reference_cache_path(model_spec.model_id, benchmark_name, signature)
+
+    def _load_cached_results(
+        self,
+        model_spec: ModelSpec,
+        benchmark_name: str,
+    ) -> list[QuestionResult] | None:
+        if model_spec.role != "large" or not self.cfg.logging.use_reference_cache:
+            return None
+        if self.cfg.logging.refresh_reference_cache:
+            return None
+
+        path = self._cache_path(model_spec, benchmark_name)
+        if not path.exists():
+            return None
+
+        cached_results = load_reference_cache(
+            path,
+            score_version=self.reference_cache_score_version,
+            benchmark_signature=self._benchmark_signatures[benchmark_name],
+        )
+        if cached_results is None:
+            return None
+
+        console.print(
+            f"  [dim]cache hit[/dim] [cyan]{model_spec.model_id.split('/')[-1]}[/cyan] / {benchmark_name}"
+        )
+        self.set_result_provenance(model_spec.model_id, benchmark_name, "cached")
+        cache_metadata = load_cache_metadata(path) or {}
+        self.set_result_metadata(
+            model_spec.model_id,
+            benchmark_name,
+            {
+                "cached_at": cache_metadata.get("created_at"),
+                "cache_path": str(path),
+            },
+        )
+        return cached_results
+
+    def _save_cached_results(
+        self,
+        model_spec: ModelSpec,
+        benchmark_name: str,
+        results: list[QuestionResult],
+    ) -> None:
+        if model_spec.role != "large" or not self.cfg.logging.use_reference_cache:
+            return
+
+        path = self._cache_path(model_spec, benchmark_name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        save_reference_cache(
+            path,
+            experiment_name=self.cfg.name,
+            score_version=self.reference_cache_score_version,
+            model_id=model_spec.model_id,
+            role=model_spec.role,
+            benchmark=benchmark_name,
+            benchmark_signature=self._benchmark_signatures[benchmark_name],
+            results=results,
+        )
+        console.print(
+            f"  [dim]cached reference[/dim] [cyan]{model_spec.model_id.split('/')[-1]}[/cyan] / {benchmark_name}"
+        )
+
     def _evaluate_model(
         self,
         model_spec: ModelSpec,
@@ -143,6 +282,13 @@ class BaselineRunner(BaseRunner):
         Formats each question into a prompt, calls the model, scores
         the answer, and records the result.
         """
+        cached = self._load_cached_results(model_spec, benchmark_name)
+        if cached is not None:
+            return cached
+
+        self.set_result_provenance(model_spec.model_id, benchmark_name, "live")
+        self.set_result_metadata(model_spec.model_id, benchmark_name, {})
+
         results: list[QuestionResult] = []
         correct = 0
 
@@ -178,6 +324,7 @@ class BaselineRunner(BaseRunner):
             f"  [bold]{model_spec.model_id.split('/')[-1]}[/bold] → "
             f"[green]{acc:.1f}%[/green] ({correct}/{len(questions)})\n"
         )
+        self._save_cached_results(model_spec, benchmark_name, results)
         return results
 
     def _format_item(self, benchmark_name: str, item) -> tuple[str, object, str]:

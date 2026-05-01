@@ -1,0 +1,7 @@
+**/.cache/
+**/.venv/
+**/.work/
+**/cache/
+**/outputs/
+**/runtime/
+**/transcripts/

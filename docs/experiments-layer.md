@@ -182,6 +182,31 @@ logging:
 
 The `seed: 42` line might seem like a small detail, but it's crucial. With a fixed seed, every run samples the exact same 500 questions from the dataset. That means when you change a config option and re-run, you're comparing apples to apples — same questions, same ground truth, different approach.
 
+## Caching the Reference Model
+
+For large-model comparisons, you usually do not want to pay the full inference cost on every run. The reference model changes rarely, while the 3B model, prompts, and tool loops may change every day. So the better design is to treat the large model as a cached baseline.
+
+The baseline runner supports that pattern:
+
+- It computes a deterministic signature for each benchmark slice using the question IDs, formatted prompts, expected answers, and scoring version.
+- It stores the large model's per-question results under `experiments/cache/exp_01_baseline/`.
+- On later runs, if the benchmark signature matches, it reuses the cached large-model transcripts instead of loading or querying the large model again.
+- If the sample size, seed, prompt format, or scoring version changes, the signature changes too, so the cache is ignored automatically.
+
+The cache file format and file-management helpers live in a shared module so future Phase 2 and Phase 3 runners can reuse the same lifecycle instead of inventing their own cache layout.
+
+That gives you fast, repeatable comparisons without mixing incompatible runs together.
+
+CLI controls:
+
+- `nexus experiment run --large-model ...` uses cached reference results by default
+- `nexus experiment run --refresh-reference-cache --large-model ...` recomputes and overwrites the cache
+- `nexus experiment run --no-reference-cache --large-model ...` forces a live large-model run without consulting cache
+- `nexus experiment cache list` shows cached reference entries
+- `nexus experiment cache inspect <cache-file>` shows the metadata and a short preview of cached results
+- `nexus experiment cache purge <cache-file> --yes` deletes one cache entry
+- `nexus experiment cache purge --experiment exp_01_baseline --model meta-llama/... --yes` deletes matching entries in bulk
+
 ---
 
 ## Comparing Experiments in the Dashboard
@@ -201,6 +226,8 @@ exp_03 / 3B + reflect │    —     │   —   │ 71.4% │ n/a
 ```
 
 The pattern that matters: the 3B model starts at 38% on TriviaQA and climbs to 64% with tools — closing most of the gap with the 70B. Meanwhile, the logic score barely changes between the baseline 3B (61%) and the tool-equipped 3B (62%), which is exactly what we'd expect — you don't need to look up facts to do logical deduction.
+
+The local terminal summary now also prints a side-by-side comparison table whenever both a small and large model are present for the same benchmark. Each side is labeled `live` or `cached`, so you can immediately see whether the reference row came from a fresh run or the saved baseline cache.
 
 ---
 

@@ -1,0 +1,2 @@
+The low from the whisper knocker smoke test.
+If this works, the container will transcribe this sentence.

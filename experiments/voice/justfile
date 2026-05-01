@@ -1,0 +1,46 @@
+set shell := ["zsh", "-cu"]
+
+default:
+  @just --list
+
+lab-up:
+  docker compose up --build -d
+
+lab-down:
+  docker compose down
+
+lab-logs:
+  docker compose logs -f voice-api
+
+api:
+  cd api && ./run.sh
+
+kokoro:
+  cd tts-model-comparison/kokoro && ./run.sh
+
+vibevoice:
+  cd tts-model-comparison/vibevoice && ./run.sh
+
+whisper:
+  cd whisper-docker-test && ./run.sh
+
+health:
+  curl -sS http://127.0.0.1:8787/health
+
+tts-kokoro text="Hello from Kokoro through just.":
+  curl -sS -X POST http://127.0.0.1:8787/tts/kokoro \
+    -H "Content-Type: application/json" \
+    -d "{\"text\":\"{{text}}\"}" \
+    --output /private/tmp/kokoro-just.wav
+  ls -lh /private/tmp/kokoro-just.wav
+
+tts-vibevoice text="Hello from VibeVoice through just." speaker="Carter":
+  curl -sS -X POST http://127.0.0.1:8787/tts/vibevoice \
+    -H "Content-Type: application/json" \
+    -d "{\"text\":\"{{text}}\",\"speaker\":\"{{speaker}}\"}" \
+    --output /private/tmp/vibevoice-just.wav
+  ls -lh /private/tmp/vibevoice-just.wav
+
+transcribe file="/private/tmp/kokoro-just.wav":
+  curl -sS -X POST http://127.0.0.1:8787/transcribe \
+    -F "audio=@{{file}}"

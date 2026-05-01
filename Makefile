@@ -2,8 +2,13 @@ UV := uv
 
 .PHONY: setup setup-apple install train train-sft train-dpo train-orpo train-grpo \
         eval serve-1b serve-4b data-alpaca data-ultrafeedback \
-        exp-baseline exp-baseline-quick \
+	exp-baseline exp-baseline-quick exp-open-book exp-reflection \
+	smoke-eval \
         test test-cov lint format typecheck clean help
+
+# MINIMAX_API_KEY must be set in env before running smoke-eval
+SMOKE_MODEL   ?= MiniMax-M2.7
+SMOKE_SAMPLES ?= 25
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
@@ -68,6 +73,28 @@ exp-baseline: ## Phase 1 full baseline (500 samples, ~30 min on M-series)
 
 exp-baseline-quick: ## Phase 1 quick sanity check (50 samples, no W&B, ~3 min)
 	$(UV) run nexus experiment run --samples 50 --no-wandb
+
+exp-open-book: ## Phase 2 open-book benchmark (500 samples, search-enabled)
+	$(UV) run nexus experiment run --config experiments/configs/exp_02.yaml
+
+exp-reflection: ## Phase 3 reflection benchmark (500 samples, draft/critique/refine)
+	$(UV) run nexus experiment run --config experiments/configs/exp_03.yaml
+
+smoke-eval: ## Live 3-phase smoke eval against MiniMax (25 samples, no W&B)
+	@if [ -z "$$MINIMAX_API_KEY" ]; then \
+		echo "ERROR: MINIMAX_API_KEY is not set. Export it before running smoke-eval."; \
+		exit 1; \
+	fi
+	@echo "=== Phase 1: closed-book baseline ==="
+	$(UV) run nexus experiment run --phase 1 --samples $(SMOKE_SAMPLES) \
+		--large-model $(SMOKE_MODEL) --no-wandb
+	@echo "=== Phase 2: open-book (tool use) ==="
+	$(UV) run nexus experiment run --phase 2 --samples $(SMOKE_SAMPLES) \
+		--large-model $(SMOKE_MODEL) --no-wandb
+	@echo "=== Phase 3: reflection (draft/critique/refine) ==="
+	$(UV) run nexus experiment run --phase 3 --samples $(SMOKE_SAMPLES) \
+		--large-model $(SMOKE_MODEL) --no-wandb
+	@echo "=== Smoke eval complete. Review experiments/cache/ for outputs. ==="
 
 # ── Development ───────────────────────────────────────────────────────────────
 

@@ -1,0 +1,1 @@
+This is Microsoft VibeVoice Realtime, a lightweight text to speech model for streaming voice experiments.

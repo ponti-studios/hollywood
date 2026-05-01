@@ -1,6 +1,7 @@
 # Application
 .env
 .data
+.build
 
 # Python
 .venv

@@ -36,18 +36,21 @@ class ModelSpec(BaseModel):
           "large" = the reference model we're comparing against (optional)
           "judge" = a model used to score outputs (Phase 3+)
 
-    inference_backend: how to run the model.
-      "transformers" — standard HuggingFace pipeline. Slowest, most flexible.
-      "mlx"          — Apple Silicon native, fast for interactive use.
-      "vllm"         — High-throughput batched inference. Needs a GPU server.
+        inference_backend: how to run the model.
+            "transformers"      — standard HuggingFace pipeline. Slowest, most flexible.
+            "mlx"               — Apple Silicon native, fast for interactive use.
+            "openai-compatible" — remote chat-completions API compatible with OpenAI's schema.
     """
 
     model_id: str
     role: Literal["small", "large", "judge"] = "small"
-    inference_backend: Literal["transformers", "mlx"] = "transformers"
+    inference_backend: Literal["transformers", "mlx", "openai-compatible"] = "transformers"
     max_new_tokens: int = 256
     temperature: float = 0.0   # 0.0 = greedy decoding (fully deterministic)
     batch_size: int = 8
+    api_base: Optional[str] = None
+    api_key_env: Optional[str] = None
+    request_timeout_seconds: float = 120.0
 
 
 class BenchmarkSpec(BaseModel):
@@ -112,6 +115,10 @@ class LoggingSpec(BaseModel):
     wandb_project: Optional[str] = "3b-logic-broker"
     output_dir: str = "experiments/results"
     save_transcripts: bool = True   # save full question/answer pairs, not just scores
+    reference_cache_dir: str = "experiments/cache"
+    use_reference_cache: bool = True
+    refresh_reference_cache: bool = False
+    reference_cache_warn_after_hours: int = 168
 
 
 class ExperimentConfig(BaseModel):

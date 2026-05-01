@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -34,6 +35,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn, T
 from rich.table import Table
 
 from nexus.experiments.config import ExperimentConfig, ModelSpec
+from nexus.experiments.reference_cache import build_cache_path
 from nexus.experiments.scoring import BenchmarkScore, QuestionResult
 
 logger = logging.getLogger(__name__)
@@ -60,9 +62,38 @@ class BaseRunner(ABC):
         self.cfg = cfg
         self._pipelines: dict[str, Any] = {}   # model_id → HuggingFace pipeline
         self._wandb_run: Any = None
+        self._result_provenance: dict[tuple[str, str], str] = {}
+        self._result_metadata: dict[tuple[str, str], dict[str, Any]] = {}
 
         console.rule(f"[bold]{cfg.name}[/bold]")
         console.print(f"[dim]{cfg.description}[/dim]\n")
+
+    @property
+    def reference_cache_score_version(self) -> str:
+        """Version string used to invalidate incompatible cache entries."""
+        return f"phase{self.cfg.phase}_v1"
+
+    def reference_cache_path(self, model_id: str, benchmark_name: str, benchmark_signature: str) -> Path:
+        """Build the shared cache path for one model-benchmark-signature tuple."""
+        return build_cache_path(
+            self.cfg.logging.reference_cache_dir,
+            self.cfg.name,
+            model_id,
+            benchmark_name,
+            benchmark_signature,
+        )
+
+    def set_result_provenance(self, model_id: str, benchmark_name: str, provenance: str) -> None:
+        self._result_provenance[(model_id, benchmark_name)] = provenance
+
+    def result_provenance(self, model_id: str, benchmark_name: str) -> str:
+        return self._result_provenance.get((model_id, benchmark_name), "live")
+
+    def set_result_metadata(self, model_id: str, benchmark_name: str, metadata: dict[str, Any]) -> None:
+        self._result_metadata[(model_id, benchmark_name)] = metadata
+
+    def result_metadata(self, model_id: str, benchmark_name: str) -> dict[str, Any]:
+        return self._result_metadata.get((model_id, benchmark_name), {})
 
     # ──────────────────────────────────────────────────────────────────────
     # Model loading
@@ -92,6 +123,8 @@ class BaseRunner(ABC):
 
         if spec.inference_backend == "mlx":
             return self._build_mlx_pipeline(spec)
+        if spec.inference_backend == "openai-compatible":
+            return self._build_openai_compatible_pipeline(spec)
 
         import torch
         from transformers import GenerationConfig, pipeline
@@ -117,6 +150,65 @@ class BaseRunner(ABC):
         # Signal to generate() that no extra kwargs are needed
         pipe._gen_kwargs = {}
         return pipe
+
+    def _build_openai_compatible_pipeline(self, spec: ModelSpec) -> Any:
+        """Build a remote OpenAI-compatible chat-completions client."""
+        import httpx
+
+        if not spec.api_base:
+            raise ValueError(
+                f"Model {spec.model_id} uses openai-compatible inference but api_base is not configured"
+            )
+
+        api_key_env = spec.api_key_env or "OPENAI_API_KEY"
+        api_key = os.getenv(api_key_env)
+        if not api_key:
+            raise ValueError(
+                f"Model {spec.model_id} requires environment variable {api_key_env} for API access"
+            )
+
+        base_url = spec.api_base.rstrip("/")
+        request_temperature = spec.temperature if spec.temperature > 0 else 0.01
+        if spec.temperature <= 0:
+            logger.warning(
+                "Remote model %s does not support temperature=0. Using 0.01 for near-greedy decoding.",
+                spec.model_id,
+            )
+
+        class OpenAICompatiblePipeline:
+            def __init__(self) -> None:
+                self.client = httpx.Client(
+                    base_url=base_url,
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=spec.request_timeout_seconds,
+                )
+
+            def __call__(self, prompt: str) -> list[dict]:
+                payload = {
+                    "model": spec.model_id,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": spec.max_new_tokens,
+                    "temperature": request_temperature,
+                    "n": 1,
+                }
+                response = self.client.post("/chat/completions", json=payload)
+                response.raise_for_status()
+                body = response.json()
+                try:
+                    content = body["choices"][0]["message"]["content"]
+                except (KeyError, IndexError, TypeError) as exc:
+                    raise ValueError(f"Unexpected response shape from remote model {spec.model_id}: {body}") from exc
+
+                if isinstance(content, list):
+                    text = "".join(part.get("text", "") for part in content if isinstance(part, dict))
+                else:
+                    text = str(content)
+                return [{"generated_text": prompt + text}]
+
+        return OpenAICompatiblePipeline()
 
     def _build_mlx_pipeline(self, spec: ModelSpec) -> Any:
         """Build an MLX-based pipeline for Apple Silicon inference.
@@ -279,6 +371,7 @@ class BaseRunner(ABC):
         table.add_column("Benchmark", style="magenta")
         table.add_column("Accuracy", justify="right", style="bold green")
         table.add_column("Correct / Total", justify="right")
+        table.add_column("Source", justify="right")
         table.add_column("Tool Call Rate", justify="right")
         table.add_column("Δ Correction", justify="right")
 
@@ -290,10 +383,70 @@ class BaseRunner(ABC):
                 score.benchmark,
                 score.accuracy_pct,
                 f"{score.correct_count} / {score.total}",
+                score.provenance,
                 tool_rate,
                 delta,
             )
         console.print(table)
+
+    def print_comparison_table(self, scores: dict[str, BenchmarkScore]) -> None:
+        """Print a side-by-side small-vs-large comparison when both are present."""
+        by_key = {(score.benchmark, key.split("/", 1)[0]): score for key, score in scores.items()}
+        benchmarks = sorted({benchmark for benchmark, _role in by_key})
+
+        rows: list[tuple[str, BenchmarkScore, BenchmarkScore]] = []
+        for benchmark in benchmarks:
+            small = by_key.get((benchmark, "small"))
+            large = by_key.get((benchmark, "large"))
+            if small is not None and large is not None:
+                rows.append((benchmark, small, large))
+
+        if not rows:
+            return
+
+        table = Table(title=f"Comparison: {self.cfg.name}", show_lines=True)
+        table.add_column("Benchmark", style="magenta")
+        table.add_column("Small", justify="right", style="bold green")
+        table.add_column("Small Src", justify="right")
+        table.add_column("Large", justify="right", style="bold cyan")
+        table.add_column("Large Src", justify="right")
+        table.add_column("Gap", justify="right")
+
+        for benchmark, small, large in rows:
+            gap = (large.accuracy - small.accuracy) * 100
+            large_metadata = self.result_metadata(large.model_id, benchmark)
+            large_source = large.provenance
+            cached_at = large_metadata.get("cached_at")
+            if large.provenance == "cached" and isinstance(cached_at, int):
+                cache_age_hours = (time.time() - cached_at) / 3600
+                if cache_age_hours >= self.cfg.logging.reference_cache_warn_after_hours:
+                    large_source = f"cached!"
+            table.add_row(
+                benchmark,
+                small.accuracy_pct,
+                small.provenance,
+                large.accuracy_pct,
+                large_source,
+                f"{gap:+.1f}pp",
+            )
+
+        console.print(table)
+
+        stale_rows = []
+        for benchmark, _small, large in rows:
+            metadata = self.result_metadata(large.model_id, benchmark)
+            cached_at = metadata.get("cached_at")
+            if large.provenance != "cached" or not isinstance(cached_at, int):
+                continue
+            cache_age_hours = (time.time() - cached_at) / 3600
+            if cache_age_hours >= self.cfg.logging.reference_cache_warn_after_hours:
+                stale_rows.append((benchmark, cache_age_hours, metadata.get("cache_path")))
+
+        for benchmark, cache_age_hours, cache_path in stale_rows:
+            console.print(
+                f"[yellow]Warning:[/yellow] cached reference for {benchmark} is {cache_age_hours:.1f}h old"
+                + (f" ([cyan]{cache_path}[/cyan])" if cache_path else "")
+            )
 
     # ──────────────────────────────────────────────────────────────────────
     # Entry point
@@ -318,6 +471,7 @@ class BaseRunner(ABC):
         self.log_scores(scores)
         self.save_results(scores, all_results)
         self.print_summary_table(scores)
+        self.print_comparison_table(scores)
         return scores
 
     @abstractmethod
