@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from experiments.exp_01_baseline import BaselineRunner
+from nexus.experiments.phases.baseline import BaselineRunner
 from nexus.experiments.config import BenchmarkSpec, ExperimentConfig, LoggingSpec, ModelSpec, SyntheticPuzzleSpec
 from nexus.experiments.scoring import QuestionResult
 

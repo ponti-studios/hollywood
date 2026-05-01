@@ -1,0 +1,1 @@
+This is Cacorro, an 82-million-parameter open-weight text to speech model running inside a local Docker experiment.

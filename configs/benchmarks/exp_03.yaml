@@ -1,0 +1,65 @@
+name: exp_03_reflection
+description: >
+  Phase 3 — Draft, critique, and refine on the existing benchmark suite.
+  Measures whether an explicit self-review pass improves answer accuracy.
+phase: 3
+
+models:
+  - model_id: google/gemma-3-4b-it
+    role: small
+    inference_backend: transformers
+    max_new_tokens: 128
+    temperature: 0.0
+    batch_size: 8
+
+  # Optional reference model.
+  # - model_id: MiniMax-M2.7
+  #   role: large
+  #   inference_backend: openai-compatible
+  #   api_base: https://api.minimax.io/v1
+  #   api_key_env: MINIMAX_API_KEY
+  #   max_new_tokens: 128
+  #   temperature: 0.01
+  #   batch_size: 1
+
+benchmarks:
+  - name: triviaqa
+    samples: 500
+    seed: 42
+
+  - name: mmlu
+    samples: 500
+    seed: 42
+    mmlu_subjects:
+      - high_school_mathematics
+      - high_school_physics
+      - college_computer_science
+      - high_school_biology
+      - high_school_us_history
+      - philosophy
+      - high_school_psychology
+      - econometrics
+      - professional_medicine
+      - nutrition
+      - logical_fallacies
+      - machine_learning
+
+  - name: synthetic
+    samples: 500
+    seed: 42
+
+synthetic:
+  depth_range: [2, 4]
+  puzzle_types:
+    - syllogism
+    - conditional
+    - negation
+  vocab_size: 200
+
+logging:
+  wandb_project: "3b-logic-broker"
+  output_dir: ".data/benchmarks/results"
+  save_transcripts: true
+  reference_cache_dir: ".data/benchmarks/cache"
+  use_reference_cache: true
+  refresh_reference_cache: false

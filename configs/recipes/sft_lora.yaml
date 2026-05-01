@@ -54,7 +54,7 @@ training:
   gradient_accumulation_steps: 8  # effective batch = 2 × 8 = 16
   warmup_ratio: 0.03       # ramp up LR for the first 3% of steps
   weight_decay: 0.01       # L2 regularisation
-  output_dir: "experiments/{name}"
+  output_dir: ".data/checkpoints/{name}"
   save_steps: 200
   logging_steps: 20
   eval_steps: 200

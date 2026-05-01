@@ -29,3 +29,11 @@ htmlcov/
 # Build
 dist/
 build/
+
+**/.cache/
+**/.venv/
+**/.work/
+**/cache/
+**/outputs/
+**/runtime/
+**/transcripts/

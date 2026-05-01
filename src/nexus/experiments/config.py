@@ -12,7 +12,7 @@ Keeping them separate also means you can re-run the same experiment on a new
 model checkpoint by changing one line in the YAML — no code changes needed.
 
 Usage:
-    cfg = ExperimentConfig.from_yaml("experiments/configs/exp_01.yaml")
+    cfg = ExperimentConfig.from_yaml("configs/benchmarks/exp_01.yaml")
     runner = BaselineRunner(cfg)
     runner.run()
 """
@@ -113,9 +113,9 @@ class LoggingSpec(BaseModel):
     """
 
     wandb_project: Optional[str] = "3b-logic-broker"
-    output_dir: str = "experiments/results"
+    output_dir: str = ".data/benchmarks/results"
     save_transcripts: bool = True   # save full question/answer pairs, not just scores
-    reference_cache_dir: str = "experiments/cache"
+    reference_cache_dir: str = ".data/benchmarks/cache"
     use_reference_cache: bool = True
     refresh_reference_cache: bool = False
     reference_cache_warn_after_hours: int = 168
@@ -124,10 +124,10 @@ class LoggingSpec(BaseModel):
 class ExperimentConfig(BaseModel):
     """A complete experiment definition — ties together models, data, and logging.
 
-    Maps 1:1 to a YAML file in experiments/configs/.
+    Maps 1:1 to a YAML file in configs/benchmarks/.
 
     Example usage:
-        cfg = ExperimentConfig.from_yaml("experiments/configs/exp_01.yaml")
+        cfg = ExperimentConfig.from_yaml("configs/benchmarks/exp_01.yaml")
     """
 
     name: str

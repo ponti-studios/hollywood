@@ -21,7 +21,7 @@ description: "DPO preference tuning on Gemma 3 1B using UltraFeedback."
 model:
   model_id: "google/gemma-3-1b-it"
   # To continue from your SFT run, change to:
-  # model_id: "experiments/gemma3-1b-sft-lora"
+  # model_id: ".data/checkpoints/gemma3-1b-sft-lora"
   dtype: "bfloat16"
   max_seq_len: 2048
   attn_implementation: "eager"
@@ -48,7 +48,7 @@ training:
   gradient_accumulation_steps: 16
   warmup_ratio: 0.1
   weight_decay: 0.01
-  output_dir: "experiments/{name}"
+  output_dir: ".data/checkpoints/{name}"
   save_steps: 100
   logging_steps: 10
   eval_steps: 100

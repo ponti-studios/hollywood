@@ -1,0 +1,13 @@
+services:
+  nexus-api:
+    build:
+      context: ../..
+      dockerfile: infra/images/voice/api.dockerfile
+    container_name: nexus-api
+    environment:
+      UVICORN_HOST: 0.0.0.0
+    ports:
+      - "8787:8787"
+    volumes:
+      - /Users/charlesponti/Developer/nexus:/app
+      - /Users/charlesponti/.orbstack/run/docker.sock:/var/run/docker.sock

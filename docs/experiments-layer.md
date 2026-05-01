@@ -43,25 +43,24 @@ This means a teammate (or your future self, three months from now) can open the 
 ## The Directory Structure
 
 ```
-experiments/
-├── exp_01_baseline.py        # Phase 1: 3B vs 70B, raw
-├── exp_02_open_book.py       # Phase 2: 3B + tools vs 70B
-├── exp_03_reflection.py      # Phase 3: Draft → Critique → Refine
-├── configs/
-│   ├── exp_01.yaml           # Which model, dataset, sample count
-│   ├── exp_02.yaml           # Tool config, search limits
-│   └── exp_03.yaml           # Loop config, reflection depth
-├── results/
-│   ├── exp_01_results.json   # Raw scores (auto-generated)
-│   ├── exp_02_results.json
-│   └── exp_03_results.json
-└── shared/
-    ├── runner.py             # Base class all experiments inherit
-    ├── scoring.py            # Accuracy, correction delta, tool stats
-    └── logger.py             # W&B integration, local file logging
+research/benchmarks/
+└── configs/
+    ├── exp_01.yaml           # Which model, dataset, sample count
+    ├── exp_02.yaml           # Tool config, search limits
+    └── exp_03.yaml           # Loop config, reflection depth
+
+src/nexus/experiments/phases/
+├── baseline.py               # Phase 1: 3B vs 70B, raw
+├── open_book.py              # Phase 2: 3B + tools vs 70B
+└── reflection.py             # Phase 3: Draft → Critique → Refine
+
+.data/benchmarks/
+├── results/                  # Raw scores and transcripts
+└── cache/                    # Reference-model cache entries
 ```
 
-Each experiment is a self-contained script. You can run `python experiments/exp_01_baseline.py` and get results without touching anything else in the repository.
+Each experiment is an importable phase module. Run it through the CLI with
+`nexus experiment run --config configs/benchmarks/exp_01.yaml`.
 
 ---
 
@@ -89,7 +88,7 @@ This pattern means you never write the same boilerplate twice. The infrastructur
 ## How a Single Experiment Run Flows
 
 ```
-                    $ python experiments/exp_02_open_book.py
+                    $ nexus experiment run --config configs/benchmarks/exp_02.yaml
 
                               │
                               ▼
@@ -154,7 +153,7 @@ This pattern means you never write the same boilerplate twice. The infrastructur
 Every experiment is controlled entirely by its YAML config file. This is important because it means changing an experiment doesn't require editing code — you edit a config and re-run.
 
 ```yaml
-# configs/exp_02.yaml
+# configs/benchmarks/exp_02.yaml
 experiment:
   name: "open-book-triviaqa-v1"
   description: "3B model with web search on TriviaQA"
@@ -177,7 +176,7 @@ tools:
 logging:
   wandb_project: "3b-logic-broker"
   save_local: true
-  output_dir: "experiments/results/"
+  output_dir: ".data/benchmarks/results/"
 ```
 
 The `seed: 42` line might seem like a small detail, but it's crucial. With a fixed seed, every run samples the exact same 500 questions from the dataset. That means when you change a config option and re-run, you're comparing apples to apples — same questions, same ground truth, different approach.
@@ -189,7 +188,7 @@ For large-model comparisons, you usually do not want to pay the full inference c
 The baseline runner supports that pattern:
 
 - It computes a deterministic signature for each benchmark slice using the question IDs, formatted prompts, expected answers, and scoring version.
-- It stores the large model's per-question results under `experiments/cache/exp_01_baseline/`.
+- It stores the large model's per-question results under `.data/benchmarks/cache/exp_01_baseline/`.
 - On later runs, if the benchmark signature matches, it reuses the cached large-model transcripts instead of loading or querying the large model again.
 - If the sample size, seed, prompt format, or scoring version changes, the signature changes too, so the cache is ignored automatically.
 

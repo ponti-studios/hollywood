@@ -43,6 +43,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+api = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.9",
+]
 apple = [
     # Full Apple Silicon runtime stack: training + inference.
     # If uv fails to resolve torch on a newer macOS (e.g. macOS 26+), install

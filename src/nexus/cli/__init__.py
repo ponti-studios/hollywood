@@ -2,8 +2,9 @@
 CLI entry points for the nexus posttraining lab.
 
 Commands:
+  nexus api    serve
   nexus train  --recipe configs/recipes/sft_lora.yaml
-  nexus eval   --checkpoint experiments/my-run
+  nexus eval   --checkpoint .data/checkpoints/my-run
   nexus data   download --name tatsu-lab/alpaca
   nexus serve  --model google/gemma-3-1b-it
 """
@@ -30,12 +31,14 @@ app = typer.Typer(
 )
 
 # Import and register sub-commands
-from nexus.cli.train import train_app          # noqa: E402
-from nexus.cli.eval import eval_app            # noqa: E402
-from nexus.cli.data import data_app            # noqa: E402
-from nexus.cli.serve import serve_app          # noqa: E402
+from nexus.cli.api import api_app                # noqa: E402
+from nexus.cli.train import train_app            # noqa: E402
+from nexus.cli.eval import eval_app              # noqa: E402
+from nexus.cli.data import data_app              # noqa: E402
+from nexus.cli.serve import serve_app            # noqa: E402
 from nexus.cli.experiment import experiment_app  # noqa: E402
 
+app.add_typer(api_app,        name="api",        help="Start the Nexus API server.         nexus api serve")
 app.add_typer(train_app,      name="train",      help="Run a posttraining recipe.         nexus train run --recipe ...")
 app.add_typer(eval_app,       name="eval",       help="Evaluate a trained model.           nexus eval perplexity --checkpoint ...")
 app.add_typer(data_app,       name="data",       help="Download and inspect datasets.      nexus data list / download / inspect")

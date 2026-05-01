@@ -9,6 +9,7 @@ Package layout
   nexus.models     — Model loading and LoRA adapter management
   nexus.trainers   — SFT, DPO, ORPO, GRPO training loops
   nexus.evaluation — Metrics and LLM-as-judge evaluation
+  nexus.voice      — Voice domain services, paths, and request models
   nexus.cli        — Typer CLI entry points
 """
 

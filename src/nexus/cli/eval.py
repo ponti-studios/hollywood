@@ -2,8 +2,8 @@
 eval.py — CLI commands for evaluating trained models.
 
 Usage:
-  nexus eval perplexity --checkpoint experiments/my-run --dataset tatsu-lab/alpaca
-  nexus eval judge      --checkpoint experiments/my-run --prompts path/to/prompts.txt
+  nexus eval perplexity --checkpoint .data/checkpoints/my-run --dataset tatsu-lab/alpaca
+  nexus eval judge      --checkpoint .data/checkpoints/my-run --prompts path/to/prompts.txt
 """
 
 from __future__ import annotations

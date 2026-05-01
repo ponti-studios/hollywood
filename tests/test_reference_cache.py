@@ -122,7 +122,7 @@ def test_comparison_table_warns_on_stale_cache(monkeypatch) -> None:
         "triviaqa",
         {
             "cached_at": int(time.time() - 3 * 3600),
-            "cache_path": "experiments/cache/exp_01_baseline/large-model/triviaqa.json",
+            "cache_path": ".data/benchmarks/cache/exp_01_baseline/large-model/triviaqa.json",
         },
     )
 

@@ -4,7 +4,7 @@ serve.py — Serve a Gemma 3 model locally via MLX for interactive chat.
 Usage:
   nexus serve run --model google/gemma-3-1b-it
   nexus serve run --model google/gemma-3-4b-it --quantize 4bit
-  nexus serve chat --model experiments/my-sft-run
+  nexus serve chat --model .data/checkpoints/my-sft-run
 
 Why MLX for serving?
 ────────────────────
@@ -109,7 +109,7 @@ def chat(
     This is the fastest way to test your fine-tuned models.
     Type 'quit' or press Ctrl+C to exit.
 
-    Tip: point --model at a local checkpoint (e.g. experiments/my-sft-run)
+    Tip: point --model at a local checkpoint (e.g. .data/checkpoints/my-sft-run)
     to interactively test your trained model.
     """
     ensure_mlx_runtime(console)
@@ -159,13 +159,14 @@ def chat(
 
         console.print("\n[bold green]Gemma:[/bold green]", end=" ")
 
+        from mlx_lm.sample_utils import make_sampler
         response = generate(
             lm,
             tokenizer,
             prompt=prompt,
             max_tokens=max_tokens,
-            temp=temperature,
-            verbose=True,   # streams the response token by token
+            sampler=make_sampler(temp=temperature),
+            verbose=True,
         )
 
         history.append({"role": "assistant", "content": response})

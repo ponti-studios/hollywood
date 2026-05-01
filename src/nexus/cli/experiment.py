@@ -2,7 +2,7 @@
 experiment.py — CLI commands for running benchmark experiments.
 
 Commands:
-  nexus experiment run   --config experiments/configs/exp_01.yaml
+  nexus experiment run   --config configs/benchmarks/exp_01.yaml
   nexus experiment run   --phase 1 --samples 50 --no-wandb
   nexus experiment list  (show available experiment configs)
 """
@@ -101,7 +101,7 @@ def run_experiment(
 
     \b
     # Run from a YAML config file:
-    nexus experiment run --config experiments/configs/exp_01.yaml
+    nexus experiment run --config configs/benchmarks/exp_01.yaml
 
     \b
     # Compare small vs large model:
@@ -158,9 +158,6 @@ def _run_phase_1(
     refresh_reference_cache: bool,
 ) -> None:
     """Dispatch to the Phase 1 baseline runner."""
-    import sys
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-
     from nexus.experiments.config import (
         ExperimentConfig, ModelSpec, BenchmarkSpec, LoggingSpec, SyntheticPuzzleSpec
     )
@@ -199,7 +196,7 @@ def _run_phase_1(
         cfg.logging.refresh_reference_cache = True
 
     # Import here so the CLI startup stays fast (avoids loading torch on --help)
-    from experiments.exp_01_baseline import BaselineRunner
+    from nexus.experiments.phases.baseline import BaselineRunner
     runner = BaselineRunner(cfg)
     runner.execute()
 
@@ -213,9 +210,6 @@ def _run_phase_2(
     no_reference_cache: bool,
     refresh_reference_cache: bool,
 ) -> None:
-    import sys
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-
     from nexus.experiments.config import ExperimentConfig, LoggingSpec, ModelSpec
 
     if config is not None:
@@ -224,7 +218,7 @@ def _run_phase_2(
             raise typer.Exit(code=1)
         cfg = ExperimentConfig.from_yaml(config)
     else:
-        from experiments.exp_02_open_book import build_default_config
+        from nexus.experiments.phases.open_book import build_default_config
 
         cfg = build_default_config(
             small_model=small_model,
@@ -240,7 +234,7 @@ def _run_phase_2(
     if refresh_reference_cache:
         cfg.logging.refresh_reference_cache = True
 
-    from experiments.exp_02_open_book import OpenBookRunner
+    from nexus.experiments.phases.open_book import OpenBookRunner
 
     runner = OpenBookRunner(cfg)
     runner.execute()
@@ -255,9 +249,6 @@ def _run_phase_3(
     no_reference_cache: bool,
     refresh_reference_cache: bool,
 ) -> None:
-    import sys
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-
     from nexus.experiments.config import ExperimentConfig
 
     if config is not None:
@@ -266,7 +257,7 @@ def _run_phase_3(
             raise typer.Exit(code=1)
         cfg = ExperimentConfig.from_yaml(config)
     else:
-        from experiments.exp_03_reflection import build_default_config
+        from nexus.experiments.phases.reflection import build_default_config
 
         cfg = build_default_config(
             small_model=small_model,
@@ -282,7 +273,7 @@ def _run_phase_3(
     if refresh_reference_cache:
         cfg.logging.refresh_reference_cache = True
 
-    from experiments.exp_03_reflection import ReflectionRunner
+    from nexus.experiments.phases.reflection import ReflectionRunner
 
     runner = ReflectionRunner(cfg)
     runner.execute()
@@ -291,7 +282,7 @@ def _run_phase_3(
 @experiment_app.command("list")
 def list_experiments(
     configs_dir: Path = typer.Option(
-        Path("experiments/configs"),
+        Path("configs/benchmarks"),
         "--dir",
         help="Directory to scan for experiment YAML configs.",
     ),
@@ -326,7 +317,7 @@ def list_experiments(
 @cache_app.command("list")
 def list_reference_caches(
     cache_dir: Path = typer.Option(
-        Path("experiments/cache"),
+        Path(".data/benchmarks/cache"),
         "--dir",
         help="Directory containing reference cache entries.",
     ),
@@ -438,7 +429,7 @@ def inspect_reference_cache(
 def purge_reference_cache(
     cache_path: Optional[Path] = typer.Argument(None, help="Specific cache JSON file to delete."),
     cache_dir: Path = typer.Option(
-        Path("experiments/cache"),
+        Path(".data/benchmarks/cache"),
         "--dir",
         help="Directory containing reference cache entries.",
     ),

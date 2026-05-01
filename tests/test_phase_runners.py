@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from experiments.exp_02_open_book import OpenBookRunner
-from experiments.exp_03_reflection import ReflectionRunner
+from nexus.experiments.phases.open_book import OpenBookRunner
+from nexus.experiments.phases.reflection import ReflectionRunner
 from nexus.experiments.config import BenchmarkSpec, ExperimentConfig, LoggingSpec, ModelSpec
 
 
@@ -19,13 +19,13 @@ def test_open_book_runner_uses_search_and_records_tool_calls(monkeypatch, tmp_pa
     runner = OpenBookRunner(cfg)
 
     items = [SimpleNamespace(question_id="q1")]
-    monkeypatch.setattr("experiments.exp_02_open_book.load_benchmark", lambda spec, cfg: items)
+    monkeypatch.setattr("nexus.experiments.phases.open_book.load_benchmark", lambda spec, cfg: items)
     monkeypatch.setattr(
-        "experiments.exp_02_open_book.format_item",
+        "nexus.experiments.phases.open_book.format_item",
         lambda benchmark_name, item: ("Question: capital of France", ["Paris"], item.question_id),
     )
     monkeypatch.setattr(
-        "experiments.exp_02_open_book.score_answer",
+        "nexus.experiments.phases.open_book.score_answer",
         lambda benchmark_name, predicted, expected, item: predicted == "Paris",
     )
 
@@ -60,13 +60,13 @@ def test_reflection_runner_computes_correction_delta(monkeypatch, tmp_path) -> N
     runner = ReflectionRunner(cfg)
 
     items = [SimpleNamespace(question_id="q1")]
-    monkeypatch.setattr("experiments.exp_03_reflection.load_benchmark", lambda spec, cfg: items)
+    monkeypatch.setattr("nexus.experiments.phases.reflection.load_benchmark", lambda spec, cfg: items)
     monkeypatch.setattr(
-        "experiments.exp_03_reflection.format_item",
+        "nexus.experiments.phases.reflection.format_item",
         lambda benchmark_name, item: ("Question: Is Tixby a Wumble?", "Yes", item.question_id),
     )
     monkeypatch.setattr(
-        "experiments.exp_03_reflection.score_answer",
+        "nexus.experiments.phases.reflection.score_answer",
         lambda benchmark_name, predicted, expected, item: predicted.strip() == expected,
     )
     runner._prepare_benchmarks()

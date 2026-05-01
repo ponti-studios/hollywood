@@ -1,5 +1,5 @@
 """
-experiments/ — Controlled benchmark experiments for the 3B Logic Broker project.
+Experiment orchestration for the 3B Logic Broker project.
 
 This package provides the scaffolding to run, score, and log all four phases
 of the procedural intelligence hypothesis:

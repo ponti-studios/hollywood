@@ -86,10 +86,10 @@ nexus data inspect --name tatsu-lab/alpaca
 nexus train run --recipe configs/recipes/sft_lora.yaml
 
 # Evaluate your trained model
-nexus eval perplexity --checkpoint experiments/gemma3-1b-sft-lora
+nexus eval perplexity --checkpoint .data/checkpoints/gemma3-1b-sft-lora
 
 # Chat with your fine-tuned model
-nexus serve chat --model experiments/gemma3-1b-sft-lora
+nexus serve chat --model .data/checkpoints/gemma3-1b-sft-lora
 ```
 
 For a quick smoke test, set `max_samples: 1000` in `configs/recipes/sft_lora.yaml`
@@ -108,8 +108,8 @@ nexus train run --recipe configs/recipes/grpo.yaml        # GRPO
 nexus train run --recipe my-recipe.yaml --no-wandb        # disable W&B
 
 # Evaluation
-nexus eval perplexity --checkpoint experiments/my-run
-nexus eval judge --checkpoint experiments/my-run
+nexus eval perplexity --checkpoint .data/checkpoints/my-run
+nexus eval judge --checkpoint .data/checkpoints/my-run
 
 # Data
 nexus data list                              # show recommended datasets
@@ -130,8 +130,10 @@ nexus/
 ├── configs/
 │   ├── models/           # gemma3-1b.yaml, gemma3-4b.yaml
 │   ├── data/             # alpaca.yaml, ultrafeedback.yaml
-│   └── recipes/          # sft_lora.yaml, dpo.yaml, orpo.yaml, grpo.yaml
+│   ├── recipes/          # sft_lora.yaml, dpo.yaml, orpo.yaml, grpo.yaml
+│   └── benchmarks/       # exp_01.yaml, exp_02.yaml, exp_03.yaml
 │
+├── assets/               # example/sample artifacts used for local workflows
 ├── src/nexus/
 │   ├── config.py         # Pydantic config models (Recipe, ModelConfig, …)
 │   ├── device.py         # Apple Silicon / MPS detection
@@ -155,8 +157,10 @@ nexus/
 │       ├── data.py       # nexus data
 │       └── serve.py      # nexus serve
 │
-├── experiments/          # training outputs (checkpoints, metrics)
-├── notebooks/            # Jupyter notebooks for exploration
+├── apps/                 # runnable applications and service entrypoints
+├── research/             # model bake-offs and disposable labs
+├── infra/                # Dockerfiles, Compose, and operational assets
+├── .data/                # ignored local runtime data and caches
 └── tests/                # pytest test suite
 ```
 

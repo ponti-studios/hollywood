@@ -50,7 +50,7 @@ training:
   gradient_accumulation_steps: 16
   warmup_ratio: 0.1
   weight_decay: 0.01
-  output_dir: "experiments/{name}"
+  output_dir: ".data/checkpoints/{name}"
   save_steps: 50
   logging_steps: 5
   eval_steps: 50

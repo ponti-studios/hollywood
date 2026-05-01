@@ -46,7 +46,7 @@ train-grpo: ## GRPO on Gemma 3 1B
 
 # ── Evaluation ────────────────────────────────────────────────────────────────
 
-# Usage:  make eval CHECKPOINT=experiments/my-run
+# Usage:  make eval CHECKPOINT=.data/checkpoints/my-run
 eval: ## Evaluate a trained checkpoint
 	$(UV) run nexus eval --checkpoint $(CHECKPOINT)
 
@@ -69,16 +69,16 @@ data-ultrafeedback: ## Download UltraFeedback dataset (DPO / ORPO)
 # ── Experiments ───────────────────────────────────────────────────────────────
 
 exp-baseline: ## Phase 1 full baseline (500 samples, ~30 min on M-series)
-	$(UV) run nexus experiment run --config experiments/configs/exp_01.yaml
+	$(UV) run nexus experiment run --config configs/benchmarks/exp_01.yaml
 
 exp-baseline-quick: ## Phase 1 quick sanity check (50 samples, no W&B, ~3 min)
 	$(UV) run nexus experiment run --samples 50 --no-wandb
 
 exp-open-book: ## Phase 2 open-book benchmark (500 samples, search-enabled)
-	$(UV) run nexus experiment run --config experiments/configs/exp_02.yaml
+	$(UV) run nexus experiment run --config configs/benchmarks/exp_02.yaml
 
 exp-reflection: ## Phase 3 reflection benchmark (500 samples, draft/critique/refine)
-	$(UV) run nexus experiment run --config experiments/configs/exp_03.yaml
+	$(UV) run nexus experiment run --config configs/benchmarks/exp_03.yaml
 
 smoke-eval: ## Live 3-phase smoke eval against MiniMax (25 samples, no W&B)
 	@if [ -z "$$MINIMAX_API_KEY" ]; then \
@@ -94,7 +94,7 @@ smoke-eval: ## Live 3-phase smoke eval against MiniMax (25 samples, no W&B)
 	@echo "=== Phase 3: reflection (draft/critique/refine) ==="
 	$(UV) run nexus experiment run --phase 3 --samples $(SMOKE_SAMPLES) \
 		--large-model $(SMOKE_MODEL) --no-wandb
-	@echo "=== Smoke eval complete. Review experiments/cache/ for outputs. ==="
+	@echo "=== Smoke eval complete. Review .data/benchmarks/cache/ for outputs. ==="
 
 # ── Development ───────────────────────────────────────────────────────────────
 

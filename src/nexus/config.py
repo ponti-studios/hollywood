@@ -164,7 +164,7 @@ class TrainingConfig(BaseModel):
     gradient_accumulation_steps: int = 8
     warmup_ratio: float = 0.03
     weight_decay: float = 0.01
-    output_dir: str = "experiments/{name}"
+    output_dir: str = ".data/checkpoints/{name}"
     save_steps: int = 100
     logging_steps: int = 10
     eval_steps: int = 100
