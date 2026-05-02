@@ -4,7 +4,7 @@ UV := uv
         eval serve-1b serve-4b data-alpaca data-ultrafeedback \
 	exp-baseline exp-baseline-quick exp-open-book exp-reflection \
 	smoke-eval \
-        test test-cov lint format typecheck clean help
+        test test-cov test-inference test-inference-quick lint format typecheck clean help
 
 # MINIMAX_API_KEY must be set in env before running smoke-eval
 SMOKE_MODEL   ?= MiniMax-M2.7
@@ -15,16 +15,16 @@ SMOKE_SAMPLES ?= 25
 setup: ## Install cross-platform dev dependencies (no Apple runtime stack)
 	$(UV) pip install -e ".[dev,notebook]"
 
-setup-apple: ## Install Apple Silicon runtime (recreate venv as arm64 first if needed)
+setup-apple: ## Install full Apple Silicon runtime (training + inference)
 	$(UV) pip install -e ".[dev,notebook]"
-	$(UV) pip install torch accelerate peft trl mlx mlx-lm
+	$(UV) pip install torch accelerate peft trl mlx mlx-lm mlx-vlm
 
-setup-mlx: ## Install MLX inference-only stack (no PyTorch, faster install)
+setup-mlx: ## Install MLX inference-only stack (no PyTorch; Gemma 4 E2B + tool calling)
 	$(UV) pip install -e ".[dev,notebook]"
-	$(UV) pip install mlx mlx-lm
+	$(UV) pip install mlx mlx-lm mlx-vlm
 
 install: ## Install Apple Silicon runtime dependencies only
-	$(UV) pip install torch accelerate peft trl mlx mlx-lm
+	$(UV) pip install torch accelerate peft trl mlx mlx-lm mlx-vlm
 
 # ── Training ──────────────────────────────────────────────────────────────────
 
@@ -32,16 +32,16 @@ install: ## Install Apple Silicon runtime dependencies only
 train: ## Run any training recipe  (RECIPE=path/to/recipe.yaml)
 	$(UV) run nexus train --recipe $(RECIPE)
 
-train-sft: ## SFT + LoRA on Gemma 3 1B with Alpaca
+train-sft: ## SFT + LoRA on Gemma 4 E2B with Alpaca
 	$(UV) run nexus train --recipe configs/recipes/sft_lora.yaml
 
-train-dpo: ## DPO on Gemma 3 1B with UltraFeedback
+train-dpo: ## DPO on Gemma 4 E2B with UltraFeedback
 	$(UV) run nexus train --recipe configs/recipes/dpo.yaml
 
-train-orpo: ## ORPO on Gemma 3 1B
+train-orpo: ## ORPO on Gemma 4 E2B
 	$(UV) run nexus train --recipe configs/recipes/orpo.yaml
 
-train-grpo: ## GRPO on Gemma 3 1B
+train-grpo: ## GRPO on Gemma 4 E2B
 	$(UV) run nexus train --recipe configs/recipes/grpo.yaml
 
 # ── Evaluation ────────────────────────────────────────────────────────────────
@@ -50,13 +50,15 @@ train-grpo: ## GRPO on Gemma 3 1B
 eval: ## Evaluate a trained checkpoint
 	$(UV) run nexus eval --checkpoint $(CHECKPOINT)
 
-# ── Serving ───────────────────────────────────────────────────────────────────
+# ── Serving ───────────────────────────────────────────────────────────────────────
+# Note: Both serve-1b and serve-4b use the same MLX-VLM Gemma 4 E2B model.
+# Consider renaming these targets if different models are added in the future.
 
-serve-1b: ## Serve Gemma 3 1B locally via MLX (fast Apple Silicon path)
-	$(UV) run nexus serve --model google/gemma-3-1b-it
+serve-1b: ## Serve Gemma 4 E2B locally via MLX-VLM (first run: downloads ~10GB)
+	$(UV) run nexus serve run --model mlx-community/gemma-4-e2b-bf16
 
-serve-4b: ## Serve Gemma 3 4B locally via MLX
-	$(UV) run nexus serve --model google/gemma-3-4b-it
+serve-4b: ## Serve Gemma 4 E2B locally via MLX-VLM (first run: downloads ~10GB)
+	$(UV) run nexus serve run --model mlx-community/gemma-4-e2b-bf16
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -103,6 +105,15 @@ test: ## Run the test suite
 
 test-cov: ## Run tests with coverage report
 	$(UV) run pytest --cov=nexus --cov-report=term-missing
+
+test-inference: ## Run all 9 Gemma 4 inference tests (requires MLX stack + model download)
+	@./scripts/run_inference_tests.sh
+
+test-inference-quick: ## Run single quick inference test (smoke test)
+	@./scripts/run_inference_tests.sh --quick
+
+test-inference-verbose: ## Run all inference tests with verbose output
+	@./scripts/run_inference_tests.sh --verbose
 
 lint: ## Check code style
 	$(UV) run ruff check src/ tests/

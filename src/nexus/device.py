@@ -57,7 +57,7 @@ def get_dtype() -> torch.dtype:
     bfloat16 (Brain Float 16) uses 16 bits per number (vs. 32 for float32).
     This halves memory usage, allowing larger models to fit on a Mac.
 
-    Gemma 3 was trained in bfloat16 — using float16 can produce NaN values
+    Gemma was trained in bfloat16 — using float16 can produce NaN values
     because float16 has a smaller range than bfloat16.
 
     MPS supports bfloat16 on M1 Pro/Max/Ultra and M2+ chips.
@@ -105,7 +105,7 @@ def estimate_model_memory_gb(num_params: int, dtype: torch.dtype = torch.bfloat1
     LoRA dramatically reduces this because only adapters are trained.
 
     Example:
-        Gemma 3 1B in bfloat16 ≈ 1e9 × 2 bytes = 2 GB just for weights.
+        Gemma models in bfloat16 require roughly 2 bytes per parameter just for weights.
         With LoRA (only adapters trained): adds ~50 MB.
     """
     bytes_per_param = {

@@ -1,4 +1,4 @@
-# Recipe: SFT + LoRA on Gemma 3 1B
+# Recipe: SFT + LoRA on Gemma 4 E2B
 #
 # This is the recommended first experiment.
 #
@@ -17,11 +17,11 @@
 #   max_samples: 500
 #   num_epochs: 1
 
-name: "gemma3-1b-sft-lora"
-description: "SFT with LoRA adapters on Gemma 3 1B using the Alpaca dataset."
+name: "gemma4-e2b-sft-lora"
+description: "SFT with LoRA adapters on Gemma 4 E2B using the Alpaca dataset."
 
 model:
-  model_id: "google/gemma-3-1b-it"
+  model_id: "google/gemma-4-e2b"
   dtype: "bfloat16"
   max_seq_len: 2048
   attn_implementation: "eager"
@@ -63,5 +63,5 @@ training:
 wandb:
   enabled: true
   project: "nexus-posttraining"
-  tags: ["sft", "lora", "gemma3-1b", "alpaca"]
+  tags: ["sft", "lora", "gemma4-e2b", "alpaca"]
   notes: "Baseline SFT + LoRA experiment"

@@ -10,7 +10,7 @@
 #   - Zephyr-beta (HuggingFace's alignment model)
 #   - Many other instruction-following models
 #
-# 61K examples — can take 2-4 hours per epoch on Apple Silicon with Gemma 3 1B.
+# 61K examples — can take hours per epoch on Apple Silicon with Gemma.
 # For quick experiments, set max_samples to 5000.
 
 dataset_name: "trl-lib/ultrafeedback_binarized"

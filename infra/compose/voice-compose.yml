@@ -1,13 +1,24 @@
+# Deprecated compatibility manifest.
+# Prefer: ../../compose.yml or ./nexus-compose.yml
 services:
-  nexus-api:
+  nexus:
     build:
       context: ../..
-      dockerfile: infra/images/voice/api.dockerfile
-    container_name: nexus-api
-    environment:
-      UVICORN_HOST: 0.0.0.0
+      dockerfile: infra/images/nexus/api.dockerfile
+    init: true
+    restart: unless-stopped
     ports:
       - "8787:8787"
     volumes:
-      - /Users/charlesponti/Developer/nexus:/app
-      - /Users/charlesponti/.orbstack/run/docker.sock:/var/run/docker.sock
+      - ../..:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health').read()\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

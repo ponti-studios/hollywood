@@ -19,7 +19,7 @@ to change from the baseline.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -28,13 +28,13 @@ from pydantic import BaseModel, Field, field_validator
 class ModelConfig(BaseModel):
     """Which model to load and how to load it.
 
-    model_id: the HuggingFace repo name, e.g. "google/gemma-3-1b-it"
+    model_id: the HuggingFace repo name, e.g. "google/gemma-4-e2b"
               "-it" means "instruction-tuned" — the model already knows how
               to follow instructions, which is a much better starting point
               for posttraining than the raw base model.
 
     dtype: the numerical precision for weights.
-           "bfloat16" is strongly recommended for Gemma 3 — it was trained
+           "bfloat16" is strongly recommended for Gemma — it was trained
            in bfloat16 and using float16 can cause NaN (Not-a-Number) gradients.
 
     max_seq_len: maximum number of tokens in a single training example.
@@ -58,7 +58,7 @@ class LoraConfig(BaseModel):
     next to specific weight matrices. Only the adapters are trained.
 
     Why LoRA?
-    - Gemma 3 1B has ~1 billion parameters. Training all of them requires
+    - Gemma 4 E2B has billions of parameters. Training all of them requires
       huge GPU memory and takes a long time.
     - With LoRA rank=16, you only train ~1-5 million extra parameters (~0.1%).
     - The final model quality is surprisingly close to full fine-tuning.
@@ -113,7 +113,7 @@ class DataConfig(BaseModel):
     dataset_name: str
     split: str = "train"
     val_split: float = 0.05
-    max_samples: Optional[int] = None
+    max_samples: int | None = None
     seed: int = 42
     text_column: str = "text"          # column name containing the text/messages
     prompt_column: str = "prompt"      # for DPO/ORPO: column with the prompt
@@ -169,13 +169,13 @@ class TrainingConfig(BaseModel):
     logging_steps: int = 10
     eval_steps: int = 100
     max_grad_norm: float = 1.0         # clips gradients to prevent exploding updates
-    bf16: bool = True                  # use bfloat16 for training (required for Gemma 3)
-    fp16: bool = False                 # do NOT use float16 with Gemma 3
+    bf16: bool = True                  # use bfloat16 for training (required for Gemma)
+    fp16: bool = False                 # do NOT use float16 with Gemma
 
     @field_validator("fp16")
     @classmethod
     def fp16_and_bf16_conflict(cls, v: bool, info: object) -> bool:
-        # fp16 can cause NaN gradients with Gemma 3 — always use bf16
+        # fp16 can cause NaN gradients with Gemma — always use bf16
         return False
 
 
@@ -192,7 +192,7 @@ class WandbConfig(BaseModel):
 
     enabled: bool = True
     project: str = "nexus-posttraining"
-    run_name: Optional[str] = None     # auto-generated from recipe name if None
+    run_name: str | None = None     # auto-generated from recipe name if None
     tags: list[str] = []
     notes: str = ""
 
@@ -214,11 +214,11 @@ class Recipe(BaseModel):
     model: ModelConfig
     data: DataConfig
     training: TrainingConfig
-    lora: Optional[LoraConfig] = None  # None = full fine-tuning (not recommended on Mac)
+    lora: LoraConfig | None = None  # None = full fine-tuning (not recommended on Mac)
     wandb: WandbConfig = Field(default_factory=WandbConfig)
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "Recipe":
+    def from_yaml(cls, path: str | Path) -> Recipe:
         """Load and validate a recipe from a YAML file."""
         with open(path) as f:
             raw = yaml.safe_load(f)

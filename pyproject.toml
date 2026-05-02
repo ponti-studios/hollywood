@@ -1,14 +1,14 @@
 [project]
 name = "nexus"
 version = "0.1.0"
-description = "Gemma 3 posttraining lab for Apple Silicon"
+description = "Multimodal inference, training, and evaluation platform for Nexus"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 authors = [{ name = "Charles Ponti" }]
 
 dependencies = [
     # --- Cross-platform data + config stack ---
-    # transformers: HuggingFace library for loading pretrained models like Gemma 3.
+    # transformers: HuggingFace library for loading pretrained models like Gemma.
     # Kept in the base install because tokenizers/config tooling is useful in dev environments
     # even when the Apple-only runtime stack is not installed.
     "transformers>=4.49.0",
@@ -52,21 +52,23 @@ apple = [
     # Full Apple Silicon runtime stack: training + inference.
     # If uv fails to resolve torch on a newer macOS (e.g. macOS 26+), install
     # the apple-runtime packages manually via pip instead of uv:
-    #   .venv/bin/pip install torch accelerate peft trl mlx mlx-lm
+    #   .venv/bin/pip install torch accelerate peft trl mlx mlx-lm mlx-vlm
     "torch>=2.4.0",
     "accelerate>=1.0.0",
     "peft>=0.14.0",
     "trl>=0.12.0",
     "mlx>=0.22.0",
     "mlx-lm>=0.20.0",
+    "mlx-vlm>=0.4.3",
 ]
 mlx = [
     # MLX-only subset — inference and serving without the full PyTorch training stack.
     # Useful for running experiments when you only need local inference (not fine-tuning).
     # This resolves cleanly on all macOS versions via pip:
-    #   .venv/bin/pip install mlx mlx-lm
+    #   .venv/bin/pip install mlx mlx-lm mlx-vlm
     "mlx>=0.22.0",
     "mlx-lm>=0.20.0",
+    "mlx-vlm>=0.4.3",
 ]
 dev = [
     "pytest>=8.0",
@@ -99,6 +101,9 @@ sources = ["src"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
+markers = [
+    "inference: real MLX model inference checks that may download model weights",
+]
 
 [tool.ruff]
 line-length = 100

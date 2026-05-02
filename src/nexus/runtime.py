@@ -18,7 +18,7 @@ from rich.console import Console
 
 SUPPORTED_PYTHON = (3, 12)
 APPLE_RUNTIME_PACKAGES = ("torch", "accelerate", "peft", "trl")
-MLX_RUNTIME_PACKAGES = ("mlx", "mlx_lm")
+MLX_RUNTIME_PACKAGES = ("mlx", "mlx_lm", "mlx_vlm")
 
 
 def _package_missing(name: str) -> bool:

@@ -1,21 +1,25 @@
 set shell := ["zsh", "-cu"]
 
-voice_compose := "infra/compose/voice-compose.yml"
+nexus_compose := "compose.yml"
 
 default:
   @just --list
 
-voice-up:
-  docker compose -f {{voice_compose}} up --build -d
+# ──────────────────────────────────────────────────────────────────────────────
+# Nexus Runtime Targets
+# ──────────────────────────────────────────────────────────────────────────────
 
-voice-down:
-  docker compose -f {{voice_compose}} down
+nexus-up:
+  docker compose -f {{nexus_compose}} up --build -d
 
-voice-logs:
-  docker compose -f {{voice_compose}} logs -f voice-api
+nexus-down:
+  docker compose -f {{nexus_compose}} down
 
-voice-api:
-  cd apps/voice-api && ./run.sh
+nexus-logs:
+  docker compose -f {{nexus_compose}} logs -f nexus
+
+nexus-api:
+  uv run nexus api serve --host 0.0.0.0 --port 8787
 
 voice-kokoro:
   cd research/voice/kokoro && ./run.sh
@@ -23,7 +27,7 @@ voice-kokoro:
 voice-whisper:
   cd research/voice/whisper-docker-test && ./run.sh
 
-voice-health:
+nexus-health:
   curl -sS http://127.0.0.1:8787/health
 
 voice-tts-kokoro text="Hello from Kokoro through just.":
@@ -34,5 +38,28 @@ voice-tts-kokoro text="Hello from Kokoro through just.":
   ls -lh /private/tmp/kokoro-just.wav
 
 voice-transcribe file="/private/tmp/kokoro-just.wav":
-  curl -sS -X POST http://127.0.0.1:8787/transcribe \
-    -F "audio=@{{file}}"
+  curl -sS -X POST http://127.0.0.1:8787/transcribe -F "audio=@{{file}}"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Inference Testing
+# ──────────────────────────────────────────────────────────────────────────────
+
+test-inference:
+  #!/bin/zsh
+  ./scripts/run_inference_tests.sh
+
+test-inference-quick:
+  #!/bin/zsh
+  ./scripts/run_inference_tests.sh --quick
+
+test-inference-verbose:
+  #!/bin/zsh
+  ./scripts/run_inference_tests.sh --verbose
+
+test-inference-model model="mlx-community/gemma-4-e2b-bf16":
+  #!/bin/zsh
+  ./scripts/run_inference_tests.sh --model {{model}}
+
+analyze-inference db=".data/api/inference.db" limit="50":
+  #!/bin/zsh
+  python scripts/analyze_inference_runs.py --db {{db}} --limit {{limit}}

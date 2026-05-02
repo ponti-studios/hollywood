@@ -36,14 +36,14 @@ def test_is_apple_silicon_is_bool():
 
 
 def test_estimate_memory_1b_bfloat16():
-    # Gemma 3 1B has ~1 billion parameters
+    # A small Gemma-class model can have ~1 billion parameters
     # In bfloat16 (2 bytes/param) that's ~2 GB
     gb = estimate_model_memory_gb(1_000_000_000, dtype=torch.bfloat16)
     assert 1.5 < gb < 2.5  # should be close to 2 GB
 
 
 def test_estimate_memory_4b_bfloat16():
-    # Gemma 3 4B ≈ 8 GB in bfloat16
+    # A 4B-class model is roughly 8 GB in bfloat16
     gb = estimate_model_memory_gb(4_000_000_000, dtype=torch.bfloat16)
     assert 7.0 < gb < 9.0
 

@@ -15,9 +15,10 @@ def serve(
     reload: bool = typer.Option(False, "--reload", "-r", help="Enable auto-reload (dev only)."),
     workers: int = typer.Option(1, "--workers", "-w", help="Number of worker processes."),
 ) -> None:
-    """Start the Nexus API server.
+    """Start the Nexus control-plane API.
 
-    Provides inference, voice, and experiment endpoints.
+    Provides multimodal platform endpoints for inference, voice,
+    experiments, and run history.
     Load a model first: POST /v1/models/load
     """
     try:
@@ -30,8 +31,9 @@ def serve(
         f"Host:    {host}\n"
         f"Port:    {port}\n"
         f"URL:     http://{host}:{port}\n"
-        f"Docs:    http://{host}:{port}/docs",
-        title="Nexus API",
+        f"Docs:    http://{host}:{port}/docs\n"
+        f"Health:  http://{host}:{port}/health",
+        title="Nexus Control Plane",
         border_style="green",
     ))
 

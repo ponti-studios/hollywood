@@ -1,7 +1,15 @@
-# nexus — Gemma 3 Posttraining Lab
+# nexus — Multimodal Inference, Training, and Evaluation Platform
 
-A hands-on lab for learning posttraining techniques on Apple Silicon.
-Experiments with Gemma 3 1B and 4B using SFT, DPO, ORPO, and GRPO.
+Nexus is the studio control plane for multimodal generative systems.
+It combines local and hosted inference, model training, benchmark evaluation,
+and modality-specific capabilities like audio TTS and audio STT.
+
+Current platform surfaces in this repo include:
+- Nexus API control plane
+- MLX text inference serving
+- voice TTS/STT orchestration
+- benchmark experiment execution
+- posttraining workflows for Gemma-family models
 
 ---
 
@@ -65,10 +73,26 @@ runtime stack. Training, perplexity evaluation, and MLX serving require the
 `apple` extra on Apple Silicon, and the CLI now guards those commands so they
 fail early if Python, platform, or optional runtime dependencies are wrong.
 
-### Accept the Gemma 3 license
+### Start the Nexus runtime
 
-Gemma 3 is a gated model. You must accept the license before downloading:
-1. Go to https://huggingface.co/google/gemma-3-1b-it
+```bash
+# Start the Nexus control plane in Docker
+just nexus-up
+
+# Follow logs
+just nexus-logs
+
+# Check health
+just nexus-health
+
+# Or run the API directly on the host
+just nexus-api
+```
+
+### Accept the Gemma 4 license
+
+Gemma 4 is a gated model. You must accept the license before downloading:
+1. Go to https://huggingface.co/google/gemma-4-e2b
 2. Click "Agree and access repository"
 3. Make sure your `HF_TOKEN` in `.env` matches your HuggingFace account
 
@@ -86,14 +110,48 @@ nexus data inspect --name tatsu-lab/alpaca
 nexus train run --recipe configs/recipes/sft_lora.yaml
 
 # Evaluate your trained model
-nexus eval perplexity --checkpoint .data/checkpoints/gemma3-1b-sft-lora
+nexus eval perplexity --checkpoint .data/checkpoints/gemma4-e2b-sft-lora
 
 # Chat with your fine-tuned model
-nexus serve chat --model .data/checkpoints/gemma3-1b-sft-lora
+nexus serve chat --model .data/checkpoints/gemma4-e2b-sft-lora
 ```
 
 For a quick smoke test, set `max_samples: 1000` in `configs/recipes/sft_lora.yaml`
 before running.
+
+---
+
+## Serving Gemma 4 locally (MLX inference)
+
+Gemma 4 E2B can run locally on Apple Silicon with **MLX-VLM** for fast inference.
+
+**Important:** First run downloads the model (~10 GB). Subsequent runs are cached.
+
+```bash
+# Install MLX inference stack (faster than full training stack)
+make setup-mlx
+
+# Download the Gemma 4 E2B model (one-time, ~10 GB)
+python -c "from mlx_vlm import load; load('mlx-community/gemma-4-e2b-bf16')"
+
+# Start an OpenAI-compatible API server
+nexus serve run --model mlx-community/gemma-4-e2b-bf16
+
+# In another terminal, query the API
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "mlx-community/gemma-4-e2b-bf16",
+    "messages": [{"role": "user", "content": "What is 2+2?"}]
+  }'
+
+# Or use interactive chat
+nexus serve chat --model mlx-community/gemma-4-e2b-bf16
+```
+
+**Model variants:**
+- `google/gemma-4-e2b` — Original HuggingFace model (for training with transformers)
+- `mlx-community/gemma-4-e2b-bf16` — MLX-optimized version (for local inference, ~10GB)
 
 ---
 
@@ -117,8 +175,8 @@ nexus data inspect --name tatsu-lab/alpaca  # preview without downloading
 nexus data download --name tatsu-lab/alpaca # download and cache
 
 # Serving (Apple Silicon / MLX — fastest)
-nexus serve chat --model google/gemma-3-1b-it            # interactive chat
-nexus serve run  --model google/gemma-3-1b-it --port 8080 # HTTP server
+nexus serve chat --model mlx-community/gemma-4-e2b-bf16            # interactive chat
+nexus serve run  --model mlx-community/gemma-4-e2b-bf16 --port 8080 # HTTP server
 ```
 
 ---
@@ -128,7 +186,7 @@ nexus serve run  --model google/gemma-3-1b-it --port 8080 # HTTP server
 ```
 nexus/
 ├── configs/
-│   ├── models/           # gemma3-1b.yaml, gemma3-4b.yaml
+│   ├── models/           # Gemma model configs
 │   ├── data/             # alpaca.yaml, ultrafeedback.yaml
 │   ├── recipes/          # sft_lora.yaml, dpo.yaml, orpo.yaml, grpo.yaml
 │   └── benchmarks/       # exp_01.yaml, exp_02.yaml, exp_03.yaml
@@ -141,7 +199,7 @@ nexus/
 │   │   ├── loaders.py    # HuggingFace dataset loading + train/val split
 │   │   └── formatters.py # chat templates, SFT/DPO/GRPO data formatting
 │   ├── models/
-│   │   ├── loader.py     # load Gemma 3 with bf16, MPS placement
+│   │   ├── loader.py     # load Gemma with bf16, MPS placement
 │   │   └── adapters.py   # LoRA: apply, merge, save, load
 │   ├── trainers/
 │   │   ├── sft.py        # Supervised Fine-Tuning
@@ -157,12 +215,16 @@ nexus/
 │       ├── data.py       # nexus data
 │       └── serve.py      # nexus serve
 │
-├── apps/                 # runnable applications and service entrypoints
+├── apps/                 # legacy app entrypoints; being folded into src/nexus/api
 ├── research/             # model bake-offs and disposable labs
 ├── infra/                # Dockerfiles, Compose, and operational assets
 ├── .data/                # ignored local runtime data and caches
 └── tests/                # pytest test suite
 ```
+
+See `docs/platform-architecture.md` for the current Nexus platform boundaries and runtime topology.
+See `docs/taxonomy/README.md` for the canonical Nexus noun model.
+See `docs/api-taxonomy.md`, `docs/storage-taxonomy.md`, and `docs/schemas/README.md` for implementation contracts.
 
 ---
 
@@ -189,7 +251,7 @@ responses. Used to train DeepSeek R1.
 exp(cross_entropy_loss). A perplexity of 10 means the model is as uncertain
 as uniformly choosing from 10 options at each step.
 
-**bfloat16** — 16-bit floating point format Gemma 3 was trained with. Using float16
+**bfloat16** — 16-bit floating point format Gemma was trained with. Using float16
 instead causes NaN gradients. Always use bfloat16.
 
 **W&B** — Weights & Biases. A tool that logs your training metrics to a web dashboard
@@ -215,13 +277,11 @@ To disable W&B for a run: `nexus train run --recipe ... --no-wandb`
 
 | Model | Precision | Weights | + LoRA training |
 |-------|-----------|---------|----------------|
-| Gemma 3 1B | bfloat16 | ~2 GB | ~4 GB total |
-| Gemma 3 4B | bfloat16 | ~8 GB | ~12 GB total |
-| Gemma 3 1B | 4-bit (MLX) | ~0.5 GB | inference only |
-| Gemma 3 4B | 4-bit (MLX) | ~2 GB | inference only |
+| Gemma 4 E2B | bfloat16 | ~10 GB MLX artifact | LoRA training recommended |
+| Gemma 4 E2B | BF16 (MLX-VLM) | ~10 GB MLX artifact | inference only |
 
-For inference/serving, use the 4-bit quantised MLX models from
-`mlx-community/gemma-3-1b-it-4bit` — they're 4× smaller with minimal quality loss.
+For inference/serving, use the MLX-VLM model
+`mlx-community/gemma-4-e2b-bf16`.
 
 ---
 

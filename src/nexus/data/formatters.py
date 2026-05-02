@@ -4,7 +4,7 @@ formatters.py — Apply chat templates and format datasets for each trainer type
 What is a "chat template"?
 ──────────────────────────
 Language models are trained on text that follows a specific format to distinguish
-between the human turn and the AI turn. For Gemma 3 this looks like:
+between the human turn and the AI turn. For Gemma this looks like:
 
     <start_of_turn>user
     What is the capital of France?<end_of_turn>

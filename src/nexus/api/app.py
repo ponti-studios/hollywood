@@ -29,4 +29,9 @@ app.include_router(runs.router, prefix="/v1")
 
 @app.get("/health")
 def health() -> dict[str, object]:
-    return {"ok": True}
+    return {
+        "ok": True,
+        "service": "nexus",
+        "api": "control-plane",
+        "capabilities": ["inference", "voice", "experiments", "runs"],
+    }

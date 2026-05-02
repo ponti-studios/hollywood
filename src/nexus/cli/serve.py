@@ -1,9 +1,9 @@
 """
-serve.py — Serve a Gemma 3 model locally via MLX for interactive chat.
+serve.py — Serve a Gemma 4 model locally via MLX-VLM for interactive chat.
 
 Usage:
-  nexus serve run --model google/gemma-3-1b-it
-  nexus serve run --model google/gemma-3-4b-it --quantize 4bit
+  nexus serve run --model mlx-community/gemma-4-e2b-bf16
+  nexus serve chat --model mlx-community/gemma-4-e2b-bf16
   nexus serve chat --model .data/checkpoints/my-sft-run
 
 Why MLX for serving?
@@ -12,25 +12,15 @@ MLX is Apple's native ML framework for M-series chips. For inference,
 it's significantly faster than PyTorch MPS because it uses the full
 Metal GPU pipeline and unified memory more efficiently.
 
-Quantisation for serving
-────────────────────────
-Quantisation reduces model size by representing weights with fewer bits:
-  4-bit quantisation: weights stored as 4-bit integers instead of 16-bit
-  This cuts memory usage by ~4x at a small quality cost.
+Gemma 4 for serving
+───────────────────
+Gemma 4 E2B currently runs through mlx-vlm's MLX conversion:
+  mlx-community/gemma-4-e2b-bf16
 
-  Gemma 3 1B in bfloat16: ~2 GB RAM
-  Gemma 3 1B quantised 4-bit: ~0.5 GB RAM
-
-This lets you run both the model AND the judge simultaneously, or fit
-the 4B model on a Mac with 8 GB RAM.
-
-MLX community quantised models live at huggingface.co/mlx-community.
-They follow the naming pattern: mlx-community/gemma-3-1b-it-4bit
+Install the MLX stack with `make setup-mlx` or `uv pip install -e ".[mlx]"`.
 """
 
 from __future__ import annotations
-
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -45,14 +35,14 @@ console = Console()
 @serve_app.command("run")
 def run_server(
     model: str = typer.Option(
-        "mlx-community/gemma-3-1b-it-4bit",
+        "mlx-community/gemma-4-e2b-bf16",
         "--model", "-m",
-        help="Model ID (HuggingFace or local path). Use mlx-community/ for pre-quantised models.",
+        help="Model ID (HuggingFace or local path).",
     ),
-    quantize: Optional[str] = typer.Option(
+    quantize: str | None = typer.Option(
         None,
         "--quantize", "-q",
-        help="Quantise the model on load: '4bit' or '8bit'. Skip if using an mlx-community model.",
+        help="Reserved for older mlx-lm models; Gemma 4 E2B uses the BF16 mlx-vlm build.",
     ),
     port: int = typer.Option(8080, "--port", "-p", help="Port for the local HTTP server."),
 ) -> None:
@@ -66,9 +56,9 @@ def run_server(
     ensure_mlx_runtime(console)
 
     try:
-        from mlx_lm import server
+        from mlx_vlm import server
     except ImportError:
-        console.print("[red]mlx-lm is required. Install with: pip install mlx-lm[/red]")
+        console.print("[red]mlx-vlm is required. Install with: pip install mlx-vlm[/red]")
         raise typer.Exit(code=1)
 
     console.print(Panel(
@@ -79,20 +69,19 @@ def run_server(
         border_style="green",
     ))
 
-    # Build the mlx_lm.server argument list
-    import sys
+    # Build the mlx-vlm server argument list.
     args = ["--model", model, "--port", str(port)]
     if quantize:
-        args += ["--quantize"]  # mlx_lm handles 4-bit by default
+        console.print("[yellow]Ignoring --quantize; Gemma 4 E2B uses the BF16 mlx-vlm build.[/yellow]")
 
-    # mlx_lm.server is a standalone script — invoke it programmatically
+    # mlx-vlm server is a standalone script — invoke it programmatically.
     server.main(args)
 
 
 @serve_app.command("chat")
 def chat(
     model: str = typer.Option(
-        "mlx-community/gemma-3-1b-it-4bit",
+        "mlx-community/gemma-4-e2b-bf16",
         "--model", "-m",
         help="Model to chat with (HuggingFace ID or local checkpoint path).",
     ),
@@ -104,7 +93,7 @@ def chat(
         help="System prompt to set the model's persona.",
     ),
 ) -> None:
-    """Start an interactive chat session with a Gemma 3 model in your terminal.
+    """Start an interactive chat session with a Gemma 4 model in your terminal.
 
     This is the fastest way to test your fine-tuned models.
     Type 'quit' or press Ctrl+C to exit.
@@ -115,19 +104,20 @@ def chat(
     ensure_mlx_runtime(console)
 
     try:
-        from mlx_lm import generate, load
+        from mlx_vlm import generate, load
+        from mlx_vlm.prompt_utils import apply_chat_template
     except ImportError:
-        console.print("[red]mlx-lm is required. Install with: pip install mlx-lm[/red]")
+        console.print("[red]mlx-vlm is required. Install with: pip install mlx-vlm[/red]")
         raise typer.Exit(code=1)
 
     console.print(f"\n[bold]Loading:[/bold] {model} …")
-    lm, tokenizer = load(model)
+    lm, processor = load(model)
 
     console.print(Panel(
         f"[dim]Model:[/dim] {model}\n"
         f"[dim]System:[/dim] {system}\n\n"
         "Type your message and press Enter. Type [bold]quit[/bold] to exit.",
-        title="Gemma 3 Chat",
+        title="Gemma 4 Chat",
         border_style="cyan",
     ))
 
@@ -150,23 +140,19 @@ def chat(
 
         history.append({"role": "user", "content": user_input})
 
-        # Apply chat template to the full conversation history
-        prompt = tokenizer.apply_chat_template(
-            history,
-            tokenize=False,
-            add_generation_prompt=True,
-        )
+        conversation = "\n".join(f"{m['role'].upper()}: {m['content']}" for m in history)
+        prompt = apply_chat_template(processor, lm.config, conversation)
 
         console.print("\n[bold green]Gemma:[/bold green]", end=" ")
 
-        from mlx_lm.sample_utils import make_sampler
         response = generate(
-            lm,
-            tokenizer,
+            model=lm,
+            processor=processor,
             prompt=prompt,
             max_tokens=max_tokens,
-            sampler=make_sampler(temp=temperature),
+            temperature=temperature,
             verbose=True,
         )
+        response_text = response.text if hasattr(response, "text") else str(response)
 
-        history.append({"role": "assistant", "content": response})
+        history.append({"role": "assistant", "content": response_text})

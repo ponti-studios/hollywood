@@ -27,6 +27,19 @@ from nexus.api.store import InferenceRecord, InferenceStore
 def _store(request: Request) -> InferenceStore:
     return request.app.state.store
 
+
+_DEFAULT_STOP = ["<end_of_turn>", "<eos>", "</s>"]
+
+
+def _trim_stop(text: str, stop: list[str] | None) -> str:
+    sequences = stop if stop is not None else _DEFAULT_STOP
+    for seq in sequences:
+        idx = text.find(seq)
+        if idx != -1:
+            text = text[:idx]
+    return text.rstrip()
+
+
 router = APIRouter(tags=["inference"])
 
 
@@ -118,6 +131,7 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
         verbose=False,
     )
     latency_ms = (time.perf_counter() - t0) * 1000
+    response_text = _trim_stop(response_text, body.stop)
 
     prompt_tokens = len(entry.tokenizer.encode(prompt))
     completion_tokens = len(entry.tokenizer.encode(response_text))
@@ -207,7 +221,7 @@ async def _stream_chat(
     yield _chunk({}, finish_reason="stop")
     yield "data: [DONE]\n\n"
 
-    full_response = "".join(accumulated)
+    full_response = _trim_stop("".join(accumulated), body.stop)
     latency_ms = (time.perf_counter() - t0) * 1000
     prompt_tokens = len(entry.tokenizer.encode(prompt))
     completion_tokens = len(entry.tokenizer.encode(full_response))

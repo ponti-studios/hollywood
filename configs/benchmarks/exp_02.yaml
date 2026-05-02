@@ -7,7 +7,7 @@ description: >
 phase: 2
 
 models:
-  - model_id: google/gemma-3-4b-it
+  - model_id: google/gemma-4-e2b
     role: small
     inference_backend: transformers
     max_new_tokens: 128

@@ -1,0 +1,18 @@
+# Gemma 4 E2B
+#
+# This repo's active Gemma target is Gemma 4 E2B.
+# For local MLX inference, use mlx-community/gemma-4-e2b-bf16.
+
+model_id: "google/gemma-4-e2b"
+
+# bfloat16: half-precision float that Gemma was trained with.
+# Using float32 doubles memory usage. Never use float16 with Gemma.
+dtype: "bfloat16"
+
+# 2048 tokens ≈ 1500 words. Good for most instruction-following tasks.
+# Increase to 4096 if your data has long contexts (more memory required).
+max_seq_len: 2048
+
+# MPS doesn't support FlashAttention2. "eager" is the safe default.
+# "sdpa" (scaled dot-product attention) also works on MPS and is slightly faster.
+attn_implementation: "eager"

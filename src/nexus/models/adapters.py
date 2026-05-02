@@ -117,7 +117,7 @@ def save_adapter_only(model: PeftModel, output_dir: str | Path) -> None:
     tiny (~50 MB). You still need the original base model to use them.
 
     To load:
-        model = AutoModelForCausalLM.from_pretrained("google/gemma-3-1b-it", ...)
+        model = AutoModelForCausalLM.from_pretrained("google/gemma-4-e2b", ...)
         model = PeftModel.from_pretrained(model, output_dir)
     """
     output_dir = Path(output_dir)

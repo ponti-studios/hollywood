@@ -57,7 +57,7 @@ def run_experiment(
         max=4,
     ),
     small_model: str = typer.Option(
-        "google/gemma-3-4b-it",
+        "google/gemma-4-e2b",
         "--small-model",
         help="Small model to evaluate.",
     ),
@@ -92,7 +92,7 @@ def run_experiment(
     Examples:
 
     \b
-    # Run Phase 1 baseline with defaults (500 samples, gemma-3-4b-it):
+    # Run Phase 1 baseline with defaults (500 samples, gemma-4-e2b):
     nexus experiment run
 
     \b

@@ -16,7 +16,7 @@ from rich.table import Table
 data_app = typer.Typer(no_args_is_help=True)
 console = Console()
 
-# Curated list of datasets useful for Gemma 3 posttraining experiments
+# Curated list of datasets useful for Gemma posttraining experiments
 RECOMMENDED_DATASETS = {
     # SFT datasets
     "tatsu-lab/alpaca": {

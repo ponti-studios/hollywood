@@ -396,8 +396,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--small-model",
-        default="google/gemma-3-4b-it",
-        help="Small model to evaluate (default: google/gemma-3-4b-it)",
+        default="google/gemma-4-e2b",
+        help="Small model to evaluate (default: google/gemma-4-e2b)",
     )
     parser.add_argument(
         "--large-model",

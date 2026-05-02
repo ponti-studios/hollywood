@@ -46,7 +46,7 @@ class RunExperimentRequest(BaseModel):
     config: ExperimentConfig | None = None
     config_path: str | None = None
     phase: int = 1
-    small_model: str = "google/gemma-3-4b-it"
+    small_model: str = "google/gemma-4-e2b"
     large_model: str | None = None
     samples: int = 500
     no_wandb: bool = False

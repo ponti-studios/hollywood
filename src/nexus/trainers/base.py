@@ -28,8 +28,8 @@ def build_training_args(recipe: Recipe) -> TrainingArguments:
     Apple Silicon–specific settings
     ────────────────────────────────
     bf16=True, fp16=False
-        Gemma 3 requires bfloat16. MPS supports bfloat16 on M1 Pro/Max/Ultra
-        and all M2+ chips. Never use fp16 with Gemma 3.
+        Gemma requires bfloat16. MPS supports bfloat16 on M1 Pro/Max/Ultra
+        and all M2+ chips. Never use fp16 with Gemma.
 
     optim="adamw_torch"
         The standard AdamW optimiser.
@@ -58,7 +58,7 @@ def build_training_args(recipe: Recipe) -> TrainingArguments:
         lr_scheduler_type="cosine",          # cosine decay is standard for LLM fine-tuning
         max_grad_norm=t.max_grad_norm,
         bf16=t.bf16,
-        fp16=False,                          # never fp16 with Gemma 3
+        fp16=False,                          # never fp16 with Gemma
         # --- Logging ---
         logging_dir=f"{output_dir}/logs",
         logging_steps=t.logging_steps,

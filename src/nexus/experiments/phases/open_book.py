@@ -338,7 +338,7 @@ def build_default_config(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Phase 2: open-book benchmark")
     parser.add_argument("--config", type=Path, default=None)
-    parser.add_argument("--small-model", default="google/gemma-3-4b-it")
+    parser.add_argument("--small-model", default="google/gemma-4-e2b")
     parser.add_argument("--large-model", default=None)
     parser.add_argument("--samples", type=int, default=500)
     parser.add_argument("--no-wandb", action="store_true")

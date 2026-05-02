@@ -9,7 +9,6 @@ Usage:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -48,10 +47,11 @@ def eval_perplexity(
     ensure_apple_runtime(console)
 
     from datasets import load_dataset
-    from nexus.evaluation.metrics import compute_perplexity, save_metrics
-    from nexus.models.loader import load_model, load_tokenizer
+
     from nexus.config import ModelConfig
     from nexus.device import get_device
+    from nexus.evaluation.metrics import compute_perplexity, save_metrics
+    from nexus.models.loader import load_model, load_tokenizer
 
     console.print(f"\n[bold]Evaluating:[/bold] {checkpoint}")
     console.print(f"Dataset: {dataset} ({split}, max={max_samples})\n")
@@ -87,13 +87,13 @@ def eval_judge(
         help="Path to a trained model checkpoint directory.",
         exists=True,
     ),
-    prompts_file: Optional[Path] = typer.Option(
+    prompts_file: Path | None = typer.Option(
         None,
         "--prompts",
         help="Text file with one prompt per line. Defaults to built-in test prompts.",
     ),
     judge_model: str = typer.Option(
-        "mlx-community/gemma-3-4b-it-4bit",
+        "mlx-community/gemma-4-e2b-bf16",
         "--judge",
         help="MLX model to use as judge (any mlx-community model).",
     ),
@@ -110,8 +110,11 @@ def eval_judge(
     """
     ensure_mlx_runtime(console)
 
-    from mlx_lm import generate, load as mlx_load
-    from nexus.evaluation.judge import judge_responses, print_judge_summary, JudgeResult
+    from mlx_vlm import generate
+    from mlx_vlm import load as mlx_load
+    from mlx_vlm.prompt_utils import apply_chat_template
+
+    from nexus.evaluation.judge import judge_responses, print_judge_summary
 
     # Load prompts
     if prompts_file and prompts_file.exists():
@@ -122,13 +125,21 @@ def eval_judge(
     prompts = prompts[:num_prompts]
 
     console.print(f"\n[bold]Loading model:[/bold] {checkpoint}")
-    model, tokenizer = mlx_load(str(checkpoint))
+    model, processor = mlx_load(str(checkpoint))
 
     # Generate responses
     console.print(f"\nGenerating responses for {len(prompts)} prompts …")
     examples = []
     for prompt in prompts:
-        response = generate(model, tokenizer, prompt=prompt, max_tokens=256, verbose=False)
+        formatted_prompt = apply_chat_template(processor, model.config, prompt)
+        output = generate(
+            model=model,
+            processor=processor,
+            prompt=formatted_prompt,
+            max_tokens=256,
+            verbose=False,
+        )
+        response = output.text if hasattr(output, "text") else str(output)
         examples.append({"prompt": prompt, "response": response})
 
     # Judge responses

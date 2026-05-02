@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 class ModelSpec(BaseModel):
     """Specifies a model to load during an experiment.
 
-    model_id: HuggingFace repo name, e.g. "google/gemma-3-4b-it"
+    model_id: HuggingFace repo name, e.g. "google/gemma-4-e2b"
               Can also be a local path to a fine-tuned checkpoint.
 
     role: "small" = the 3B model under test

@@ -13,20 +13,20 @@ you get loud errors at startup rather than silent training failures.
 import pytest
 from pydantic import ValidationError
 
-from nexus.config import DataConfig, LoraConfig, ModelConfig, Recipe, TrainingConfig
+from nexus.config import LoraConfig, ModelConfig, Recipe, TrainingConfig
 
 
 class TestModelConfig:
     def test_valid_config(self):
-        cfg = ModelConfig(model_id="google/gemma-3-1b-it")
-        assert cfg.model_id == "google/gemma-3-1b-it"
+        cfg = ModelConfig(model_id="google/gemma-4-e2b")
+        assert cfg.model_id == "google/gemma-4-e2b"
         assert cfg.dtype == "bfloat16"      # correct default
         assert cfg.max_seq_len == 2048
         assert cfg.attn_implementation == "eager"
 
     def test_invalid_dtype_rejected(self):
         with pytest.raises(ValidationError):
-            ModelConfig(model_id="google/gemma-3-1b-it", dtype="float16")
+            ModelConfig(model_id="google/gemma-4-e2b", dtype="float16")
 
     def test_model_id_required(self):
         with pytest.raises(ValidationError):
@@ -59,7 +59,7 @@ class TestTrainingConfig:
         cfg = TrainingConfig(method="sft")
         assert cfg.method == "sft"
         assert cfg.learning_rate == 2e-4
-        assert cfg.fp16 is False   # MUST be False for Gemma 3
+        assert cfg.fp16 is False   # MUST be False for Gemma
 
     def test_fp16_always_false(self):
         # Even if you try to set fp16=True, it should be forced to False
@@ -80,7 +80,7 @@ class TestRecipe:
     def test_recipe_from_dict(self, sample_recipe_dict):
         recipe = Recipe(**sample_recipe_dict)
         assert recipe.name == "test-recipe"
-        assert recipe.model.model_id == "google/gemma-3-1b-it"
+        assert recipe.model.model_id == "google/gemma-4-e2b"
         assert recipe.lora is not None
         assert recipe.lora.rank == 8
 

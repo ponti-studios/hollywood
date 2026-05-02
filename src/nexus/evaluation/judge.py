@@ -25,7 +25,7 @@ This approach is used in many modern research papers (MT-Bench, AlpacaEval, etc.
 and is now the de-facto standard for evaluating instruction-following quality.
 
 The limitation: the judge model is itself imperfect. A larger judge = more
-reliable scores. We use Gemma 3 4B as judge by default since it's powerful
+reliable scores. We use Gemma 4 E2B as judge by default since it's powerful
 enough for basic evaluation while fitting comfortably in Mac RAM.
 """
 
@@ -34,7 +34,6 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import Optional
 
 from rich.console import Console
 from rich.table import Table
@@ -91,7 +90,7 @@ def parse_judge_output(output: str) -> tuple[float, str]:
 
 def judge_responses(
     examples: list[dict[str, str]],
-    judge_model_id: str = "google/gemma-3-4b-it",
+    judge_model_id: str = "google/gemma-4-e2b",
 ) -> list[JudgeResult]:
     """Use a local MLX model to judge a list of (prompt, response) pairs.
 
@@ -102,19 +101,20 @@ def judge_responses(
     Returns:
         List of JudgeResult objects with scores and reasoning.
 
-    Note: This uses mlx-lm for inference (fast Apple Silicon path).
+    Note: This uses mlx-vlm for Gemma 4 inference (fast Apple Silicon path).
           The judge model is loaded separately from the model being evaluated.
     """
     try:
-        from mlx_lm import generate, load
+        from mlx_vlm import generate, load
+        from mlx_vlm.prompt_utils import apply_chat_template
     except ImportError:
         raise ImportError(
-            "mlx-lm is required for local LLM-as-judge evaluation. "
-            "Install it with: pip install mlx-lm"
+            "mlx-vlm is required for local LLM-as-judge evaluation. "
+            "Install it with: pip install mlx-vlm"
         )
 
     console.print(f"\n[bold]Loading judge model:[/bold] {judge_model_id}")
-    judge_model, judge_tokenizer = load(judge_model_id)
+    judge_model, judge_processor = load(judge_model_id)
 
     results = []
     for i, example in enumerate(examples):
@@ -123,14 +123,17 @@ def judge_responses(
 
         judge_input = JUDGE_PROMPT.format(prompt=prompt, response=response)
 
-        # Generate the judge's evaluation using MLX (fast local inference)
-        raw_output = generate(
-            judge_model,
-            judge_tokenizer,
-            prompt=judge_input,
+        formatted_prompt = apply_chat_template(judge_processor, judge_model.config, judge_input)
+
+        # Generate the judge's evaluation using MLX-VLM (fast local inference)
+        output = generate(
+            model=judge_model,
+            processor=judge_processor,
+            prompt=formatted_prompt,
             max_tokens=200,
             verbose=False,
         )
+        raw_output = output.text if hasattr(output, "text") else str(output)
 
         score, reasoning = parse_judge_output(raw_output)
         results.append(JudgeResult(
@@ -168,16 +171,16 @@ def print_judge_summary(results: list[JudgeResult]) -> None:
         else:
             buckets["9–10 (excellent)"] += 1
 
-    console.print(f"\n[bold]Judge Evaluation Summary[/bold]")
+    console.print("\n[bold]Judge Evaluation Summary[/bold]")
     console.print(f"  Total evaluated: {len(results)}")
     console.print(f"  Average score:   [green]{avg_score:.2f}[/green] / 10")
-    console.print(f"  Distribution:")
+    console.print("  Distribution:")
     for label, count in buckets.items():
         bar = "█" * count
         console.print(f"    {label:20s} {bar} ({count})")
 
     # Show a few examples
-    console.print(f"\n[bold]Sample results:[/bold]")
+    console.print("\n[bold]Sample results:[/bold]")
     table = Table(show_header=True)
     table.add_column("Score", style="cyan", width=6)
     table.add_column("Prompt", width=30)

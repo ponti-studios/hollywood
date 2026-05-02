@@ -1,5 +1,5 @@
 """
-loader.py — Load Gemma 3 models and tokenizers correctly on Apple Silicon.
+loader.py — Load Gemma models and tokenizers correctly on Apple Silicon.
 
 What happens when you "load a model"?
 ──────────────────────────────────────
@@ -13,13 +13,11 @@ The tokenizer is a separate component that converts text ↔ token IDs.
 Tokens are the basic units the model operates on — roughly, word pieces.
 For example, "hello" might be one token, "posttraining" might be two.
 
-Gemma 3 vocabulary size: 256,128 tokens (much larger than GPT-2's 50,257).
+Gemma vocabulary size is much larger than GPT-2's 50,257 tokens.
 
 Why "-it" models?
 ─────────────────
-HuggingFace hosts two variants of each Gemma 3 model:
-  google/gemma-3-1b    — raw "base" model, predicts next token from any text
-  google/gemma-3-1b-it — "instruction-tuned", trained to follow instructions
+HuggingFace hosts base and instruction-tuned variants of Gemma models.
 
 For posttraining experiments we almost always start from the -it model because:
   - It already understands the chat format
@@ -57,7 +55,7 @@ def load_tokenizer(cfg: ModelConfig) -> PreTrainedTokenizer:
         trust_remote_code=True,
     )
 
-    # Gemma 3 has no pad token by default — set it to eos
+    # Gemma has no pad token by default — set it to eos
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -69,18 +67,18 @@ def load_tokenizer(cfg: ModelConfig) -> PreTrainedTokenizer:
 
 
 def load_model(cfg: ModelConfig) -> AutoModelForCausalLM:
-    """Load a Gemma 3 model with correct precision for Apple Silicon.
+    """Load a Gemma model with correct precision for Apple Silicon.
 
     Key decisions:
     ──────────────
     torch_dtype=bfloat16
-        Halves memory usage. Gemma 3 was trained in bfloat16 so this is safe.
-        Never use float16 with Gemma 3 — it causes gradient overflow.
+        Halves memory usage. Gemma was trained in bfloat16 so this is safe.
+        Never use float16 with Gemma — it causes gradient overflow.
 
     device_map="auto"
         Lets `accelerate` distribute the model across available devices.
         On a Mac this means MPS (GPU) + CPU if the model is too big for GPU RAM.
-        For Gemma 3 1B (≈2 GB in bfloat16) it fits entirely on MPS.
+        For smaller Gemma-class models it can fit entirely on MPS.
 
     attn_implementation="eager"
         Flash Attention 2 requires CUDA, so we use the standard attention.
