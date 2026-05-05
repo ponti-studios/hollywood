@@ -20,7 +20,7 @@ Usage:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -38,18 +38,17 @@ class ModelSpec(BaseModel):
 
         inference_backend: how to run the model.
             "transformers"      — standard HuggingFace pipeline. Slowest, most flexible.
-            "mlx"               — Apple Silicon native, fast for interactive use.
             "openai-compatible" — remote chat-completions API compatible with OpenAI's schema.
     """
 
     model_id: str
     role: Literal["small", "large", "judge"] = "small"
-    inference_backend: Literal["transformers", "mlx", "openai-compatible"] = "transformers"
+    inference_backend: Literal["transformers", "openai-compatible"] = "transformers"
     max_new_tokens: int = 256
     temperature: float = 0.0   # 0.0 = greedy decoding (fully deterministic)
     batch_size: int = 8
-    api_base: Optional[str] = None
-    api_key_env: Optional[str] = None
+    api_base: str | None = None
+    api_key_env: str | None = None
     request_timeout_seconds: float = 120.0
 
 
@@ -73,9 +72,9 @@ class BenchmarkSpec(BaseModel):
     """
 
     name: Literal["triviaqa", "mmlu", "synthetic"]
-    samples: Optional[int] = 500
+    samples: int | None = 500
     seed: int = 42
-    mmlu_subjects: Optional[list[str]] = None  # None = all subjects
+    mmlu_subjects: list[str] | None = None  # None = all subjects
 
 
 class SyntheticPuzzleSpec(BaseModel):
@@ -112,7 +111,7 @@ class LoggingSpec(BaseModel):
                 Results are always written locally, regardless of W&B status.
     """
 
-    wandb_project: Optional[str] = "3b-logic-broker"
+    wandb_project: str | None = "3b-logic-broker"
     output_dir: str = ".data/benchmarks/results"
     save_transcripts: bool = True   # save full question/answer pairs, not just scores
     reference_cache_dir: str = ".data/benchmarks/cache"
@@ -140,19 +139,19 @@ class ExperimentConfig(BaseModel):
     logging: LoggingSpec = Field(default_factory=LoggingSpec)
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "ExperimentConfig":
+    def from_yaml(cls, path: str | Path) -> ExperimentConfig:
         """Load and validate an experiment config from a YAML file."""
         with open(path) as f:
             raw = yaml.safe_load(f)
         return cls(**raw)
 
     @property
-    def small_model(self) -> Optional[ModelSpec]:
+    def small_model(self) -> ModelSpec | None:
         """Return the ModelSpec with role='small', or None if not configured."""
         return next((m for m in self.models if m.role == "small"), None)
 
     @property
-    def large_model(self) -> Optional[ModelSpec]:
+    def large_model(self) -> ModelSpec | None:
         """Return the ModelSpec with role='large', or None if not configured."""
         return next((m for m in self.models if m.role == "large"), None)
 

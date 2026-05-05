@@ -18,9 +18,6 @@ from rich.console import Console
 
 SUPPORTED_PYTHON = (3, 12)
 APPLE_RUNTIME_PACKAGES = ("torch", "accelerate", "peft", "trl")
-MLX_RUNTIME_PACKAGES = ("mlx", "mlx_lm", "mlx_vlm")
-
-
 def _package_missing(name: str) -> bool:
     return importlib.util.find_spec(name) is None
 
@@ -67,20 +64,5 @@ def ensure_apple_runtime(console: Console | None = None) -> None:
         _fail(
             console,
             "Missing Apple runtime dependencies: "
-            f"{joined}. Install them with: uv pip install -e '.[dev,notebook,apple]'",
-        )
-
-
-def ensure_mlx_runtime(console: Console | None = None) -> None:
-    """Require the MLX runtime dependencies used by serving/judge paths."""
-    ensure_supported_python(console)
-    ensure_apple_silicon(console)
-
-    missing = _missing_packages(MLX_RUNTIME_PACKAGES)
-    if missing:
-        joined = ", ".join(missing)
-        _fail(
-            console,
-            "Missing MLX runtime dependencies: "
             f"{joined}. Install them with: uv pip install -e '.[dev,notebook,apple]'",
         )

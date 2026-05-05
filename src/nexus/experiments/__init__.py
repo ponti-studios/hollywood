@@ -17,5 +17,14 @@ Every experiment follows the same contract:
 
 from nexus.experiments.config import ExperimentConfig
 from nexus.experiments.runner import BaseRunner
+from nexus.experiments.schema import ExperimentSchema, ExperimentStatus, ExperimentVariantSchema
+from nexus.experiments.store import ExperimentStore
 
-__all__ = ["ExperimentConfig", "BaseRunner"]
+__all__ = [
+    "BaseRunner",
+    "ExperimentConfig",
+    "ExperimentSchema",
+    "ExperimentStatus",
+    "ExperimentStore",
+    "ExperimentVariantSchema",
+]

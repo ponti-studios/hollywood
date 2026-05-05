@@ -1,0 +1,104 @@
+info:
+  name: Submit Experiment
+  type: http
+  seq: 1
+  tags:
+    - experiments
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/experiments"
+  body:
+    type: json
+    data: |-
+      {
+        "config": "",
+        "config_path": "",
+        "phase": 0,
+        "small_model": "",
+        "large_model": "",
+        "samples": 0,
+        "no_wandb": false
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 202 Response
+    description: Successful Response
+    request:
+      url: "{{baseUrl}}/v1/experiments"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "config": "",
+            "config_path": "",
+            "phase": 0,
+            "small_model": "",
+            "large_model": "",
+            "samples": 0,
+            "no_wandb": false
+          }
+    response:
+      status: 202
+      statusText: Accepted
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "id": "",
+            "status": "",
+            "config_name": "",
+            "phase": 0,
+            "started_at": 0,
+            "completed_at": "",
+            "output_dir": "",
+            "error": ""
+          }
+  - name: 422 Response
+    description: Validation Error
+    request:
+      url: "{{baseUrl}}/v1/experiments"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "config": "",
+            "config_path": "",
+            "phase": 0,
+            "small_model": "",
+            "large_model": "",
+            "samples": 0,
+            "no_wandb": false
+          }
+    response:
+      status: 422
+      statusText: Unprocessable Entity
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "detail": [
+              {
+                "loc": [],
+                "msg": "",
+                "type": "",
+                "input": "",
+                "ctx": {}
+              }
+            ]
+          }

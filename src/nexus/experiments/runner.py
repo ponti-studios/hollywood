@@ -28,7 +28,7 @@ import os
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from rich.console import Console
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn, TimeRemainingColumn
@@ -119,10 +119,6 @@ class BaseRunner(ABC):
         temperature=0.0 gives greedy (deterministic) decoding, which is what
         we want for benchmarking — we don't want randomness to affect scores.
         """
-        device = self._get_device()
-
-        if spec.inference_backend == "mlx":
-            return self._build_mlx_pipeline(spec)
         if spec.inference_backend == "openai-compatible":
             return self._build_openai_compatible_pipeline(spec)
 
@@ -210,43 +206,6 @@ class BaseRunner(ABC):
 
         return OpenAICompatiblePipeline()
 
-    def _build_mlx_pipeline(self, spec: ModelSpec) -> Any:
-        """Build an MLX-based pipeline for Apple Silicon inference.
-
-        MLX is Apple's ML framework — it runs natively on the Neural Engine
-        and is significantly faster than PyTorch on Mac for inference.
-        Falls back to transformers pipeline if mlx-lm is not installed.
-        """
-        try:
-            from mlx_lm import load, generate
-
-            model, tokenizer = load(spec.model_id)
-
-            class MLXPipeline:
-                def __init__(self, m: Any, t: Any, s: ModelSpec) -> None:
-                    self.model = m
-                    self.tokenizer = t
-                    self.spec = s
-                    self._gen_kwargs = {"max_tokens": s.max_new_tokens}
-
-                def __call__(self, prompt: str) -> list[dict]:
-                    out = generate(self.model, self.tokenizer, prompt=prompt, **self._gen_kwargs)
-                    return [{"generated_text": prompt + out}]
-
-            return MLXPipeline(model, tokenizer, spec)
-        except ImportError:
-            logger.warning("mlx-lm not installed — falling back to transformers pipeline")
-            spec_copy = spec.model_copy(update={"inference_backend": "transformers"})
-            return self._build_pipeline(spec_copy)
-
-    def _get_device(self) -> str:
-        import torch
-        if torch.backends.mps.is_available():
-            return "mps"
-        if torch.cuda.is_available():
-            return "cuda"
-        return "cpu"
-
     # ──────────────────────────────────────────────────────────────────────
     # Inference
     # ──────────────────────────────────────────────────────────────────────
@@ -321,7 +280,7 @@ class BaseRunner(ABC):
     def save_results(
         self,
         scores: dict[str, BenchmarkScore],
-        results: Optional[list[QuestionResult]] = None,
+        results: list[QuestionResult] | None = None,
     ) -> Path:
         """Write scores (and optionally full transcripts) to disk as JSON.
 
@@ -420,7 +379,7 @@ class BaseRunner(ABC):
             if large.provenance == "cached" and isinstance(cached_at, int):
                 cache_age_hours = (time.time() - cached_at) / 3600
                 if cache_age_hours >= self.cfg.logging.reference_cache_warn_after_hours:
-                    large_source = f"cached!"
+                    large_source = "cached!"
             table.add_row(
                 benchmark,
                 small.accuracy_pct,

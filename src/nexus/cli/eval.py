@@ -8,12 +8,16 @@ Usage:
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
+import httpx
 import typer
 from rich.console import Console
 
-from nexus.runtime import ensure_apple_runtime, ensure_mlx_runtime
+from nexus.api.backends import ApiBackends
+from nexus.api.models import ChatCompletionRequest, ChatMessage
+from nexus.runtime import ensure_apple_runtime
 
 eval_app = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -93,9 +97,9 @@ def eval_judge(
         help="Text file with one prompt per line. Defaults to built-in test prompts.",
     ),
     judge_model: str = typer.Option(
-        "mlx-community/gemma-4-e2b-bf16",
+        "HuggingFaceTB/SmolLM2-135M-Instruct",
         "--judge",
-        help="MLX model to use as judge (any mlx-community model).",
+        help="Model served by the Nexus API to use as judge.",
     ),
     num_prompts: int = typer.Option(
         20,
@@ -106,13 +110,8 @@ def eval_judge(
     """Evaluate response quality using an LLM-as-judge.
 
     Generates responses from your trained model and scores them using
-    a local judge model (via MLX). No API keys required.
+    the compose-backed Nexus API. No external API keys required.
     """
-    ensure_mlx_runtime(console)
-
-    from mlx_vlm import generate
-    from mlx_vlm import load as mlx_load
-    from mlx_vlm.prompt_utils import apply_chat_template
 
     from nexus.evaluation.judge import judge_responses, print_judge_summary
 
@@ -124,23 +123,25 @@ def eval_judge(
 
     prompts = prompts[:num_prompts]
 
-    console.print(f"\n[bold]Loading model:[/bold] {checkpoint}")
-    model, processor = mlx_load(str(checkpoint))
-
-    # Generate responses
-    console.print(f"\nGenerating responses for {len(prompts)} prompts …")
+    console.print(f"\n[bold]Generating responses:[/bold] {checkpoint}")
+    api_base = os.getenv("NEXUS_API_URL", "http://127.0.0.1:8787").rstrip("/")
+    backend = ApiBackends.from_env()
     examples = []
-    for prompt in prompts:
-        formatted_prompt = apply_chat_template(processor, model.config, prompt)
-        output = generate(
-            model=model,
-            processor=processor,
-            prompt=formatted_prompt,
-            max_tokens=256,
-            verbose=False,
-        )
-        response = output.text if hasattr(output, "text") else str(output)
-        examples.append({"prompt": prompt, "response": response})
+    with httpx.Client(base_url=api_base, timeout=None) as client:
+        for prompt in prompts:
+            response = client.post(
+                "/v1/chat/completions",
+                json=ChatCompletionRequest(
+                    model=backend.text_model_id,
+                    messages=[ChatMessage(role="user", content=prompt)],
+                    max_tokens=256,
+                    temperature=0.0,
+                ).model_dump(),
+            )
+            response.raise_for_status()
+            body = response.json()
+            text = str(body["choices"][0]["message"]["content"])
+            examples.append({"prompt": prompt, "response": text})
 
     # Judge responses
     results = judge_responses(examples, judge_model_id=judge_model)

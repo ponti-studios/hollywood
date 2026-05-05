@@ -1,8 +1,6 @@
 # Gemma 4 E2B
 #
 # This repo's active Gemma target is Gemma 4 E2B.
-# For local MLX inference, use mlx-community/gemma-4-e2b-bf16.
-
 model_id: "google/gemma-4-e2b"
 
 # bfloat16: half-precision float that Gemma was trained with.

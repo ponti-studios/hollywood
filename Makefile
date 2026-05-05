@@ -1,10 +1,10 @@
 UV := uv
 
 .PHONY: setup setup-apple install train train-sft train-dpo train-orpo train-grpo \
-        eval serve-1b serve-4b data-alpaca data-ultrafeedback \
+        eval data-alpaca data-ultrafeedback \
 	exp-baseline exp-baseline-quick exp-open-book exp-reflection \
 	smoke-eval \
-        test test-cov test-inference test-inference-quick lint format typecheck clean help
+        test test-cov lint format typecheck clean help
 
 # MINIMAX_API_KEY must be set in env before running smoke-eval
 SMOKE_MODEL   ?= MiniMax-M2.7
@@ -17,14 +17,10 @@ setup: ## Install cross-platform dev dependencies (no Apple runtime stack)
 
 setup-apple: ## Install full Apple Silicon runtime (training + inference)
 	$(UV) pip install -e ".[dev,notebook]"
-	$(UV) pip install torch accelerate peft trl mlx mlx-lm mlx-vlm
-
-setup-mlx: ## Install MLX inference-only stack (no PyTorch; Gemma 4 E2B + tool calling)
-	$(UV) pip install -e ".[dev,notebook]"
-	$(UV) pip install mlx mlx-lm mlx-vlm
+	$(UV) pip install torch accelerate peft trl
 
 install: ## Install Apple Silicon runtime dependencies only
-	$(UV) pip install torch accelerate peft trl mlx mlx-lm mlx-vlm
+	$(UV) pip install torch accelerate peft trl
 
 # ── Training ──────────────────────────────────────────────────────────────────
 
@@ -49,16 +45,6 @@ train-grpo: ## GRPO on Gemma 4 E2B
 # Usage:  make eval CHECKPOINT=.data/checkpoints/my-run
 eval: ## Evaluate a trained checkpoint
 	$(UV) run nexus eval --checkpoint $(CHECKPOINT)
-
-# ── Serving ───────────────────────────────────────────────────────────────────────
-# Note: Both serve-1b and serve-4b use the same MLX-VLM Gemma 4 E2B model.
-# Consider renaming these targets if different models are added in the future.
-
-serve-1b: ## Serve Gemma 4 E2B locally via MLX-VLM (first run: downloads ~10GB)
-	$(UV) run nexus serve run --model mlx-community/gemma-4-e2b-bf16
-
-serve-4b: ## Serve Gemma 4 E2B locally via MLX-VLM (first run: downloads ~10GB)
-	$(UV) run nexus serve run --model mlx-community/gemma-4-e2b-bf16
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -105,15 +91,6 @@ test: ## Run the test suite
 
 test-cov: ## Run tests with coverage report
 	$(UV) run pytest --cov=nexus --cov-report=term-missing
-
-test-inference: ## Run all 9 Gemma 4 inference tests (requires MLX stack + model download)
-	@./scripts/run_inference_tests.sh
-
-test-inference-quick: ## Run single quick inference test (smoke test)
-	@./scripts/run_inference_tests.sh --quick
-
-test-inference-verbose: ## Run all inference tests with verbose output
-	@./scripts/run_inference_tests.sh --verbose
 
 lint: ## Check code style
 	$(UV) run ruff check src/ tests/

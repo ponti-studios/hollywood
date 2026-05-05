@@ -1,15 +1,15 @@
 # nexus — Multimodal Inference, Training, and Evaluation Platform
 
 Nexus is the studio control plane for multimodal generative systems.
-It combines local and hosted inference, model training, benchmark evaluation,
-and modality-specific capabilities like audio TTS and audio STT.
 
-Current platform surfaces in this repo include:
-- Nexus API control plane
-- MLX text inference serving
-- voice TTS/STT orchestration
-- benchmark experiment execution
-- posttraining workflows for Gemma-family models
+For the **canonical definition of Nexus**, see:
+- `docs/taxonomy/nexus.md`
+
+For the canonical noun model and implementation contracts, see:
+- `docs/taxonomy/README.md`
+- `docs/api-taxonomy.md`
+- `docs/storage-model.md`
+- `src/nexus/*/schema.py`
 
 ---
 
@@ -56,7 +56,7 @@ mise install
 mise exec -- uv venv .venv
 uv pip install -e ".[dev,notebook]"
 
-# Full Apple Silicon runtime install: training, eval, serving
+# Full Apple Silicon runtime install: training and eval
 uv pip install -e ".[dev,notebook,apple]"
 
 # Or use the Makefile shortcuts
@@ -69,29 +69,52 @@ cp .env.example .env
 ```
 
 `make setup` is intentionally cross-platform and does not install the Apple-only
-runtime stack. Training, perplexity evaluation, and MLX serving require the
-`apple` extra on Apple Silicon, and the CLI now guards those commands so they
-fail early if Python, platform, or optional runtime dependencies are wrong.
+runtime stack. Training and perplexity evaluation require the `apple` extra on
+Apple Silicon, and the CLI now guards those commands so they fail early if
+Python, platform, or optional runtime dependencies are wrong.
 
 ### Start the Nexus runtime
 
 ```bash
-# Start the Nexus control plane in Docker
-just nexus-up
+# Start the full runtime graph
+docker compose up --build -d
 
-# Follow logs
+# Follow logs for the public API and private model workers
 just nexus-logs
 
 # Check health
 just nexus-health
+```
 
-# Or run the API directly on the host
-just nexus-api
+With the compose stack up, the public API is the only endpoint you need:
+
+- OpenAPI schema: `http://localhost:8787/openapi.json`
+- Interactive docs: `http://localhost:8787/docs`
+- Redoc: `http://localhost:8787/redoc`
+
+```bash
+# Text generation
+  curl -sS -X POST http://localhost:8787/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "messages": [{"role": "user", "content": "What is 2+2?"}]
+  }'
+
+# Speaker preset TTS
+curl -sS -X POST http://localhost:8787/v1/audio/tts \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello from Nexus","speaker":"serena"}' \
+  --output /tmp/nexus-tts.wav
+
+# STT
+curl -sS -X POST http://localhost:8787/v1/audio/transcribe \
+  -F "audio=@/tmp/nexus-tts.wav"
 ```
 
 ### Accept the Gemma 4 license
 
-Gemma 4 is a gated model. You must accept the license before downloading:
+Gemma 4 is a gated model, so you must accept the license before downloading or using it in training/evaluation workflows:
 1. Go to https://huggingface.co/google/gemma-4-e2b
 2. Click "Agree and access repository"
 3. Make sure your `HF_TOKEN` in `.env` matches your HuggingFace account
@@ -112,46 +135,19 @@ nexus train run --recipe configs/recipes/sft_lora.yaml
 # Evaluate your trained model
 nexus eval perplexity --checkpoint .data/checkpoints/gemma4-e2b-sft-lora
 
-# Chat with your fine-tuned model
-nexus serve chat --model .data/checkpoints/gemma4-e2b-sft-lora
+# Chat with your fine-tuned model through the API
+curl -sS -X POST http://localhost:8787/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "messages": [{"role": "user", "content": "Explain why the sky is blue."}]
+  }'
 ```
 
 For a quick smoke test, set `max_samples: 1000` in `configs/recipes/sft_lora.yaml`
 before running.
 
 ---
-
-## Serving Gemma 4 locally (MLX inference)
-
-Gemma 4 E2B can run locally on Apple Silicon with **MLX-VLM** for fast inference.
-
-**Important:** First run downloads the model (~10 GB). Subsequent runs are cached.
-
-```bash
-# Install MLX inference stack (faster than full training stack)
-make setup-mlx
-
-# Download the Gemma 4 E2B model (one-time, ~10 GB)
-python -c "from mlx_vlm import load; load('mlx-community/gemma-4-e2b-bf16')"
-
-# Start an OpenAI-compatible API server
-nexus serve run --model mlx-community/gemma-4-e2b-bf16
-
-# In another terminal, query the API
-curl http://localhost:8080/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "mlx-community/gemma-4-e2b-bf16",
-    "messages": [{"role": "user", "content": "What is 2+2?"}]
-  }'
-
-# Or use interactive chat
-nexus serve chat --model mlx-community/gemma-4-e2b-bf16
-```
-
-**Model variants:**
-- `google/gemma-4-e2b` — Original HuggingFace model (for training with transformers)
-- `mlx-community/gemma-4-e2b-bf16` — MLX-optimized version (for local inference, ~10GB)
 
 ---
 
@@ -174,9 +170,6 @@ nexus data list                              # show recommended datasets
 nexus data inspect --name tatsu-lab/alpaca  # preview without downloading
 nexus data download --name tatsu-lab/alpaca # download and cache
 
-# Serving (Apple Silicon / MLX — fastest)
-nexus serve chat --model mlx-community/gemma-4-e2b-bf16            # interactive chat
-nexus serve run  --model mlx-community/gemma-4-e2b-bf16 --port 8080 # HTTP server
 ```
 
 ---
@@ -208,12 +201,12 @@ nexus/
 │   │   └── grpo.py       # Group Relative Policy Optimization
 │   ├── evaluation/
 │   │   ├── metrics.py    # perplexity, token accuracy
-│   │   └── judge.py      # LLM-as-judge scoring via MLX
+│   │   └── judge.py      # LLM-as-judge scoring
 │   └── cli/
 │       ├── train.py      # nexus train
 │       ├── eval.py       # nexus eval
 │       ├── data.py       # nexus data
-│       └── serve.py      # nexus serve
+│       └── api.py        # nexus api
 │
 ├── apps/                 # legacy app entrypoints; being folded into src/nexus/api
 ├── research/             # model bake-offs and disposable labs
@@ -222,9 +215,9 @@ nexus/
 └── tests/                # pytest test suite
 ```
 
-See `docs/platform-architecture.md` for the current Nexus platform boundaries and runtime topology.
+See `docs/taxonomy/nexus.md` for the current Nexus platform boundaries and runtime topology.
 See `docs/taxonomy/README.md` for the canonical Nexus noun model.
-See `docs/api-taxonomy.md`, `docs/storage-taxonomy.md`, and `docs/schemas/README.md` for implementation contracts.
+See `docs/api-taxonomy.md`, `docs/storage-model.md`, and `src/nexus/*/schema.py` for implementation contracts.
 
 ---
 
@@ -275,13 +268,9 @@ To disable W&B for a run: `nexus train run --recipe ... --no-wandb`
 
 ## Memory requirements
 
-| Model | Precision | Weights | + LoRA training |
-|-------|-----------|---------|----------------|
-| Gemma 4 E2B | bfloat16 | ~10 GB MLX artifact | LoRA training recommended |
-| Gemma 4 E2B | BF16 (MLX-VLM) | ~10 GB MLX artifact | inference only |
-
-For inference/serving, use the MLX-VLM model
-`mlx-community/gemma-4-e2b-bf16`.
+The Docker runtime is split across a small public API container and private
+model workers. The text worker uses a standard HuggingFace transformers model,
+and the audio workers each have their own dedicated image.
 
 ---
 
@@ -302,7 +291,7 @@ make format         # auto-format
 2. **Run** `nexus data inspect --name tatsu-lab/alpaca` — see what training data looks like
 3. **Run** SFT with `max_samples: 1000` — watch the loss go down
 4. **Read** `src/nexus/trainers/sft.py` — understand what's happening
-5. **Compare** your fine-tuned model vs the base with `nexus serve chat`
+5. **Compare** your fine-tuned model vs the base with the API `curl` flow
 6. **Try** DPO — read `src/nexus/trainers/dpo.py` first
 7. **Experiment** — modify hyperparameters, compare runs in W&B
 8. **Build** a custom GRPO reward function for a task you care about

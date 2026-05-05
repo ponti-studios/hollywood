@@ -16,50 +16,22 @@ nexus-down:
   docker compose -f {{nexus_compose}} down
 
 nexus-logs:
-  docker compose -f {{nexus_compose}} logs -f nexus
-
-nexus-api:
-  uv run nexus api serve --host 0.0.0.0 --port 8787
-
-voice-kokoro:
-  cd research/voice/kokoro && ./run.sh
-
-voice-whisper:
-  cd research/voice/whisper-docker-test && ./run.sh
+  docker compose -f {{nexus_compose}} logs -f nexus nexus-text nexus-audio-tts nexus-audio-asr
 
 nexus-health:
   curl -sS http://127.0.0.1:8787/health
 
-voice-tts-kokoro text="Hello from Kokoro through just.":
-  curl -sS -X POST http://127.0.0.1:8787/tts/kokoro \
+api-chat prompt="Hello from Nexus." model="HuggingFaceTB/SmolLM2-135M-Instruct":
+  curl -sS -X POST http://127.0.0.1:8787/v1/chat/completions \
     -H "Content-Type: application/json" \
-    -d "{\"text\":\"{{text}}\"}" \
-    --output /private/tmp/kokoro-just.wav
-  ls -lh /private/tmp/kokoro-just.wav
+    -d "{\"model\":\"{{model}}\",\"messages\":[{\"role\":\"user\",\"content\":\"{{prompt}}\"}]}"
 
-voice-transcribe file="/private/tmp/kokoro-just.wav":
-  curl -sS -X POST http://127.0.0.1:8787/transcribe -F "audio=@{{file}}"
+api-tts text="Hello from Nexus." speaker="serena":
+  curl -sS -X POST http://127.0.0.1:8787/v1/audio/tts \
+    -H "Content-Type: application/json" \
+    -d "{\"text\":\"{{text}}\",\"speaker\":\"{{speaker}}\"}" \
+    --output /private/tmp/nexus-tts.wav
+  ls -lh /private/tmp/nexus-tts.wav
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Inference Testing
-# ──────────────────────────────────────────────────────────────────────────────
-
-test-inference:
-  #!/bin/zsh
-  ./scripts/run_inference_tests.sh
-
-test-inference-quick:
-  #!/bin/zsh
-  ./scripts/run_inference_tests.sh --quick
-
-test-inference-verbose:
-  #!/bin/zsh
-  ./scripts/run_inference_tests.sh --verbose
-
-test-inference-model model="mlx-community/gemma-4-e2b-bf16":
-  #!/bin/zsh
-  ./scripts/run_inference_tests.sh --model {{model}}
-
-analyze-inference db=".data/api/inference.db" limit="50":
-  #!/bin/zsh
-  python scripts/analyze_inference_runs.py --db {{db}} --limit {{limit}}
+api-stt file="/private/tmp/nexus-tts.wav":
+  curl -sS -X POST http://127.0.0.1:8787/v1/audio/transcribe -F "audio=@{{file}}"

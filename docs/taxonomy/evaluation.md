@@ -1,69 +1,7 @@
 # Evaluation
 
-## What it means
+An evaluation is a quality measurement record. It answers "how good was this?" for a specific subject — a run, an experiment, or a model — against some scorer or rubric.
 
-Evaluation is the measurement layer.
+The current implementation lives in `src/nexus/evaluation/` with schema and durable store. Benchmark scores from completed experiments are automatically written as evaluation records, linked back to the experiment via `evaluation_ids`.
 
-It answers questions like:
-
-- how good was the output?
-- how accurate was the model?
-- how natural was the audio?
-- how strong was the response under a rubric?
-
-Evaluation can be metric-based, judge-based, rubric-based, or human-in-the-loop.
-
-## How it fits in the platform
-
-Evaluation sits downstream of inference and training.
-
-It consumes:
-
-- outputs
-- reference data
-- benchmarks
-- scorers or judges
-
-It produces:
-
-- scores
-- judgments
-- summaries
-- evaluation artifacts
-
-Experiments depend on evaluation, but evaluation is not the same thing as an
-experiment.
-
-## How it works in Nexus
-
-Current evaluation-related logic exists in:
-
-- `src/nexus/evaluation/*`
-- parts of `src/nexus/experiments/*`
-
-Nexus should grow toward explicit evaluation entities with:
-
-- evaluation subjects
-- scorer identity
-- benchmark linkage
-- metric payloads
-- notes and judgments
-
-## Design rules
-
-- Use `evaluation` only for measurement and scoring.
-- Keep evaluation separate from the orchestration of comparisons.
-- Make scorer logic explicit and reviewable.
-- Preserve enough metadata to explain why a score exists.
-
-## Not the same as
-
-- **Experiment**: comparison and hypothesis testing
-- **Benchmark**: reusable test definition
-- **Inference**: output generation
-
-## Future role
-
-Evaluation should become a first-class platform surface in Nexus so every
-capability can share a common language for quality measurement, regardless of
-whether scoring is automated, judge-based, or human-curated.
+An evaluation measures. An experiment compares. A benchmark defines what to test against.

@@ -4,13 +4,15 @@ import asyncio
 import time
 import traceback
 import uuid
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
+from nexus.evaluation import EvaluationStore
+from nexus.evaluation.schema import EvaluationSchema
+from nexus.experiments import ExperimentStore
 from nexus.experiments.config import (
     BenchmarkSpec,
     ExperimentConfig,
@@ -18,26 +20,17 @@ from nexus.experiments.config import (
     ModelSpec,
     SyntheticPuzzleSpec,
 )
+from nexus.experiments.schema import ExperimentSchema, ExperimentVariantSchema
 
 router = APIRouter(prefix="/experiments", tags=["experiments"])
 
 
-# ── In-memory run state ────────────────────────────────────────────────────────
-
-@dataclass
-class ExperimentRun:
-    id: str
-    status: Literal["pending", "running", "completed", "failed"]
-    config: ExperimentConfig
-    started_at: float
-    completed_at: float | None = None
-    scores: dict[str, Any] | None = None
-    output_dir: str | None = None
-    error: str | None = None
+def _store(request: Request) -> ExperimentStore:
+    return request.app.state.experiment_store
 
 
-def _runs(request: Request) -> dict[str, ExperimentRun]:
-    return request.app.state.experiments
+def _evaluation_store(request: Request) -> EvaluationStore:
+    return request.app.state.evaluation_store
 
 
 # ── Request / response models ──────────────────────────────────────────────────
@@ -67,17 +60,103 @@ class ExperimentResultsResponse(ExperimentRunResponse):
     scores: dict[str, Any] | None = None
 
 
-def _to_response(run: ExperimentRun) -> ExperimentRunResponse:
+def _summary_value(record: ExperimentSchema, key: str) -> Any:
+    if not record.summary:
+        return None
+    return record.summary.get(key)
+
+
+def _to_response(record: ExperimentSchema) -> ExperimentRunResponse:
+    error_payload = record.error or {}
     return ExperimentRunResponse(
-        id=run.id,
-        status=run.status,
-        config_name=run.config.name,
-        phase=run.config.phase,
-        started_at=run.started_at,
-        completed_at=run.completed_at,
-        output_dir=run.output_dir,
-        error=run.error,
+        id=record.id,
+        status=record.status,
+        config_name=record.name,
+        phase=int(record.config.get("phase", 1)),
+        started_at=record.started_at or record.created_at,
+        completed_at=record.completed_at,
+        output_dir=_summary_value(record, "output_dir"),
+        error=error_payload.get("traceback") or error_payload.get("message"),
     )
+
+
+def _capability_for_experiment(cfg: ExperimentConfig) -> str:
+    return "text"
+
+
+def _variant_specs_from_config(
+    cfg: ExperimentConfig,
+) -> list[ExperimentVariantSchema]:
+    # Benchmark experiment variants: one per model spec.
+    variants: list[ExperimentVariantSchema] = []
+    for index, model in enumerate(cfg.models, start=1):
+        variants.append(
+            ExperimentVariantSchema(
+                id=f"{model.role}-{index}",
+                model_id=model.model_id,
+                config=model.model_dump(mode="json"),
+            )
+        )
+    return variants
+
+def _experiment_from_config(
+    cfg: ExperimentConfig,
+    experiment_id: str,
+) -> ExperimentSchema:
+    created_at = time.time()
+    return ExperimentSchema(
+        id=experiment_id,
+        name=cfg.name,
+        hypothesis=cfg.description or f"Phase {cfg.phase} experiment",
+        capability=_capability_for_experiment(cfg),
+        status="pending",
+        benchmark_ids=[benchmark.name for benchmark in cfg.benchmarks],
+        variant_specs=_variant_specs_from_config(cfg),
+        run_ids=[],
+        evaluation_ids=[],
+        config=cfg.model_dump(mode="json"),
+        summary={"phase": cfg.phase},
+        winner=None,
+        error=None,
+        created_at=created_at,
+        started_at=created_at,
+        completed_at=None,
+    )
+
+def _evaluation_records_for_scores(
+    experiment: ExperimentSchema,
+    score_payload: dict[str, dict[str, Any]],
+    scorer: str = "benchmark_score",
+) -> list[EvaluationSchema]:
+    created_at = time.time()
+    records: list[EvaluationSchema] = []
+    for variant_key, metrics in score_payload.items():
+        records.append(
+            EvaluationSchema(
+                id=uuid.uuid4().hex,
+                subject_type="experiment",
+                subject_id=experiment.id,
+                capability=experiment.capability,
+                benchmark_id=variant_key,
+                scorer=scorer,
+                rubric=f"phase-{experiment.config.get('phase', 0)}-{scorer}",
+                metrics=metrics,
+                judgment=metrics.get("accuracy_pct") or metrics.get("pass_rate_pct"),
+                notes=f"Stored from experiment {experiment.name}",
+                created_at=created_at,
+            )
+        )
+    return records
+
+
+# ── Config type detection ─────────────────────────────────────────────────────
+
+def _load_config_from_path(path: Path) -> ExperimentConfig:
+    """Load a benchmark YAML config file."""
+    with open(path) as f:
+        import yaml
+        raw = yaml.safe_load(f)
+    return ExperimentConfig(**raw)
 
 
 # ── Runner factory ─────────────────────────────────────────────────────────────
@@ -90,7 +169,7 @@ def _build_config(body: RunExperimentRequest) -> ExperimentConfig:
         path = Path(body.config_path)
         if not path.exists():
             raise HTTPException(400, f"Config file not found: {body.config_path}")
-        return ExperimentConfig.from_yaml(path)
+        return _load_config_from_path(path)
 
     models: list[ModelSpec] = [ModelSpec(model_id=body.small_model, role="small")]
     if body.large_model:
@@ -126,19 +205,55 @@ def _runner_for(cfg: ExperimentConfig):
 
 # ── Background execution ───────────────────────────────────────────────────────
 
-async def _execute(run: ExperimentRun) -> None:
-    run.status = "running"
+async def _execute(
+    experiment_id: str,
+    cfg: ExperimentConfig,
+    store: ExperimentStore,
+    evaluation_store: EvaluationStore,
+) -> None:
+    current = store.get(experiment_id)
+    if current is None:
+        return
+
+    running = current.model_copy(update={"status": "running"})
+    store.save(running)
+
     try:
-        runner = _runner_for(run.config)
+        runner = _runner_for(cfg)
         scores = await asyncio.to_thread(runner.execute)
-        run.scores = {k: v.to_dict() for k, v in scores.items()}
-        run.output_dir = str(run.config.output_path())
-        run.status = "completed"
+        score_payload = {key: value.to_dict() for key, value in scores.items()}
+
+        evaluations = _evaluation_records_for_scores(running, score_payload, "benchmark_score")
+        for evaluation in evaluations:
+            evaluation_store.save(evaluation)
+
+        completed = running.model_copy(
+            update={
+                "status": "completed",
+                "evaluation_ids": [evaluation.id for evaluation in evaluations],
+                "summary": {
+                    **(running.summary or {}),
+                    "phase": cfg.phase,
+                    "output_dir": str(cfg.output_path()),
+                    "scores": score_payload,
+                },
+                "completed_at": time.time(),
+            }
+        )
+        store.save(completed)
     except Exception:
-        run.error = traceback.format_exc()
-        run.status = "failed"
-    finally:
-        run.completed_at = time.time()
+        failed = running.model_copy(
+            update={
+                "status": "failed",
+                "error": {"traceback": traceback.format_exc()},
+                "summary": {
+                    **(running.summary or {}),
+                    "phase": cfg.phase,
+                },
+                "completed_at": time.time(),
+            }
+        )
+        store.save(failed)
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
@@ -146,49 +261,58 @@ async def _execute(run: ExperimentRun) -> None:
 @router.post("", response_model=ExperimentRunResponse, status_code=202)
 async def submit_experiment(body: RunExperimentRequest, request: Request) -> ExperimentRunResponse:
     cfg = _build_config(body)
-    run = ExperimentRun(
-        id=uuid.uuid4().hex,
-        status="pending",
-        config=cfg,
-        started_at=time.time(),
-    )
-    _runs(request)[run.id] = run
-    asyncio.create_task(_execute(run))
-    return _to_response(run)
+    experiment = _experiment_from_config(cfg, uuid.uuid4().hex)
+    store = _store(request)
+    store.save(experiment)
+    asyncio.create_task(_execute(experiment.id, cfg, store, _evaluation_store(request)))
+    return _to_response(experiment)
 
 
 @router.get("", response_model=list[ExperimentRunResponse])
-def list_experiments(request: Request) -> list[ExperimentRunResponse]:
-    return [_to_response(r) for r in _runs(request).values()]
+def list_experiments(
+    request: Request,
+    capability: str | None = None,
+    status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[ExperimentRunResponse]:
+    return [
+        _to_response(record)
+        for record in _store(request).list(
+            capability=capability,
+            status=status,
+            limit=limit,
+            offset=offset,
+        )
+    ]
 
 
-@router.get("/{run_id}", response_model=ExperimentRunResponse)
-def get_experiment(run_id: str, request: Request) -> ExperimentRunResponse:
-    run = _runs(request).get(run_id)
-    if run is None:
-        raise HTTPException(404, f"Experiment run '{run_id}' not found.")
-    return _to_response(run)
+@router.get("/{experiment_id}", response_model=ExperimentRunResponse)
+def get_experiment(experiment_id: str, request: Request) -> ExperimentRunResponse:
+    record = _store(request).get(experiment_id)
+    if record is None:
+        raise HTTPException(404, f"Experiment '{experiment_id}' not found.")
+    return _to_response(record)
 
 
-@router.get("/{run_id}/results", response_model=ExperimentResultsResponse)
-def get_results(run_id: str, request: Request) -> ExperimentResultsResponse:
-    run = _runs(request).get(run_id)
-    if run is None:
-        raise HTTPException(404, f"Experiment run '{run_id}' not found.")
-    if run.status == "running":
+@router.get("/{experiment_id}/results", response_model=ExperimentResultsResponse)
+def get_results(experiment_id: str, request: Request) -> ExperimentResultsResponse:
+    record = _store(request).get(experiment_id)
+    if record is None:
+        raise HTTPException(404, f"Experiment '{experiment_id}' not found.")
+    if record.status == "running":
         raise HTTPException(425, "Experiment is still running.")
     return ExperimentResultsResponse(
-        **_to_response(run).model_dump(),
-        scores=run.scores,
+        **_to_response(record).model_dump(),
+        scores=_summary_value(record, "scores"),
     )
 
 
-@router.delete("/{run_id}", status_code=204)
-def delete_experiment(run_id: str, request: Request) -> None:
-    runs = _runs(request)
-    run = runs.get(run_id)
-    if run is None:
-        raise HTTPException(404, f"Experiment run '{run_id}' not found.")
-    if run.status == "running":
+@router.delete("/{experiment_id}", status_code=204)
+def delete_experiment(experiment_id: str, request: Request) -> None:
+    record = _store(request).get(experiment_id)
+    if record is None:
+        raise HTTPException(404, f"Experiment '{experiment_id}' not found.")
+    if record.status == "running":
         raise HTTPException(409, "Cannot delete a running experiment.")
-    del runs[run_id]
+    _store(request).delete(experiment_id)

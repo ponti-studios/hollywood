@@ -1,40 +1,19 @@
 """
-judge.py — LLM-as-judge evaluation using MLX (local, free, private).
+judge.py — LLM-as-judge evaluation using the Nexus API text worker.
 
-What is LLM-as-judge?
-──────────────────────
-Traditional metrics like BLEU and ROUGE measure surface-level text similarity.
-They don't capture whether a response is actually helpful, accurate, or safe.
-
-LLM-as-judge uses a language model to score responses based on criteria
-like helpfulness, accuracy, coherence, and harmlessness.
-
-The judge model reads:
-  - The original prompt
-  - The response to evaluate
-  - A scoring rubric
-
-And outputs a score (typically 1–10) plus a brief justification.
-
-Why use a local judge?
-  - Free (no API costs)
-  - Private (your data never leaves your machine)
-  - Fast on Apple Silicon via MLX
-
-This approach is used in many modern research papers (MT-Bench, AlpacaEval, etc.)
-and is now the de-facto standard for evaluating instruction-following quality.
-
-The limitation: the judge model is itself imperfect. A larger judge = more
-reliable scores. We use Gemma 4 E2B as judge by default since it's powerful
-enough for basic evaluation while fitting comfortably in Mac RAM.
+The judge model is served through the public Nexus control plane, so local
+evaluation stays aligned with the compose-backed runtime and does not require
+any local serving stack.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 import re
 from dataclasses import dataclass
 
+import httpx
 from rich.console import Console
 from rich.table import Table
 
@@ -64,89 +43,69 @@ REASONING: [one sentence explaining the score]
 @dataclass
 class JudgeResult:
     """The result of judging a single (prompt, response) pair."""
+
     prompt: str
     response: str
-    score: float          # 1.0 – 10.0
+    score: float
     reasoning: str
     judge_model: str
 
 
 def parse_judge_output(output: str) -> tuple[float, str]:
-    """Extract the numeric score and reasoning from the judge's raw output.
-
-    The judge is prompted to follow a strict format, but LLMs don't always
-    comply perfectly, so we use a regex to extract what we need.
-    """
+    """Extract the numeric score and reasoning from the judge's output."""
     score_match = re.search(r"SCORE:\s*(\d+(?:\.\d+)?)", output)
     reasoning_match = re.search(r"REASONING:\s*(.+?)(?:\n|$)", output, re.DOTALL)
 
     score = float(score_match.group(1)) if score_match else 5.0
     reasoning = reasoning_match.group(1).strip() if reasoning_match else "No reasoning provided."
-
-    # Clamp to valid range
     score = max(1.0, min(10.0, score))
     return score, reasoning
 
 
+def _api_base_url() -> str:
+    return os.getenv("NEXUS_API_URL", "http://127.0.0.1:8787").rstrip("/")
+
+
 def judge_responses(
     examples: list[dict[str, str]],
-    judge_model_id: str = "google/gemma-4-e2b",
+    judge_model_id: str = "HuggingFaceTB/SmolLM2-135M-Instruct",
 ) -> list[JudgeResult]:
-    """Use a local MLX model to judge a list of (prompt, response) pairs.
+    """Use the Nexus API text worker to judge prompt/response pairs."""
+    api_base = _api_base_url()
+    results: list[JudgeResult] = []
 
-    Args:
-        examples: list of dicts with "prompt" and "response" keys
-        judge_model_id: HuggingFace model ID for the judge
+    console.print(f"\n[bold]Judging with API model:[/bold] {judge_model_id}")
+    with httpx.Client(base_url=api_base, timeout=None) as client:
+        for i, example in enumerate(examples):
+            prompt = example["prompt"]
+            response = example["response"]
+            judge_input = JUDGE_PROMPT.format(prompt=prompt, response=response)
 
-    Returns:
-        List of JudgeResult objects with scores and reasoning.
+            payload = {
+                "model": judge_model_id,
+                "messages": [{"role": "user", "content": judge_input}],
+                "max_tokens": 200,
+                "temperature": 0.0,
+            }
+            res = client.post("/v1/chat/completions", json=payload)
+            res.raise_for_status()
+            body = res.json()
+            raw_output = str(body["choices"][0]["message"]["content"])
 
-    Note: This uses mlx-vlm for Gemma 4 inference (fast Apple Silicon path).
-          The judge model is loaded separately from the model being evaluated.
-    """
-    try:
-        from mlx_vlm import generate, load
-        from mlx_vlm.prompt_utils import apply_chat_template
-    except ImportError:
-        raise ImportError(
-            "mlx-vlm is required for local LLM-as-judge evaluation. "
-            "Install it with: pip install mlx-vlm"
-        )
+            score, reasoning = parse_judge_output(raw_output)
+            results.append(
+                JudgeResult(
+                    prompt=prompt,
+                    response=response,
+                    score=score,
+                    reasoning=reasoning,
+                    judge_model=judge_model_id,
+                )
+            )
 
-    console.print(f"\n[bold]Loading judge model:[/bold] {judge_model_id}")
-    judge_model, judge_processor = load(judge_model_id)
-
-    results = []
-    for i, example in enumerate(examples):
-        prompt = example["prompt"]
-        response = example["response"]
-
-        judge_input = JUDGE_PROMPT.format(prompt=prompt, response=response)
-
-        formatted_prompt = apply_chat_template(judge_processor, judge_model.config, judge_input)
-
-        # Generate the judge's evaluation using MLX-VLM (fast local inference)
-        output = generate(
-            model=judge_model,
-            processor=judge_processor,
-            prompt=formatted_prompt,
-            max_tokens=200,
-            verbose=False,
-        )
-        raw_output = output.text if hasattr(output, "text") else str(output)
-
-        score, reasoning = parse_judge_output(raw_output)
-        results.append(JudgeResult(
-            prompt=prompt,
-            response=response,
-            score=score,
-            reasoning=reasoning,
-            judge_model=judge_model_id,
-        ))
-
-        if (i + 1) % 10 == 0:
-            avg = sum(r.score for r in results) / len(results)
-            console.print(f"  Judged {i + 1}/{len(examples)} — avg score: {avg:.2f}")
+            if (i + 1) % 10 == 0:
+                avg = sum(r.score for r in results) / len(results)
+                console.print(f"  Judged {i + 1}/{len(examples)} — avg score: {avg:.2f}")
 
     return results
 
@@ -159,7 +118,6 @@ def print_judge_summary(results: list[JudgeResult]) -> None:
 
     avg_score = sum(r.score for r in results) / len(results)
 
-    # Distribution: count how many fall in each bucket
     buckets = {"1–3 (poor)": 0, "4–6 (ok)": 0, "7–8 (good)": 0, "9–10 (excellent)": 0}
     for r in results:
         if r.score <= 3:
@@ -179,7 +137,6 @@ def print_judge_summary(results: list[JudgeResult]) -> None:
         bar = "█" * count
         console.print(f"    {label:20s} {bar} ({count})")
 
-    # Show a few examples
     console.print("\n[bold]Sample results:[/bold]")
     table = Table(show_header=True)
     table.add_column("Score", style="cyan", width=6)

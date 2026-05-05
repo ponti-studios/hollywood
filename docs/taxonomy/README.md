@@ -75,6 +75,6 @@ Once the nouns are clear, use these companion docs to turn them into platform
 contracts:
 
 - `docs/api-taxonomy.md`
-- `docs/storage-taxonomy.md`
-- `docs/naming-alignment.md`
-- `docs/schemas/README.md`
+- `docs/storage-model.md`
+- `docs/naming.md`
+- `src/nexus/*/schema.py`

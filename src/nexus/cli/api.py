@@ -17,9 +17,9 @@ def serve(
 ) -> None:
     """Start the Nexus control-plane API.
 
-    Provides multimodal platform endpoints for inference, voice,
+    Provides multimodal platform endpoints for text, audio,
     experiments, and run history.
-    Load a model first: POST /v1/models/load
+    The compose stack starts the text and audio backends automatically.
     """
     try:
         import uvicorn

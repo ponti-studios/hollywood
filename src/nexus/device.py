@@ -12,7 +12,7 @@ This module centralises device detection so the rest of the code never has
 to worry about which hardware it's running on.
 
 MPS limitations (as of PyTorch 2.4):
-  - No bitsandbytes (QLoRA) — use MLX instead for quantised inference
+  - No bitsandbytes (QLoRA) — use standard PyTorch tooling for quantised inference
   - No flash attention 2 — use "eager" attention
   - Some operations fall back to CPU automatically (PyTorch handles this)
 """

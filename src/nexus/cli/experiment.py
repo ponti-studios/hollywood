@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -44,7 +43,7 @@ def _build_large_model_spec(model_id: str):
 
 @experiment_app.command("run")
 def run_experiment(
-    config: Optional[Path] = typer.Option(
+    config: Path | None = typer.Option(
         None,
         "--config", "-c",
         help="Path to experiment YAML config file.",
@@ -61,7 +60,7 @@ def run_experiment(
         "--small-model",
         help="Small model to evaluate.",
     ),
-    large_model: Optional[str] = typer.Option(
+    large_model: str | None = typer.Option(
         None,
         "--large-model",
         help="Large reference model for comparison (optional).",
@@ -104,9 +103,15 @@ def run_experiment(
     nexus experiment run --config configs/benchmarks/exp_01.yaml
 
     \b
+    \b
     # Compare small vs large model:
     nexus experiment run --large-model MiniMax-M2.7
     """
+    if config is not None:
+        if not config.exists():
+            console.print(f"[red]Config file not found:[/red] {config}")
+            raise typer.Exit(code=1)
+
     if phase == 1:
         _run_phase_1(
             config,
@@ -149,9 +154,9 @@ def run_experiment(
 
 
 def _run_phase_1(
-    config: Optional[Path],
+    config: Path | None,
     small_model: str,
-    large_model: Optional[str],
+    large_model: str | None,
     samples: int,
     no_wandb: bool,
     no_reference_cache: bool,
@@ -159,13 +164,14 @@ def _run_phase_1(
 ) -> None:
     """Dispatch to the Phase 1 baseline runner."""
     from nexus.experiments.config import (
-        ExperimentConfig, ModelSpec, BenchmarkSpec, LoggingSpec, SyntheticPuzzleSpec
+        BenchmarkSpec,
+        ExperimentConfig,
+        LoggingSpec,
+        ModelSpec,
+        SyntheticPuzzleSpec,
     )
 
     if config is not None:
-        if not config.exists():
-            console.print(f"[red]Config file not found:[/red] {config}")
-            raise typer.Exit(code=1)
         cfg = ExperimentConfig.from_yaml(config)
     else:
         models = [ModelSpec(model_id=small_model, role="small")]
@@ -202,15 +208,15 @@ def _run_phase_1(
 
 
 def _run_phase_2(
-    config: Optional[Path],
+    config: Path | None,
     small_model: str,
-    large_model: Optional[str],
+    large_model: str | None,
     samples: int,
     no_wandb: bool,
     no_reference_cache: bool,
     refresh_reference_cache: bool,
 ) -> None:
-    from nexus.experiments.config import ExperimentConfig, LoggingSpec, ModelSpec
+    from nexus.experiments.config import ExperimentConfig
 
     if config is not None:
         if not config.exists():
@@ -241,9 +247,9 @@ def _run_phase_2(
 
 
 def _run_phase_3(
-    config: Optional[Path],
+    config: Path | None,
     small_model: str,
-    large_model: Optional[str],
+    large_model: str | None,
     samples: int,
     no_wandb: bool,
     no_reference_cache: bool,
@@ -321,9 +327,9 @@ def list_reference_caches(
         "--dir",
         help="Directory containing reference cache entries.",
     ),
-    experiment: Optional[str] = typer.Option(None, "--experiment", help="Filter by experiment name."),
-    model: Optional[str] = typer.Option(None, "--model", help="Filter by exact model id."),
-    benchmark: Optional[str] = typer.Option(None, "--benchmark", help="Filter by benchmark name."),
+    experiment: str | None = typer.Option(None, "--experiment", help="Filter by experiment name."),
+    model: str | None = typer.Option(None, "--model", help="Filter by exact model id."),
+    benchmark: str | None = typer.Option(None, "--benchmark", help="Filter by benchmark name."),
     as_json: bool = typer.Option(False, "--json", help="Print machine-readable JSON output."),
 ) -> None:
     """List reference cache entries."""
@@ -427,15 +433,15 @@ def inspect_reference_cache(
 
 @cache_app.command("purge")
 def purge_reference_cache(
-    cache_path: Optional[Path] = typer.Argument(None, help="Specific cache JSON file to delete."),
+    cache_path: Path | None = typer.Argument(None, help="Specific cache JSON file to delete."),
     cache_dir: Path = typer.Option(
         Path(".data/benchmarks/cache"),
         "--dir",
         help="Directory containing reference cache entries.",
     ),
-    experiment: Optional[str] = typer.Option(None, "--experiment", help="Filter by experiment name."),
-    model: Optional[str] = typer.Option(None, "--model", help="Filter by exact model id."),
-    benchmark: Optional[str] = typer.Option(None, "--benchmark", help="Filter by benchmark name."),
+    experiment: str | None = typer.Option(None, "--experiment", help="Filter by experiment name."),
+    model: str | None = typer.Option(None, "--model", help="Filter by exact model id."),
+    benchmark: str | None = typer.Option(None, "--benchmark", help="Filter by benchmark name."),
     yes: bool = typer.Option(False, "--yes", help="Confirm deletion without prompting."),
 ) -> None:
     """Delete one or more reference cache entries."""

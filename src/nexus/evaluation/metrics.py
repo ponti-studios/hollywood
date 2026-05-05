@@ -39,7 +39,6 @@ from pathlib import Path
 from typing import Any
 
 import torch
-from datasets import Dataset
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, PreTrainedTokenizer
 

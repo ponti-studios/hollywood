@@ -9,8 +9,7 @@ authors = [{ name = "Charles Ponti" }]
 dependencies = [
     # --- Cross-platform data + config stack ---
     # transformers: HuggingFace library for loading pretrained models like Gemma.
-    # Kept in the base install because tokenizers/config tooling is useful in dev environments
-    # even when the Apple-only runtime stack is not installed.
+    # Kept in the base install because tokenizers/config tooling is useful in dev environments.
     "transformers>=4.49.0",
 
     # datasets: HuggingFace library for loading and processing training data.
@@ -40,6 +39,9 @@ dependencies = [
     "tqdm>=4.64",
     "numpy>=1.26",
     "httpx>=0.28.0",
+
+    # --- Audio I/O ---
+    "soundfile>=0.12.0",
 ]
 
 [project.optional-dependencies]
@@ -50,25 +52,10 @@ api = [
 ]
 apple = [
     # Full Apple Silicon runtime stack: training + inference.
-    # If uv fails to resolve torch on a newer macOS (e.g. macOS 26+), install
-    # the apple-runtime packages manually via pip instead of uv:
-    #   .venv/bin/pip install torch accelerate peft trl mlx mlx-lm mlx-vlm
     "torch>=2.4.0",
     "accelerate>=1.0.0",
     "peft>=0.14.0",
     "trl>=0.12.0",
-    "mlx>=0.22.0",
-    "mlx-lm>=0.20.0",
-    "mlx-vlm>=0.4.3",
-]
-mlx = [
-    # MLX-only subset — inference and serving without the full PyTorch training stack.
-    # Useful for running experiments when you only need local inference (not fine-tuning).
-    # This resolves cleanly on all macOS versions via pip:
-    #   .venv/bin/pip install mlx mlx-lm mlx-vlm
-    "mlx>=0.22.0",
-    "mlx-lm>=0.20.0",
-    "mlx-vlm>=0.4.3",
 ]
 dev = [
     "pytest>=8.0",
@@ -101,9 +88,7 @@ sources = ["src"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
-markers = [
-    "inference: real MLX model inference checks that may download model weights",
-]
+markers = ["inference: real model inference checks that may download model weights"]
 
 [tool.ruff]
 line-length = 100

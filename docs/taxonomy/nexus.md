@@ -1,38 +1,43 @@
-# Nexus
+# Nexus Platform Architecture
 
-## What it means
+This document is the **canonical definition of Nexus**.
 
-Nexus is the top-level platform identity.
+Nexus is the studio control plane for multimodal inference, training, and
+evaluation. It is the top-level platform identity above every capability,
+workflow, and runtime surface in this repo.
 
-It is the control plane for multimodal generative workflows, including:
+Use `nexus` for:
+
+- the platform noun
+- the deployable runtime
+- the root service name
+- the top-level developer and operator interface
+
+Do **not** use a capability name, model name, or transport detail as the
+platform identity.
+
+Canonical supporting docs:
+
+- taxonomy index: `docs/taxonomy/README.md`
+- api contract: `docs/api-taxonomy.md`
+- storage model: `docs/storage-model.md`
+- canonical schemas: `src/nexus/*/schema.py`
+
+## Platform role
+
+Nexus owns the top-level runtime for:
 
 - inference
 - training
 - evaluation
 - experiments
-- run tracking
+- run history
 - model management
-- modality-specific capabilities like voice, text, and image
+- modality-specific capabilities like audio, text, and image
 
-`nexus` is the stable platform noun. It should not be replaced by the name of a
-single capability, model, or transport layer.
+In practical terms, the deployable unit is `nexus`.
 
-## How it fits in the platform
-
-Nexus sits above every capability and workflow.
-
-It owns:
-
-- the primary API surface
-- runtime orchestration
-- cross-cutting storage and metadata
-- the stable developer and operator interface
-- the naming contract for platform concepts
-
-In practical terms, the deployable service is `nexus`, not `voice`, `train`, or
-`eval`.
-
-## How it works in Nexus
+## Current platform surfaces
 
 Today, Nexus is represented by:
 
@@ -41,38 +46,63 @@ Today, Nexus is represented by:
 - the root `compose.yml` service named `nexus`
 - the shared API surface under `/health` and `/v1/*`
 
-As Nexus grows, new bounded contexts should attach to the platform without
-changing the platform noun.
+## Bounded contexts
+
+Keep platform identity and capability identity separate.
+
+- `nexus.api` — transport and control-plane entrypoints
+- `nexus.runs` — platform run records and durable execution history
+- `nexus.audio` — audio generation and transcription domain
+- `nexus.experiments` — benchmark execution and scoring
+- `nexus.trainers` — model training workflows
+- `nexus.evaluation` — evaluation metrics and judge flows
+- `nexus.models` — model loading and adapter management
+
+## Runtime topology
+
+### Current state
+
+The `nexus` service runs the API/control plane.
+
+The control plane starts private backend containers for the public API to proxy:
+
+- `infra/images/text/text.dockerfile`
+- `infra/images/audio/tts.dockerfile`
+- `infra/images/audio/asr.dockerfile`
+
+This keeps the public API small while still making text, TTS, and STT easy to
+test locally with `curl`.
+
+### Implications
+
+- local development is simple and flexible
+- backend containers can be rebuilt independently of the public API
+- first-request latency can include model download time
+- the host machine is no longer part of the runtime contract
+
+## Naming rules
+
+Use these conventions consistently:
+
+- top-level service: `nexus`
+- modality/domain: `audio`, `image`, `text`, `train`, `eval`
+- transport/process detail: `api`, `worker`, `runner`
 
 Examples:
 
-- good: `nexus` exposes `/v1/voice/*`
-- good: `nexus` runs voice and experiment flows
-- avoid: renaming the whole runtime to `voice-api`
+- good: `nexus` service exposing `/v1/audio/*`
+- good: `audio` as a domain module under `src/nexus/audio`
+- avoid: naming the whole platform service `audio-api`
 
-## Design rules
+## Near-term roadmap
 
-- Use `nexus` for the platform, repo identity, root runtime, and top-level docs.
-- Do not use a capability name as the platform name.
-- Do not use a transport detail like `api` as the platform identity.
-- Keep `nexus` stable even as capabilities and providers change.
+1. Keep `nexus` as the single control-plane service.
+2. Continue treating `audio` as a bounded context inside Nexus.
+3. Add more bounded contexts for image and text generation.
+4. Split heavyweight worker execution behind explicit adapters.
+5. Decide whether training/eval stay in-process or become job workers.
 
-## Current code fit
+## Deployment principle
 
-Relevant surfaces include:
-
-- `src/nexus/api`
-- `compose.yml`
-- `infra/compose/nexus-compose.yml`
-- `docs/platform-architecture.md`
-
-## Future role
-
-Nexus should become the stable contract between:
-
-- creative tooling
-- model runtimes
-- evaluation systems
-- benchmark workflows
-- job orchestration
-- future studio products
+Nexus should be the stable platform noun.
+Capability-specific workers can evolve independently without renaming the control plane.
