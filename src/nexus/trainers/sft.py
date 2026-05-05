@@ -111,7 +111,7 @@ def run_sft(recipe: Recipe) -> None:
         # SFT-specific: the column that contains the formatted text
         dataset_text_field="text",
         # Truncate examples longer than max_seq_len
-        max_seq_length=recipe.model.max_seq_len,
+        max_length=recipe.model.max_seq_len,
         # Pack multiple short examples into one sequence for efficiency
         # Disable for simplicity when starting out
         packing=False,

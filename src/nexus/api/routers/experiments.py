@@ -8,18 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from nexus.evaluation import EvaluationStore
 from nexus.evaluation.schema import EvaluationSchema
 from nexus.experiments import ExperimentStore
-from nexus.experiments.config import (
-    BenchmarkSpec,
-    ExperimentConfig,
-    LoggingSpec,
-    ModelSpec,
-    SyntheticPuzzleSpec,
-)
+from nexus.experiments.config import ExperimentConfig
 from nexus.experiments.schema import ExperimentSchema, ExperimentVariantSchema
 
 router = APIRouter(prefix="/experiments", tags=["experiments"])
@@ -37,13 +31,7 @@ def _evaluation_store(request: Request) -> EvaluationStore:
 
 
 class RunExperimentRequest(BaseModel):
-    config: ExperimentConfig | None = None
-    config_path: str | None = None
-    phase: int = 1
-    small_model: str = "google/gemma-4-e2b"
-    large_model: str | None = None
-    samples: int = 500
-    no_wandb: bool = False
+    phase: int = Field(default=1, ge=1, le=3)
 
 
 class ExperimentRunResponse(BaseModel):
@@ -155,45 +143,23 @@ def _evaluation_records_for_scores(
 # ── Config type detection ─────────────────────────────────────────────────────
 
 
-def _load_config_from_path(path: Path) -> ExperimentConfig:
-    """Load a benchmark YAML config file."""
-    with open(path) as f:
-        import yaml
-
-        raw = yaml.safe_load(f)
-    return ExperimentConfig(**raw)
+PRESET_CONFIGS: dict[int, Path] = {
+    1: Path("configs/benchmarks/exp_01.yaml"),
+    2: Path("configs/benchmarks/exp_02.yaml"),
+    3: Path("configs/benchmarks/exp_03.yaml"),
+}
 
 
 # ── Runner factory ─────────────────────────────────────────────────────────────
 
 
 def _build_config(body: RunExperimentRequest) -> ExperimentConfig:
-    if body.config is not None:
-        return body.config
-
-    if body.config_path is not None:
-        path = Path(body.config_path)
-        if not path.exists():
-            raise HTTPException(400, f"Config file not found: {body.config_path}")
-        return _load_config_from_path(path)
-
-    models: list[ModelSpec] = [ModelSpec(model_id=body.small_model, role="small")]
-    if body.large_model:
-        models.append(ModelSpec(model_id=body.large_model, role="large"))
-
-    return ExperimentConfig(
-        name=f"exp_phase{body.phase}_{uuid.uuid4().hex[:6]}",
-        description=f"Phase {body.phase} experiment",
-        phase=body.phase,  # type: ignore[arg-type]
-        models=models,
-        benchmarks=[
-            BenchmarkSpec(name="triviaqa", samples=body.samples),
-            BenchmarkSpec(name="mmlu", samples=body.samples),
-            BenchmarkSpec(name="synthetic", samples=body.samples),
-        ],
-        synthetic=SyntheticPuzzleSpec(),
-        logging=LoggingSpec(wandb_project=None if body.no_wandb else "nexus"),
-    )
+    path = PRESET_CONFIGS.get(body.phase)
+    if path is None:
+        raise HTTPException(400, f"Phase {body.phase} is not yet implemented.")
+    if not path.exists():
+        raise HTTPException(500, f"Preset config file not found: {path}")
+    return ExperimentConfig.from_yaml(path)
 
 
 def _runner_for(cfg: ExperimentConfig):

@@ -1,8 +1,8 @@
-"""Training algorithms: SFT, DPO, ORPO, GRPO."""
+"""Training workflows for Nexus.
 
-from nexus.trainers.dpo import run_dpo
-from nexus.trainers.grpo import run_grpo
-from nexus.trainers.orpo import run_orpo
-from nexus.trainers.sft import run_sft
+Import concrete trainers directly from their modules, e.g.
+`from nexus.trainers.dpo import run_dpo`.
 
-__all__ = ["run_sft", "run_dpo", "run_orpo", "run_grpo"]
+This package intentionally avoids eager imports so missing optional trainer
+features do not break unrelated commands during package import.
+"""

@@ -8,58 +8,93 @@ Today, the repo contains three closely related layers:
 - private text and audio worker services behind that API
 - local training, evaluation, and benchmark workflows for posttraining experiments
 
-The canonical product language and implementation contracts live here:
+The canonical product language, API naming, storage model, and implementation contracts live in this README.
 
-- `docs/taxonomy/nexus.md` — what Nexus is
-- `docs/taxonomy/README.md` — the canonical noun model
-- `docs/api-taxonomy.md` — how nouns map to routes
-- `docs/storage-model.md` — what counts as durable platform state
-- `src/nexus/*/schema.py` — package-owned schemas
+## Nexus taxonomy
 
-## Platform Shape
+This is the canonical noun model, API taxonomy, storage taxonomy, and naming alignment for Nexus.
 
-Nexus uses a simple rule:
+Use these nouns consistently for package names, API routes, storage tables,
+job types, UI labels, and internal services.
 
-- platform resources live at `/v1/{noun}`
-- capability actions live at `/v1/{capability}/{action}`
+### Canonical nouns
 
-Examples that exist today:
+| Noun | Meaning | Implemented | Planned |
+| --- | --- | --- | --- |
+| Nexus | the platform / control plane | `nexus` package, `nexus api serve`, root `compose.yml` service, `/health`, `/v1/*` | stay the stable platform noun |
+| Capability | a product domain such as audio or text | `audio` under `src/nexus/audio/` with `/v1/audio/*` routes | add `text`, `image`, and other bounded contexts |
+| Model | an asset the platform operates on | model loading in `src/nexus/models/`, identity tracked by string ID | durable model registry with stable IDs |
+| Inference | producing outputs from a model | `/v1/chat/completions`, audio TTS/STT flows, durable run records | more inference surfaces and modalities |
+| Training | updating model parameters or adapters | `src/nexus/trainers/`, YAML recipes, `src/nexus/cli/train.py` | durable run/artifact records and eventual rename to `training` |
+| Evaluation | measuring quality for a subject | `src/nexus/evaluation/` schema + store, linked to runs and experiments | more subjects and scorers |
+| Benchmark | defining a reusable test | benchmark logic in `src/nexus/experiments/benchmarks/` with `configs/benchmarks/` | stable IDs and a first-class store |
+| Experiment | comparing variants under a hypothesis | `src/nexus/experiments/` schema + store, linked evaluation IDs, summary scores | reuse the same comparison record for new workflows |
+| Run | recording a single execution | `src/nexus/runs/` durable SQLite store, inference runs already recorded | benchmark trials and evaluation passes also write here |
+| Job | orchestrating lifecycle-managed work | `src/nexus/jobs/schema.py` | durable store for queueing, retries, cancellation, progress |
+| Artifact | persisting durable output | `src/nexus/artifacts/schema.py` | durable store for stable artifact records |
 
-- `POST /v1/chat/completions`
-- `GET /v1/audio/health`
-- `POST /v1/audio/tts`
-- `POST /v1/audio/transcribe`
-- `GET /v1/runs`
-- `GET /v1/runs/{id}`
-- `GET /v1/experiments`
-- `POST /v1/experiments`
+### API taxonomy
 
-Examples defined in the taxonomy but not yet exposed:
+Platform primitives live at `/v1/{noun}`. Capability-specific actions live at `/v1/{capability}/{action}`.
 
-- `/v1/evaluations`
-- `/v1/jobs`
-- `/v1/artifacts`
-- `/v1/benchmarks`
+| Route | Status | Notes |
+| --- | --- | --- |
+| `GET /health` | implemented | health check |
+| `GET /v1/runs`, `GET /v1/runs/{id}`, `DELETE /v1/runs/{id}` | implemented | run ledger |
+| `GET /v1/experiments`, `POST /v1/experiments`, `GET /v1/experiments/{experiment_id}`, `GET /v1/experiments/{experiment_id}/results` | implemented | experiment workflows |
+| `GET /v1/audio/health`, `POST /v1/audio/tts`, `POST /v1/audio/transcribe` | implemented | audio capability routes |
+| `POST /v1/chat/completions` | implemented | text inference |
+| `/v1/evaluations` | planned | platform resource |
+| `/v1/jobs` | planned | platform resource |
+| `/v1/artifacts` | planned | platform resource |
+| `/v1/benchmarks` | planned | platform resource |
 
-## Storage Model
+Rules:
 
-Nexus keeps durable platform records in a shared SQLite database at
-`.data/api/inference.db`.
+- use nouns, not verbs, for resources
+- capability routes own modality-specific payloads
+- platform routes stay stable across capabilities
+- do not encode implementation detail into routes
 
-Stored today:
+### Storage taxonomy
 
-- `runs` — the canonical run ledger
-- `experiments` — benchmark comparisons and summaries
-- `evaluations` — quality measurements linked to runs and experiments
+Nexus keeps durable platform records in a shared SQLite database at `.data/api/inference.db`.
 
-Not stored yet as first-class tables:
+| Store | Status | Notes |
+| --- | --- | --- |
+| `runs` | implemented | atomic execution records for inference and other workflows |
+| `experiments` | implemented | comparison records with status, config snapshot, scores, and evaluation linkage |
+| `evaluations` | implemented | quality measurement records linked to runs, experiments, and benchmarks |
+| `jobs` | planned | schema exists, store does not yet exist |
+| `artifacts` | planned | schema exists, store does not yet exist |
+| `models` | planned | schema exists, store does not yet exist |
 
-- `jobs`
-- `artifacts`
-- `models`
+Keep these storage kinds separate:
 
-Capability-specific files and caches still exist on disk, but they are not the
-system of record.
+- platform records are durable, queryable, and keyed by stable IDs
+- capability files and caches are modality-specific outputs that live in `.data/audio/`, `assets/audio/`, benchmark cache dirs, and similar locations
+- research outputs in `research/` are exploratory and disposable
+
+A file on disk is not a platform record. A generated wav file is a file. An artifact record with a URI pointing to that file is a platform record.
+
+### Naming alignment
+
+Current package alignment:
+
+- platform — `nexus`
+- audio capability — `src/nexus/audio`
+- API control plane — `src/nexus/api`
+- run records — `src/nexus/runs`
+- evaluation — `src/nexus/evaluation`
+- experiments — `src/nexus/experiments`
+- jobs — `src/nexus/jobs` schema only
+- artifacts — `src/nexus/artifacts` schema only
+- training workflows — `src/nexus/trainers`
+
+Open naming gap:
+
+- `src/nexus/trainers` should eventually become `src/nexus/training`
+- the taxonomy noun is `training`; `trainers` is an implementation detail
 
 ---
 
@@ -87,7 +122,7 @@ The main techniques, roughly in order of complexity:
 
 - [mise](https://mise.jdx.dev/) for pinned tool versions
 - Apple Silicon Mac (M1 Pro/Max or M2/M3 recommended)
-- Python 3.12.x for the Apple runtime stack
+- Python 3.12.x for the training stack
 - [uv](https://docs.astral.sh/uv/) for package management
 - A free [HuggingFace account](https://huggingface.co) + API token
 - A free [Weights & Biases account](https://wandb.ai) for experiment tracking
@@ -102,26 +137,41 @@ cd nexus
 # Install the exact toolchain pinned in mise.toml
 mise install
 
-# Cross-platform dev install: tests, linting, notebooks, config/data utilities
+# Runtime install: API server, CLI tools, datasets, and formatting helpers
 mise exec -- uv venv .venv
-uv pip install -e ".[dev,notebook]"
+uv pip install -e ".[runtime]"
 
-# Full Apple Silicon runtime install: training and eval
-uv pip install -e ".[dev,notebook,apple]"
+# Training / evaluation install: adds torch, PEFT, and TRL
+uv pip install -e ".[train]"
 
-# Or use the Makefile shortcuts
-make setup
-make setup-apple
+# Full contributor install: runtime + training + test tooling
+uv pip install -e ".[dev]"
+
+# Optional notebooks and exploratory analysis
+uv pip install -e ".[notebook]"
+
+# Or install everything in one shot
+uv pip install -e ".[all]"
+
+# Or use the just targets
+just setup
+just setup-runtime
+just setup-train
+just setup-notebook
+just setup-all
+just install-cli
 
 # Copy and fill in your API keys
 cp .env.example .env
 # Edit .env: add HF_TOKEN and WANDB_API_KEY
 ```
 
-`make setup` is intentionally cross-platform and does not install the Apple-only
-runtime stack. Training and perplexity evaluation require the `apple` extra on
-Apple Silicon, and the CLI now guards those commands so they fail early if
-Python, platform, or optional runtime dependencies are wrong.
+`just setup` installs the full contributor environment. `just setup-runtime`
+installs the API / CLI bundle, `just setup-train` installs the training and
+evaluation bundle, and `just setup-notebook` / `just setup-all` cover the
+analysis and everything-everywhere cases. Training and perplexity evaluation
+still require macOS on Apple Silicon, and the CLI now guards those commands so
+they fail early if Python, platform, or optional runtime dependencies are wrong.
 
 ### Start the Nexus runtime
 
@@ -224,8 +274,8 @@ nexus eval judge --checkpoint .data/checkpoints/my-run
 
 # Experiments
 nexus experiment run --phase 1
-nexus experiment run --phase 2 --large-model MiniMax-M2.7
-nexus experiment run --phase 3 --samples 50 --no-wandb
+nexus experiment run --phase 2
+nexus experiment run --phase 3
 
 # Data
 nexus data list                              # show recommended datasets
@@ -242,15 +292,9 @@ nexus data download --name tatsu-lab/alpaca # download and cache
 nexus/
 ├── compose.yml             # local runtime graph: API + text/audio workers
 ├── configs/
-│   ├── models/             # model configs
-│   ├── data/               # dataset configs
 │   ├── recipes/            # training recipes
 │   └── benchmarks/         # experiment presets
 ├── assets/                 # sample assets used in local workflows
-├── docs/
-│   ├── taxonomy/           # canonical platform nouns
-│   ├── api-taxonomy.md     # route naming contract
-│   └── storage-model.md    # durable storage contract
 ├── src/nexus/
 │   ├── api/                # public control-plane app, routers, API models
 │   ├── text/               # private text-generation worker service
@@ -266,7 +310,7 @@ nexus/
 │   ├── trainers/           # SFT, DPO, ORPO, and GRPO trainers
 │   ├── config.py           # training and benchmark config models
 │   ├── device.py           # Apple Silicon / MPS detection
-│   ├── runtime.py          # explicit runtime guards for Apple workflows
+│   ├── runtime.py          # explicit runtime guards for training workflows
 │   └── schemas/            # compatibility shims for canonical schemas
 ├── infra/                  # Dockerfiles and runtime assets
 ├── research/               # disposable labs and benchmark notes
@@ -290,9 +334,8 @@ Still in progress:
 - adding durable stores for jobs and artifacts
 - reducing legacy compatibility shims as the canonical noun model settles
 
-See `docs/taxonomy/nexus.md` for platform boundaries and runtime topology.
-See `docs/taxonomy/README.md` for the canonical noun model.
-See `docs/api-taxonomy.md`, `docs/storage-model.md`, and `src/nexus/*/schema.py` for implementation contracts.
+See the Nexus taxonomy and naming alignment sections above for the canonical noun model, platform boundaries, API routes, and storage model.
+See `src/nexus/*/schema.py` for package-owned schemas.
 
 ---
 
@@ -352,10 +395,10 @@ and the audio workers each have their own dedicated image.
 ## Running tests
 
 ```bash
-make test           # run all tests
-make test-cov       # with coverage report
-make lint           # check code style
-make format         # auto-format
+just test           # run all tests
+just test-cov       # with coverage report
+just lint           # check code style
+just format         # auto-format
 ```
 
 ---

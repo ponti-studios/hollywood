@@ -2,8 +2,7 @@
 experiment.py — CLI commands for running benchmark experiments.
 
 Commands:
-  nexus experiment run   --config configs/benchmarks/exp_01.yaml
-  nexus experiment run   --phase 1 --samples 50 --no-wandb
+  nexus experiment run --phase 1
   nexus experiment list  (show available experiment configs)
 """
 
@@ -20,273 +19,61 @@ experiment_app = typer.Typer(no_args_is_help=True)
 cache_app = typer.Typer(no_args_is_help=True)
 console = Console()
 
-DEFAULT_LARGE_MODEL_ID = "Qwen/Qwen3.5-4B"
-DEFAULT_LARGE_MODEL_BATCH_SIZE = 4
+PRESET_CONFIGS: dict[int, Path] = {
+    1: Path("configs/benchmarks/exp_01.yaml"),
+    2: Path("configs/benchmarks/exp_02.yaml"),
+    3: Path("configs/benchmarks/exp_03.yaml"),
+}
 
 experiment_app.add_typer(cache_app, name="cache")
 
 
-def _build_large_model_spec(model_id: str):
-    from nexus.experiments.config import ModelSpec
-
-    if model_id == DEFAULT_LARGE_MODEL_ID:
-        return ModelSpec(
-            model_id=model_id,
-            role="large",
-            inference_backend="transformers",
-            max_new_tokens=256,
-            temperature=0.0,
-            batch_size=DEFAULT_LARGE_MODEL_BATCH_SIZE,
-        )
-
-    return ModelSpec(model_id=model_id, role="large")
-
-
 @experiment_app.command("run")
 def run_experiment(
-    config: Path | None = typer.Option(
-        None,
-        "--config",
-        "-c",
-        help="Path to experiment YAML config file.",
-    ),
     phase: int = typer.Option(
         1,
         "--phase",
         "-p",
-        help="Which experiment phase to run (1–4). Ignored if --config is provided.",
+        help="Which standard experiment phase to run.",
         min=1,
-        max=4,
-    ),
-    small_model: str = typer.Option(
-        "google/gemma-4-e2b",
-        "--small-model",
-        help="Small model to evaluate.",
-    ),
-    large_model: str | None = typer.Option(
-        None,
-        "--large-model",
-        help="Large reference model for comparison (optional).",
-    ),
-    samples: int = typer.Option(
-        500,
-        "--samples",
-        "-n",
-        help="Number of questions per benchmark. Use 50 for a quick sanity check.",
-    ),
-    no_wandb: bool = typer.Option(
-        False,
-        "--no-wandb",
-        help="Disable Weights & Biases logging.",
-    ),
-    no_reference_cache: bool = typer.Option(
-        False,
-        "--no-reference-cache",
-        help="Always run reference models instead of reusing cached results.",
-    ),
-    refresh_reference_cache: bool = typer.Option(
-        False,
-        "--refresh-reference-cache",
-        help="Recompute and overwrite cached reference-model results.",
+        max=3,
     ),
 ) -> None:
-    """Run a benchmark experiment.
+    """Run one of the fixed benchmark experiment presets.
 
-    Examples:
-
-    \b
-    # Run Phase 1 baseline with defaults (500 samples, gemma-4-e2b):
-    nexus experiment run
-
-    \b
-    # Quick sanity check (50 samples, no W&B):
-    nexus experiment run --samples 50 --no-wandb
-
-    \b
-    # Run from a YAML config file:
-    nexus experiment run --config configs/benchmarks/exp_01.yaml
-
-    \b
-    \b
-    # Compare small vs large model:
-    nexus experiment run --large-model Qwen/Qwen3.5-4B
+    The preset YAML files in configs/benchmarks/ are the canonical source of
+    truth. This command intentionally does not accept ad hoc model, sample,
+    cache, or W&B overrides.
     """
-    if config is not None:
-        if not config.exists():
-            console.print(f"[red]Config file not found:[/red] {config}")
-            raise typer.Exit(code=1)
+    if phase not in PRESET_CONFIGS:
+        console.print(
+            f"[yellow]Phase {phase} is not yet implemented.[/yellow] "
+            f"Available phases: {', '.join(str(p) for p in sorted(PRESET_CONFIGS))}."
+        )
+        raise typer.Exit(code=1)
+
+    config = PRESET_CONFIGS[phase]
+    from nexus.experiments.config import ExperimentConfig
+
+    if not config.exists():
+        console.print(f"[red]Preset config file not found:[/red] {config}")
+        raise typer.Exit(code=1)
+
+    cfg = ExperimentConfig.from_yaml(config)
 
     if phase == 1:
-        _run_phase_1(
-            config,
-            small_model,
-            large_model,
-            samples,
-            no_wandb,
-            no_reference_cache,
-            refresh_reference_cache,
-        )
-        return
-    if phase == 2:
-        _run_phase_2(
-            config,
-            small_model,
-            large_model,
-            samples,
-            no_wandb,
-            no_reference_cache,
-            refresh_reference_cache,
-        )
-        return
-    if phase == 3:
-        _run_phase_3(
-            config,
-            small_model,
-            large_model,
-            samples,
-            no_wandb,
-            no_reference_cache,
-            refresh_reference_cache,
-        )
-        return
+        from nexus.experiments.phases.baseline import BaselineRunner
 
-    console.print(
-        f"[yellow]Phase {phase} is not yet implemented.[/yellow] "
-        f"Available phases: 1 (baseline), 2 (open book), 3 (reflection)."
-    )
-    raise typer.Exit(code=1)
+        runner = BaselineRunner(cfg)
+    elif phase == 2:
+        from nexus.experiments.phases.open_book import OpenBookRunner
 
-
-def _run_phase_1(
-    config: Path | None,
-    small_model: str,
-    large_model: str | None,
-    samples: int,
-    no_wandb: bool,
-    no_reference_cache: bool,
-    refresh_reference_cache: bool,
-) -> None:
-    """Dispatch to the Phase 1 baseline runner."""
-    from nexus.experiments.config import (
-        BenchmarkSpec,
-        ExperimentConfig,
-        LoggingSpec,
-        ModelSpec,
-        SyntheticPuzzleSpec,
-    )
-
-    if config is not None:
-        cfg = ExperimentConfig.from_yaml(config)
+        runner = OpenBookRunner(cfg)
     else:
-        models = [ModelSpec(model_id=small_model, role="small")]
-        if large_model:
-            models.append(_build_large_model_spec(large_model))
+        from nexus.experiments.phases.reflection import ReflectionRunner
 
-        cfg = ExperimentConfig(
-            name="exp_01_baseline",
-            description="Phase 1: Closed-book baseline",
-            phase=1,
-            models=models,
-            benchmarks=[
-                BenchmarkSpec(name="triviaqa", samples=samples),
-                BenchmarkSpec(name="mmlu", samples=samples),
-                BenchmarkSpec(name="synthetic", samples=samples),
-            ],
-            synthetic=SyntheticPuzzleSpec(),
-            logging=LoggingSpec(
-                wandb_project=None if no_wandb else "3b-logic-broker",
-                use_reference_cache=not no_reference_cache,
-                refresh_reference_cache=refresh_reference_cache,
-            ),
-        )
+        runner = ReflectionRunner(cfg)
 
-    if no_reference_cache:
-        cfg.logging.use_reference_cache = False
-    if refresh_reference_cache:
-        cfg.logging.refresh_reference_cache = True
-
-    # Import here so the CLI startup stays fast (avoids loading torch on --help)
-    from nexus.experiments.phases.baseline import BaselineRunner
-
-    runner = BaselineRunner(cfg)
-    runner.execute()
-
-
-def _run_phase_2(
-    config: Path | None,
-    small_model: str,
-    large_model: str | None,
-    samples: int,
-    no_wandb: bool,
-    no_reference_cache: bool,
-    refresh_reference_cache: bool,
-) -> None:
-    from nexus.experiments.config import ExperimentConfig
-
-    if config is not None:
-        if not config.exists():
-            console.print(f"[red]Config file not found:[/red] {config}")
-            raise typer.Exit(code=1)
-        cfg = ExperimentConfig.from_yaml(config)
-    else:
-        from nexus.experiments.phases.open_book import build_default_config
-
-        cfg = build_default_config(
-            small_model=small_model,
-            large_model=None,
-            samples=samples,
-            no_wandb=no_wandb,
-        )
-        if large_model:
-            cfg.models.append(_build_large_model_spec(large_model))
-
-    if no_reference_cache:
-        cfg.logging.use_reference_cache = False
-    if refresh_reference_cache:
-        cfg.logging.refresh_reference_cache = True
-
-    from nexus.experiments.phases.open_book import OpenBookRunner
-
-    runner = OpenBookRunner(cfg)
-    runner.execute()
-
-
-def _run_phase_3(
-    config: Path | None,
-    small_model: str,
-    large_model: str | None,
-    samples: int,
-    no_wandb: bool,
-    no_reference_cache: bool,
-    refresh_reference_cache: bool,
-) -> None:
-    from nexus.experiments.config import ExperimentConfig
-
-    if config is not None:
-        if not config.exists():
-            console.print(f"[red]Config file not found:[/red] {config}")
-            raise typer.Exit(code=1)
-        cfg = ExperimentConfig.from_yaml(config)
-    else:
-        from nexus.experiments.phases.reflection import build_default_config
-
-        cfg = build_default_config(
-            small_model=small_model,
-            large_model=None,
-            samples=samples,
-            no_wandb=no_wandb,
-        )
-        if large_model:
-            cfg.models.append(_build_large_model_spec(large_model))
-
-    if no_reference_cache:
-        cfg.logging.use_reference_cache = False
-    if refresh_reference_cache:
-        cfg.logging.refresh_reference_cache = True
-
-    from nexus.experiments.phases.reflection import ReflectionRunner
-
-    runner = ReflectionRunner(cfg)
     runner.execute()
 
 

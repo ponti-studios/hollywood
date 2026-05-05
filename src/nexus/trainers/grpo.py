@@ -149,7 +149,7 @@ def run_grpo(
         num_generations=4,  # N responses to generate per prompt per step
         # More = better gradient estimate but more memory
         # 4 is a good starting point on Apple Silicon
-        max_new_tokens=256,  # max tokens to generate per response
+        max_completion_length=256,  # max tokens to generate per response
         temperature=0.9,  # sampling temperature for generation
         beta=0.04,  # KL penalty to prevent collapsing to degenerate responses
     )

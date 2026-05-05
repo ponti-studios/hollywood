@@ -25,7 +25,6 @@ from __future__ import annotations
 import importlib
 import json
 import logging
-import os
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -144,9 +143,6 @@ class BaseRunner(ABC):
         temperature=0.0 gives greedy (deterministic) decoding, which is what
         we want for benchmarking — we don't want randomness to affect scores.
         """
-        if spec.inference_backend == "openai-compatible":
-            return self._build_openai_compatible_pipeline(spec)
-
         from transformers import GenerationConfig, pipeline
 
         torch = cast(Any, importlib.import_module("torch"))
@@ -156,9 +152,8 @@ class BaseRunner(ABC):
             pipeline(
                 "text-generation",
                 model=spec.model_id,
-                torch_dtype=torch.bfloat16,
+                dtype=torch.bfloat16,
                 device_map="auto",
-                trust_remote_code=True,
             ),
         )
 
@@ -173,69 +168,6 @@ class BaseRunner(ABC):
             pad_token_id=pipe.tokenizer.eos_token_id or 0,
         )
         return pipe
-
-    def _build_openai_compatible_pipeline(self, spec: ModelSpec) -> Any:
-        """Build a remote OpenAI-compatible chat-completions client."""
-        import httpx
-
-        if not spec.api_base:
-            raise ValueError(
-                f"Model {spec.model_id} uses openai-compatible inference but api_base is not configured"
-            )
-
-        api_key_env = spec.api_key_env or "OPENAI_API_KEY"
-        api_key = os.getenv(api_key_env)
-        if not api_key:
-            raise ValueError(
-                f"Model {spec.model_id} requires environment variable {api_key_env} for API access"
-            )
-
-        base_url = spec.api_base.rstrip("/")
-        request_temperature = spec.temperature if spec.temperature > 0 else 0.01
-        if spec.temperature <= 0:
-            logger.warning(
-                "Remote model %s does not support temperature=0. Using 0.01 for near-greedy decoding.",
-                spec.model_id,
-            )
-
-        class OpenAICompatiblePipeline:
-            def __init__(self) -> None:
-                self.client = httpx.Client(
-                    base_url=base_url,
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    timeout=spec.request_timeout_seconds,
-                )
-
-            def __call__(self, prompt: str) -> list[dict]:
-                payload = {
-                    "model": spec.model_id,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": spec.max_new_tokens,
-                    "temperature": request_temperature,
-                    "n": 1,
-                }
-                response = self.client.post("/chat/completions", json=payload)
-                response.raise_for_status()
-                body = response.json()
-                try:
-                    content = body["choices"][0]["message"]["content"]
-                except (KeyError, IndexError, TypeError) as exc:
-                    raise ValueError(
-                        f"Unexpected response shape from remote model {spec.model_id}: {body}"
-                    ) from exc
-
-                if isinstance(content, list):
-                    text = "".join(
-                        part.get("text", "") for part in content if isinstance(part, dict)
-                    )
-                else:
-                    text = str(content)
-                return [{"generated_text": prompt + text}]
-
-        return OpenAICompatiblePipeline()
 
     # ──────────────────────────────────────────────────────────────────────
     # Inference

@@ -7,7 +7,6 @@ explicit self-critique pass improves correctness.
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -294,52 +293,13 @@ class ReflectionRunner(BaseRunner):
         )
 
 
-def build_default_config(
-    small_model: str,
-    large_model: str | None,
-    samples: int,
-    no_wandb: bool,
-) -> ExperimentConfig:
-    from nexus.experiments.config import LoggingSpec
-
-    models = [ModelSpec(model_id=small_model, role="small")]
-    if large_model:
-        models.append(ModelSpec(model_id=large_model, role="large"))
-
-    return ExperimentConfig(
-        name="exp_03_reflection",
-        description="Phase 3: Draft-critique-refine benchmark",
-        phase=3,
-        models=models,
-        benchmarks=[
-            BenchmarkSpec(name="triviaqa", samples=samples),
-            BenchmarkSpec(name="mmlu", samples=samples),
-            BenchmarkSpec(name="synthetic", samples=samples),
-        ],
-        logging=LoggingSpec(wandb_project=None if no_wandb else "3b-logic-broker"),
-    )
+def build_default_config() -> ExperimentConfig:
+    """Load the canonical Phase 3 experiment preset."""
+    return ExperimentConfig.from_yaml(Path("configs/benchmarks/exp_03.yaml"))
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Phase 3: reflection benchmark")
-    parser.add_argument("--config", type=Path, default=None)
-    parser.add_argument("--small-model", default="google/gemma-4-e2b")
-    parser.add_argument("--large-model", default=None)
-    parser.add_argument("--samples", type=int, default=500)
-    parser.add_argument("--no-wandb", action="store_true")
-    args = parser.parse_args()
-
-    if args.config:
-        cfg = ExperimentConfig.from_yaml(args.config)
-    else:
-        cfg = build_default_config(
-            small_model=args.small_model,
-            large_model=args.large_model,
-            samples=args.samples,
-            no_wandb=args.no_wandb,
-        )
-
-    ReflectionRunner(cfg).execute()
+    ReflectionRunner(build_default_config()).execute()
 
 
 if __name__ == "__main__":

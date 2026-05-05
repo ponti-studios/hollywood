@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ModelConfig(BaseModel):
@@ -48,6 +48,8 @@ class ModelConfig(BaseModel):
     dtype: Literal["bfloat16", "float32"] = "bfloat16"
     max_seq_len: int = 2048
     attn_implementation: str = "eager"
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class LoraConfig(BaseModel):
@@ -83,7 +85,7 @@ class LoraConfig(BaseModel):
     target_modules: list[str] = ["q_proj", "k_proj", "v_proj", "o_proj"]
     bias: Literal["none", "all", "lora_only"] = "none"
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     @field_validator("rank")
     @classmethod
@@ -95,6 +97,10 @@ class LoraConfig(BaseModel):
 
 class DataConfig(BaseModel):
     """Which dataset to load and how to preprocess it.
+
+    The repo defines the supported dataset schemas in code. There are no
+    per-run column overrides — each dataset/method combo has one canonical
+    formatter and training will fail fast if the input does not match it.
 
     dataset_name: HuggingFace dataset repo, e.g. "tatsu-lab/alpaca"
                   You can browse datasets at huggingface.co/datasets
@@ -115,10 +121,8 @@ class DataConfig(BaseModel):
     val_split: float = 0.05
     max_samples: int | None = None
     seed: int = 42
-    text_column: str = "text"  # column name containing the text/messages
-    prompt_column: str = "prompt"  # for DPO/ORPO: column with the prompt
-    chosen_column: str = "chosen"  # for DPO/ORPO: preferred response
-    rejected_column: str = "rejected"  # for DPO/ORPO: dispreferred response
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class TrainingConfig(BaseModel):
@@ -172,6 +176,8 @@ class TrainingConfig(BaseModel):
     bf16: bool = True  # use bfloat16 for training (required for Gemma)
     fp16: bool = False  # do NOT use float16 with Gemma
 
+    model_config = ConfigDict(extra="forbid")
+
     @field_validator("fp16")
     @classmethod
     def fp16_and_bf16_conflict(cls, v: bool, info: object) -> bool:
@@ -196,6 +202,8 @@ class WandbConfig(BaseModel):
     tags: list[str] = []
     notes: str = ""
 
+    model_config = ConfigDict(extra="forbid")
+
 
 class Recipe(BaseModel):
     """A complete training experiment definition.
@@ -216,6 +224,8 @@ class Recipe(BaseModel):
     training: TrainingConfig
     lora: LoraConfig | None = None  # None = full fine-tuning (not recommended on Mac)
     wandb: WandbConfig = Field(default_factory=WandbConfig)
+
+    model_config = ConfigDict(extra="forbid")
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> Recipe:

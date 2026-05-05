@@ -9,7 +9,6 @@ any local serving stack.
 from __future__ import annotations
 
 import logging
-import os
 import re
 from dataclasses import dataclass
 
@@ -53,7 +52,7 @@ class JudgeResult:
 
 def parse_judge_output(output: str) -> tuple[float, str]:
     """Extract the numeric score and reasoning from the judge's output."""
-    score_match = re.search(r"SCORE:\s*(\d+(?:\.\d+)?)", output)
+    score_match = re.search(r"SCORE:\s*([+-]?\d+(?:\.\d+)?)", output)
     reasoning_match = re.search(r"REASONING:\s*(.+?)(?:\n|$)", output, re.DOTALL)
 
     score = float(score_match.group(1)) if score_match else 5.0
@@ -63,7 +62,9 @@ def parse_judge_output(output: str) -> tuple[float, str]:
 
 
 def _api_base_url() -> str:
-    return os.getenv("NEXUS_API_URL", "http://127.0.0.1:8787").rstrip("/")
+    from nexus.api.backends import DEFAULT_API_BASE_URL
+
+    return DEFAULT_API_BASE_URL
 
 
 def judge_responses(

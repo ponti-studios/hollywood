@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from contextlib import asynccontextmanager
 from typing import Literal
 
@@ -8,13 +7,6 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from nexus.audio import ApiError, AudioError, AudioGenRequest, AudioService
-
-
-def _role() -> Literal["tts", "asr"]:
-    value = os.getenv("NEXUS_AUDIO_ROLE", "tts").strip().lower()
-    if value not in {"tts", "asr"}:
-        raise ValueError("NEXUS_AUDIO_ROLE must be 'tts' or 'asr'")
-    return value  # type: ignore[return-value]
 
 
 def _raise(exc: AudioError) -> None:
@@ -26,7 +18,9 @@ def _raise(exc: AudioError) -> None:
 
 def create_app(role: Literal["tts", "asr"] | None = None) -> FastAPI:
     service = AudioService()
-    resolved_role = role or _role()
+    resolved_role = role or "tts"
+    if resolved_role not in {"tts", "asr"}:
+        raise ValueError("role must be 'tts' or 'asr'")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -35,6 +29,8 @@ def create_app(role: Literal["tts", "asr"] | None = None) -> FastAPI:
         yield
 
     app = FastAPI(title="Nexus Audio Service", version="0.1.0", lifespan=lifespan)
+    app.state.audio_service = service
+    app.state.audio_role = resolved_role
 
     @app.get("/health")
     def health() -> dict[str, object]:

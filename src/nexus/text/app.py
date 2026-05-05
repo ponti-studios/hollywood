@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import threading
 import time
 import uuid
@@ -15,6 +14,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
 
+from nexus.api.backends import DEFAULT_TEXT_MODEL_ID
 from nexus.api.models import (
     ChatCompletionChoice,
     ChatCompletionRequest,
@@ -25,14 +25,6 @@ from nexus.api.models import (
     ModelsResponse,
     Usage,
 )
-
-
-def _default_model_id() -> str:
-    return os.getenv("NEXUS_TEXT_MODEL_ID", "HuggingFaceTB/SmolLM2-135M-Instruct")
-
-
-def _autoload() -> bool:
-    return os.getenv("NEXUS_TEXT_AUTOLOAD", "true").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _trim_stop(text: str, stop: list[str] | None) -> str:
@@ -63,15 +55,14 @@ def _get_or_404(request: Request, model_id: str) -> LoadedModel:
 
 
 def _load_model(model_id: str) -> LoadedModel:
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
 
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
-        torch_dtype=torch.float32,
-        trust_remote_code=True,
+        dtype=torch.float32,
     )
     model.eval()
     return LoadedModel(model_id=model_id, model=model, tokenizer=tokenizer)
@@ -131,20 +122,19 @@ def _generate_text(entry: LoadedModel, body: ChatCompletionRequest) -> tuple[str
     return completion, prompt_tokens, completion_tokens
 
 
-def create_app() -> FastAPI:
-    default_model_id = _default_model_id()
-
+def create_app(default_model_id: str = DEFAULT_TEXT_MODEL_ID, autoload: bool = True) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        app.state.models = {}
-        app.state.default_model_id = default_model_id
-        if _autoload():
+        if autoload:
             model = await asyncio.to_thread(_load_model, default_model_id)
             app.state.models[default_model_id] = model
         yield
         app.state.models.clear()
 
     app = FastAPI(title="Nexus Text Service", version="0.1.0", lifespan=lifespan)
+    app.state.models = {}
+    app.state.default_model_id = default_model_id
+    app.state.autoload = autoload
     router = APIRouter(tags=["text"])
 
     @router.get("/health")

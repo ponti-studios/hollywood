@@ -51,7 +51,6 @@ def load_and_split(cfg: DataConfig) -> DatasetDict:
     dataset = load_dataset(
         cfg.dataset_name,
         split=cfg.split,
-        trust_remote_code=True,  # required by some datasets
     )
 
     # Optionally cap the number of examples for quick experiments

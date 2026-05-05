@@ -159,7 +159,7 @@ def load_mmlu(
     all_datasets = []
     for subject in subjects:
         try:
-            ds = load_dataset("cais/mmlu", subject, split="validation", trust_remote_code=True)
+            ds = load_dataset("cais/mmlu", subject, split="validation")
             all_datasets.append(ds)
         except Exception as e:
             logger.warning(f"Could not load MMLU subject '{subject}': {e}")

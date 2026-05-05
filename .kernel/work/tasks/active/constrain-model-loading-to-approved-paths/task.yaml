@@ -1,0 +1,25 @@
+id: constrain-model-loading-to-approved-paths
+title: Constrain model loading to approved paths
+status: active
+goalId: stabilize-nexus-platform-before-customization
+epicId: lock-platform-surfaces
+tags:
+  - hardening
+  - models
+linkedKnowledgeIds:
+  - nexus-hardening-surface-audit
+createdAt: 2026-05-05T20:44:48.074Z
+updatedAt: 2026-05-05T20:44:48.074Z
+checklist:
+  - id: clarify-scope
+    title: Clarify scope and acceptance criteria
+    done: false
+  - id: implement-core-path
+    title: Implement the core path
+    done: false
+  - id: verify-behavior
+    title: Verify behavior
+    done: false
+  - id: capture-knowledge
+    title: Capture decisions and follow-ups
+    done: false

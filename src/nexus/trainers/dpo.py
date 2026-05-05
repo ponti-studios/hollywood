@@ -115,7 +115,7 @@ def run_dpo(recipe: Recipe) -> None:
         # higher β → stays closer to reference model
         # lower β → more aggressive preference optimisation
         max_length=recipe.model.max_seq_len,
-        max_prompt_length=recipe.model.max_seq_len // 2,
+        truncation_mode="keep_end",
     )
 
     # ── 5. Train ───────────────────────────────────────────────────────────

@@ -36,7 +36,8 @@ from __future__ import annotations
 
 import logging
 
-from trl import ORPOConfig, ORPOTrainer
+from trl.experimental.orpo.orpo_config import ORPOConfig
+from trl.experimental.orpo.orpo_trainer import ORPOTrainer
 
 from nexus.config import Recipe
 from nexus.data.formatters import prepare_dpo_dataset
@@ -106,7 +107,7 @@ def run_orpo(recipe: Recipe) -> None:
         # Paper recommends 0.1; try 0.05–0.5
         beta=0.1,
         max_length=recipe.model.max_seq_len,
-        max_prompt_length=recipe.model.max_seq_len // 2,
+        max_completion_length=recipe.model.max_seq_len // 2,
     )
 
     # ── 5. Train ───────────────────────────────────────────────────────────

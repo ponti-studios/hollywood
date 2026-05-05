@@ -72,7 +72,6 @@ def load_triviaqa(
         "trivia_qa",
         "rc.wikipedia",
         split="validation",
-        trust_remote_code=True,
     )
 
     if samples is not None:

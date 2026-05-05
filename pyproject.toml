@@ -7,63 +7,94 @@ requires-python = ">=3.12,<3.13"
 authors = [{ name = "Charles Ponti" }]
 
 dependencies = [
-    # --- Cross-platform data + config stack ---
-    # transformers: HuggingFace library for loading pretrained models like Gemma.
-    # Kept in the base install because tokenizers/config tooling is useful in dev environments.
-    "transformers>=4.49.0",
-
-    # datasets: HuggingFace library for loading and processing training data.
-    "datasets>=3.0.0",
-
-    # sentencepiece: tokenizer library required by Gemma's tokenizer.
-    "sentencepiece>=0.2.0",
-
-    # --- Config & validation ---
-    # pydantic: runtime type validation. All our YAML configs are validated through
+    # --- Config & CLI core ---
+    # pydantic: runtime type validation. All YAML configs are validated through
     # Pydantic models so you get clear errors when something is misconfigured.
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
     "pyyaml>=6.0",
     "python-dotenv>=1.0",
-
-    # --- CLI & terminal output ---
     "typer>=0.12.5",
     "rich>=13.0",
-
-    # --- Experiment tracking ---
-    # wandb: Weights & Biases — industry-standard tool for logging training metrics,
-    # comparing runs, and visualising model performance over time.
-    "wandb>=0.19.0",
-
-    # --- Utilities ---
     "tqdm>=4.64",
     "numpy>=1.26",
-    "httpx>=0.28.0",
-
-    # --- Audio I/O ---
-    "soundfile>=0.12.0",
 ]
 
 [project.optional-dependencies]
-api = [
+runtime = [
+    # --- Public API + CLI runtime ---
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
     "python-multipart>=0.0.9",
+    "httpx>=0.28.0",
+    "datasets>=3.0.0",
+    "sentencepiece>=0.2.0",
+    "transformers>=5.8.0",
+    "soundfile>=0.12.0",
+    "wandb>=0.19.0",
 ]
-apple = [
-    # Full Apple Silicon runtime stack: training + inference.
+train = [
+    # --- Training / evaluation stack ---
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.9",
+    "httpx>=0.28.0",
+    "datasets>=3.0.0",
+    "sentencepiece>=0.2.0",
+    "transformers>=5.8.0",
+    "soundfile>=0.12.0",
+    "wandb>=0.19.0",
     "torch>=2.4.0",
     "accelerate>=1.0.0",
     "peft>=0.14.0",
     "trl>=0.12.0",
 ]
 dev = [
+    # --- Full contributor environment ---
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.9",
+    "httpx>=0.28.0",
+    "datasets>=3.0.0",
+    "sentencepiece>=0.2.0",
+    "transformers>=5.8.0",
+    "soundfile>=0.12.0",
+    "wandb>=0.19.0",
+    "torch>=2.4.0",
+    "accelerate>=1.0.0",
+    "peft>=0.14.0",
+    "trl>=0.12.0",
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "ruff>=0.8.0",
     "pyright>=1.1.390",
 ]
 notebook = [
+    "jupyter>=1.0",
+    "ipywidgets>=8.0",
+    "matplotlib>=3.8",
+    "pandas>=2.0",
+    "seaborn>=0.13",
+]
+all = [
+    # --- Everything ---
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.9",
+    "httpx>=0.28.0",
+    "datasets>=3.0.0",
+    "sentencepiece>=0.2.0",
+    "transformers>=5.8.0",
+    "soundfile>=0.12.0",
+    "wandb>=0.19.0",
+    "torch>=2.4.0",
+    "accelerate>=1.0.0",
+    "peft>=0.14.0",
+    "trl>=0.12.0",
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.8.0",
+    "pyright>=1.1.390",
     "jupyter>=1.0",
     "ipywidgets>=8.0",
     "matplotlib>=3.8",

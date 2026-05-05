@@ -2,9 +2,9 @@
 runtime.py — Explicit environment guards for Apple Silicon training workflows.
 
 The project can be installed in a lightweight development mode without the full
-Apple runtime stack. Commands that actually need that stack should fail with a
-clear explanation instead of a late ImportError or a cryptic wheel-resolution
-problem.
+training/evaluation stack. Commands that actually need that stack should fail
+with a clear explanation instead of a late ImportError or a cryptic
+wheel-resolution problem.
 """
 
 from __future__ import annotations
@@ -41,12 +41,12 @@ def ensure_supported_python(console: Console | None = None) -> None:
         _fail(
             console,
             "Unsupported Python version. Use mise to install Python 3.12.x "
-            "and recreate .venv before running Apple runtime commands.",
+            "and recreate .venv before running training/evaluation commands.",
         )
 
 
 def ensure_apple_silicon(console: Console | None = None) -> None:
-    """Require macOS on Apple Silicon for Apple runtime commands."""
+    """Require macOS on Apple Silicon for training/evaluation commands."""
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         _fail(
             console,
@@ -56,7 +56,7 @@ def ensure_apple_silicon(console: Console | None = None) -> None:
 
 
 def ensure_apple_runtime(console: Console | None = None) -> None:
-    """Require the Apple runtime dependencies used by training/perplexity paths."""
+    """Require the training/evaluation dependencies used by model-backed paths."""
     ensure_supported_python(console)
     ensure_apple_silicon(console)
 
@@ -65,6 +65,6 @@ def ensure_apple_runtime(console: Console | None = None) -> None:
         joined = ", ".join(missing)
         _fail(
             console,
-            "Missing Apple runtime dependencies: "
-            f"{joined}. Install them with: uv pip install -e '.[dev,notebook,apple]'",
+            "Missing training/evaluation dependencies: "
+            f"{joined}. Install them with: uv pip install -e \".[train]\"",
         )

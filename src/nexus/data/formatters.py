@@ -105,12 +105,71 @@ def prepare_sft_dataset(
 # ── DPO / ORPO formatting ─────────────────────────────────────────────────────
 
 
+def _messages_to_prompt(messages: Any) -> str:
+    """Convert a message list or string into a prompt string.
+
+    UltraFeedback binarized examples often store the full prompt/response
+    conversation in the chosen/rejected fields rather than a dedicated
+    `prompt` column. In that case we reconstruct the prompt from every turn
+    before the first assistant response.
+    """
+    if messages is None:
+        return ""
+
+    if isinstance(messages, str):
+        return messages.strip()
+
+    if not isinstance(messages, list):
+        return str(messages).strip()
+
+    prompt_parts: list[str] = []
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        role = str(message.get("role", "")).lower()
+        content = str(message.get("content", "")).strip()
+        if not content:
+            continue
+        if role == "assistant":
+            break
+        prompt_parts.append(content)
+
+    return "\n\n".join(prompt_parts).strip()
+
+
+def _messages_to_response(messages: Any) -> str:
+    """Extract the assistant response from a message list or string."""
+    if messages is None:
+        return ""
+
+    if isinstance(messages, str):
+        return messages.strip()
+
+    if not isinstance(messages, list):
+        return str(messages).strip()
+
+    for message in reversed(messages):
+        if not isinstance(message, dict):
+            continue
+        if str(message.get("role", "")).lower() == "assistant":
+            return str(message.get("content", "")).strip()
+
+    for message in reversed(messages):
+        if isinstance(message, dict):
+            content = str(message.get("content", "")).strip()
+            if content:
+                return content
+
+    return ""
+
+
 def format_ultrafeedback_for_dpo(example: dict[str, Any]) -> dict[str, Any]:
     """Convert an UltraFeedback row into the (prompt, chosen, rejected) format.
 
-    The UltraFeedback dataset already has "prompt", "chosen", "rejected" columns
-    but the chosen/rejected values are lists of messages. We format them with
-    the chat template format (as plain strings — the trainer handles tokenisation).
+    The current UltraFeedback binarized dataset stores the chosen/rejected
+    conversations but does not expose a standalone `prompt` column.
+    We derive the prompt from the shared conversation prefix and keep the last
+    assistant message as the chosen/rejected answer.
 
     What is DPO?
     ────────────
@@ -118,19 +177,16 @@ def format_ultrafeedback_for_dpo(example: dict[str, Any]) -> dict[str, Any]:
     The model implicitly learns a preference model without training a separate
     reward model. It's much simpler than PPO-based RLHF.
     """
-
-    # UltraFeedback stores chosen/rejected as [{"role": ..., "content": ...}, ...]
-    # We extract just the last assistant turn as the response text
-    def extract_response(messages: list[dict[str, str]]) -> str:
-        for msg in reversed(messages):
-            if msg["role"] == "assistant":
-                return msg["content"]
-        return ""
+    prompt = _messages_to_prompt(example.get("prompt"))
+    if not prompt:
+        prompt = _messages_to_prompt(example.get("chosen"))
+    if not prompt:
+        prompt = _messages_to_prompt(example.get("rejected"))
 
     return {
-        "prompt": example["prompt"],
-        "chosen": extract_response(example["chosen"]),
-        "rejected": extract_response(example["rejected"]),
+        "prompt": prompt,
+        "chosen": _messages_to_response(example.get("chosen")),
+        "rejected": _messages_to_response(example.get("rejected")),
     }
 
 

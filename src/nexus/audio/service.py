@@ -49,7 +49,7 @@ def _require_soundfile():
         raise AudioError(
             503,
             "MISSING_DEPENDENCY",
-            "soundfile is not installed. Install the audio extras to enable TTS and ASR.",
+            "soundfile is not installed. Install the runtime bundle to enable TTS and ASR.",
         ) from exc
     return sf
 
@@ -61,7 +61,7 @@ def _require_torch():
         raise AudioError(
             503,
             "MISSING_DEPENDENCY",
-            "torch is not installed. Install the audio extras to enable TTS and ASR.",
+            "torch is not installed. Install the train bundle to enable TTS and ASR.",
         ) from exc
     return torch
 

@@ -13,7 +13,14 @@ you get loud errors at startup rather than silent training failures.
 import pytest
 from pydantic import ValidationError
 
-from nexus.config import LoraConfig, ModelConfig, Recipe, TrainingConfig
+from nexus.config import DataConfig, LoraConfig, ModelConfig, Recipe, TrainingConfig
+from nexus.experiments.config import (
+    BenchmarkSpec,
+    ExperimentConfig,
+    LoggingSpec,
+    ModelSpec,
+    SyntheticPuzzleSpec,
+)
 
 
 class TestModelConfig:
@@ -27,6 +34,10 @@ class TestModelConfig:
     def test_invalid_dtype_rejected(self):
         with pytest.raises(ValidationError):
             ModelConfig(model_id="google/gemma-4-e2b", dtype="float16")
+
+    def test_unknown_field_rejected(self):
+        with pytest.raises(ValidationError):
+            ModelConfig(model_id="google/gemma-4-e2b", extra_field=True)  # type: ignore
 
     def test_model_id_required(self):
         with pytest.raises(ValidationError):
@@ -75,6 +86,25 @@ class TestTrainingConfig:
         with pytest.raises(ValidationError):
             TrainingConfig(method="rlhf")  # not a supported method
 
+    def test_unknown_field_rejected(self):
+        with pytest.raises(ValidationError):
+            TrainingConfig(method="sft", surprise=True)  # type: ignore
+
+
+class TestDataConfig:
+    def test_valid_config(self):
+        cfg = DataConfig(dataset_name="trl-lib/ultrafeedback_binarized")
+        assert cfg.dataset_name == "trl-lib/ultrafeedback_binarized"
+        assert cfg.split == "train"
+        assert cfg.val_split == 0.05
+
+    def test_schema_override_keys_rejected(self):
+        with pytest.raises(ValidationError):
+            DataConfig(
+                dataset_name="trl-lib/ultrafeedback_binarized",
+                prompt_column="prompt",
+            )
+
 
 class TestRecipe:
     def test_recipe_from_dict(self, sample_recipe_dict):
@@ -102,3 +132,40 @@ class TestRecipe:
 
         recipe = Recipe.from_yaml(yaml_file)
         assert recipe.name == "test-recipe"
+
+    def test_unknown_field_rejected(self):
+        with pytest.raises(ValidationError):
+            Recipe(
+                name="test-recipe",
+                description="A test recipe",
+                model=ModelConfig(model_id="google/gemma-4-e2b"),
+                data=DataConfig(dataset_name="tatsu-lab/alpaca"),
+                training=TrainingConfig(method="sft"),
+                unexpected=True,  # type: ignore
+            )
+
+
+class TestExperimentConfigStrictness:
+    def test_model_spec_rejects_unknown_fields(self):
+        with pytest.raises(ValidationError):
+            ModelSpec(model_id="google/gemma-4-e2b", extra_field=True)  # type: ignore
+
+    def test_benchmark_spec_rejects_unknown_fields(self):
+        with pytest.raises(ValidationError):
+            BenchmarkSpec(name="triviaqa", extra_field=True)  # type: ignore
+
+    def test_logging_spec_rejects_unknown_fields(self):
+        with pytest.raises(ValidationError):
+            LoggingSpec(extra_field=True)  # type: ignore
+
+    def test_experiment_config_rejects_unknown_fields(self):
+        with pytest.raises(ValidationError):
+            ExperimentConfig(
+                name="exp",
+                phase=1,
+                models=[],
+                benchmarks=[],
+                synthetic=SyntheticPuzzleSpec(),
+                logging=LoggingSpec(),
+                unexpected=True,  # type: ignore
+            )

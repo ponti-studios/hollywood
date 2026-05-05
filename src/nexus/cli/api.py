@@ -24,7 +24,9 @@ def serve(
     try:
         import uvicorn
     except ImportError:
-        console.print("[red]uvicorn is required. Install with: pip install 'nexus[api]'[/red]")
+        console.print(
+            "[red]uvicorn is required. Install with: uv pip install -e \".[runtime]\"[/red]"
+        )
         raise typer.Exit(code=1)
 
     console.print(

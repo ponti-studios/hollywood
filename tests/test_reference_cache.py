@@ -2,18 +2,13 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Any
 
 import click
 import pytest
 from rich.console import Console
 
-from nexus.cli.experiment import (
-    _build_large_model_spec,
-    inspect_reference_cache,
-    list_reference_caches,
-)
-from nexus.experiments.config import ExperimentConfig, LoggingSpec, ModelSpec
+from nexus.cli.experiment import inspect_reference_cache, list_reference_caches
+from nexus.experiments.config import ExperimentConfig, LoggingSpec
 from nexus.experiments.reference_cache import (
     find_reference_caches,
     save_reference_cache,
@@ -163,69 +158,6 @@ def test_comparison_table_warns_on_stale_cache(monkeypatch) -> None:
     rendered = capture_console.export_text()
     assert "cached!" in rendered
     assert "Warning:" in rendered
-
-
-def test_openai_compatible_pipeline_uses_chat_completions(monkeypatch) -> None:
-    runner = DummyRunner(
-        ExperimentConfig(
-            name="exp_01_baseline", description="test", logging=LoggingSpec(wandb_project=None)
-        )
-    )
-    monkeypatch.setenv("REMOTE_API_KEY", "secret")
-
-    captured: dict[str, Any] = {}
-
-    class FakeResponse:
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> dict[str, object]:
-            return {"choices": [{"message": {"content": "Paris"}}]}
-
-    class FakeClient:
-        def __init__(self, *, base_url, headers, timeout):
-            captured["base_url"] = base_url
-            captured["headers"] = headers
-            captured["timeout"] = timeout
-
-        def post(self, path: str, json: dict[str, object]) -> FakeResponse:
-            captured["path"] = path
-            captured["payload"] = json
-            return FakeResponse()
-
-    import httpx
-
-    monkeypatch.setattr(httpx, "Client", FakeClient)
-
-    pipeline = runner._build_openai_compatible_pipeline(
-        ModelSpec(
-            model_id="remote-model",
-            role="large",
-            inference_backend="openai-compatible",
-            api_base="https://example.invalid/v1",
-            api_key_env="REMOTE_API_KEY",
-            max_new_tokens=64,
-            temperature=0.0,
-        )
-    )
-    result = pipeline("What is the capital of France?")
-
-    assert result == [{"generated_text": "What is the capital of France?Paris"}]
-    assert captured["base_url"] == "https://example.invalid/v1"
-    assert captured["path"] == "/chat/completions"
-    assert captured["payload"]["model"] == "remote-model"
-    assert captured["payload"]["temperature"] == 0.01
-
-
-def test_qwen_large_model_spec_uses_local_transformers_defaults() -> None:
-    spec = _build_large_model_spec("Qwen/Qwen3.5-4B")
-    assert spec.inference_backend == "transformers"
-    assert spec.api_base is None
-    assert spec.api_key_env is None
-    assert spec.max_new_tokens == 256
-    assert spec.temperature == 0.0
-    assert spec.batch_size == 4
-
 
 def test_cache_cli_json_output(monkeypatch, tmp_path: Path) -> None:
     cache_path = (

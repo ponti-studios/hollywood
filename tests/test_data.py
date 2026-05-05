@@ -62,6 +62,25 @@ class TestDPOFormatter:
         assert result["chosen"] == "4"
         assert result["rejected"] == "5"
 
+    def test_ultrafeedback_row_without_explicit_prompt_field(self):
+        from nexus.data.formatters import format_ultrafeedback_for_dpo
+
+        row = {
+            "chosen": [
+                {"role": "user", "content": "Write a snake game."},
+                {"role": "assistant", "content": "Use pygame and start with..."},
+            ],
+            "rejected": [
+                {"role": "user", "content": "Write a snake game."},
+                {"role": "assistant", "content": "Just use random code."},
+            ],
+        }
+        result = format_ultrafeedback_for_dpo(row)
+
+        assert result["prompt"] == "Write a snake game."
+        assert result["chosen"] == "Use pygame and start with..."
+        assert result["rejected"] == "Just use random code."
+
     def test_prepare_dpo_raises_on_missing_columns(self):
         from nexus.data.formatters import prepare_dpo_dataset
 
@@ -78,7 +97,7 @@ class TestGRPOFormatter:
         with pytest.raises(ValueError, match="'prompt' column"):
             prepare_grpo_dataset(bad_dataset)
 
-    def test_passes_with_prompt_column(self):
+    def test_accepts_standard_grpo_prompt_rows(self):
         from nexus.data.formatters import prepare_grpo_dataset
 
         good_dataset = Dataset.from_list([{"prompt": "What is 2+2?", "answer": "4"}])

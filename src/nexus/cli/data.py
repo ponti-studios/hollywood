@@ -96,8 +96,7 @@ def download(
 
     console.print(f"\n[bold]Downloading:[/bold] {name} (split={split})")
 
-    kwargs: dict = {"split": split, "trust_remote_code": True}
-    ds = load_dataset(name, **kwargs)
+    ds = load_dataset(name, split=split)
 
     if max_samples and max_samples > 0:
         ds = ds.select(range(min(max_samples, len(ds))))  # type: ignore
@@ -119,7 +118,7 @@ def inspect(
 
     console.print(f"\n[bold]Inspecting:[/bold] {name}")
 
-    ds = load_dataset(name, split=split, streaming=True, trust_remote_code=True)
+    ds = load_dataset(name, split=split, streaming=True)
     # Take the first N examples from the stream
     examples = list(ds.take(num_examples))  # type: ignore
 

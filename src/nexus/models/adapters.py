@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import torch
 from peft import LoraConfig as PeftLoraConfig
 from peft import PeftModel, TaskType, get_peft_model
 from transformers import AutoModelForCausalLM, PreTrainedTokenizer
@@ -34,6 +35,62 @@ from transformers import AutoModelForCausalLM, PreTrainedTokenizer
 from nexus.config import LoraConfig
 
 logger = logging.getLogger(__name__)
+
+SUPPORTED_LORA_MODULE_TYPES = (
+    torch.nn.Linear,
+    torch.nn.Embedding,
+    torch.nn.Conv1d,
+    torch.nn.Conv2d,
+    torch.nn.Conv3d,
+    torch.nn.MultiheadAttention,
+)
+
+
+def _is_supported_lora_module(module: torch.nn.Module) -> bool:
+    return isinstance(module, SUPPORTED_LORA_MODULE_TYPES)
+
+
+def _resolve_lora_target_modules(
+    model: torch.nn.Module,
+    target_modules: list[str],
+) -> list[str]:
+    """Resolve generic target names into exact module paths.
+
+    Gemma 4 is a multimodal model. Its vision tower uses custom wrapper modules
+    such as `Gemma4ClippableLinear`, which PEFT cannot adapt directly.
+
+    For text-only posttraining we want to adapt the language model submodule
+    only, so we resolve generic names like `q_proj` into the exact linear
+    modules under `model.language_model` when that subtree exists.
+    """
+    target_suffixes = set(target_modules)
+    language_model_prefix = (
+        "model.language_model"
+        if hasattr(model, "model") and hasattr(model.model, "language_model")
+        else None
+    )
+
+    resolved: list[str] = []
+    for name, module in model.named_modules():
+        if not name:
+            continue
+
+        if language_model_prefix is not None and not name.startswith(f"{language_model_prefix}."):
+            continue
+
+        leaf_name = name.rsplit(".", 1)[-1]
+        if name not in target_suffixes and leaf_name not in target_suffixes:
+            continue
+
+        if _is_supported_lora_module(module):
+            resolved.append(name)
+            continue
+
+        inner_linear = getattr(module, "linear", None)
+        if isinstance(inner_linear, torch.nn.Module) and _is_supported_lora_module(inner_linear):
+            resolved.append(f"{name}.linear")
+
+    return sorted(set(resolved)) if resolved else target_modules
 
 
 def apply_lora(
@@ -53,12 +110,19 @@ def apply_lora(
     Returns:
         A PeftModel (thin wrapper around the original model + adapters)
     """
+    target_modules = _resolve_lora_target_modules(model, lora_cfg.target_modules)
+    if target_modules != lora_cfg.target_modules:
+        logger.info(
+            "Resolved LoRA targets to %d exact module paths under the text backbone",
+            len(target_modules),
+        )
+
     peft_config = PeftLoraConfig(
         task_type=TaskType.CAUSAL_LM,  # we're fine-tuning a causal language model
         r=lora_cfg.rank,
         lora_alpha=lora_cfg.alpha,
         lora_dropout=lora_cfg.dropout,
-        target_modules=lora_cfg.target_modules,
+        target_modules=target_modules,
         bias=lora_cfg.bias,
         inference_mode=False,  # we want to train, not just infer
     )

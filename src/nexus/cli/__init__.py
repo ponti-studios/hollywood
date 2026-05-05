@@ -20,6 +20,11 @@ logging.basicConfig(
     handlers=[RichHandler(rich_tracebacks=True, show_path=False)],
 )
 
+# Hugging Face + HTTP client libraries are extremely chatty at INFO level.
+# Keep our app logs visible while silencing their request/debug noise.
+for noisy_logger in ("httpx", "huggingface_hub"):
+    logging.getLogger(noisy_logger).setLevel(logging.WARNING)
+
 # The root Typer app — sub-apps are added below
 app = typer.Typer(
     name="nexus",

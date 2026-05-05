@@ -37,3 +37,7 @@ build/
 **/outputs/
 **/runtime/
 **/transcripts/
+
+# Local project OS state and experiment artifacts
+.kernel/state/
+wandb/

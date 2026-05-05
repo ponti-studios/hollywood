@@ -23,19 +23,11 @@ Expected outcome:
 If the gap on Synthetic is also large, we need to revisit the hypothesis.
 
 Usage:
-    # Full run with both models (slow):
     python -m nexus.experiments.phases.baseline
-
-    # Quick test with 50 samples per benchmark (fast):
-    python -m nexus.experiments.phases.baseline --samples 50
-
-    # Custom config:
-    python -m nexus.experiments.phases.baseline --config configs/benchmarks/exp_01.yaml
 """
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -361,84 +353,13 @@ class BaselineRunner(BaseRunner):
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def build_default_config(
-    small_model: str,
-    large_model: str | None,
-    samples: int,
-    no_wandb: bool,
-) -> ExperimentConfig:
-    """Build an ExperimentConfig programmatically when no YAML is provided.
-
-    This lets you run quick experiments without writing a config file:
-        python -m nexus.experiments.phases.baseline --samples 50
-    """
-    from nexus.experiments.config import LoggingSpec, SyntheticPuzzleSpec
-
-    models = [
-        ModelSpec(model_id=small_model, role="small"),
-    ]
-    if large_model:
-        models.append(ModelSpec(model_id=large_model, role="large"))
-
-    benchmarks = [
-        BenchmarkSpec(name="triviaqa", samples=samples),
-        BenchmarkSpec(name="mmlu", samples=samples),
-        BenchmarkSpec(name="synthetic", samples=samples),
-    ]
-
-    return ExperimentConfig(
-        name="exp_01_baseline",
-        description="Phase 1: Closed-book baseline — 3B vs 70B on knowledge vs logic",
-        phase=1,
-        models=models,
-        benchmarks=benchmarks,
-        synthetic=SyntheticPuzzleSpec(),
-        logging=LoggingSpec(wandb_project=None if no_wandb else "3b-logic-broker"),
-    )
+def build_default_config() -> ExperimentConfig:
+    """Load the canonical Phase 1 experiment preset."""
+    return ExperimentConfig.from_yaml(Path("configs/benchmarks/exp_01.yaml"))
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Phase 1: Closed-book baseline experiment")
-    parser.add_argument(
-        "--config",
-        type=Path,
-        default=None,
-        help="Path to experiment YAML config. If omitted, uses CLI flags.",
-    )
-    parser.add_argument(
-        "--small-model",
-        default="google/gemma-4-e2b",
-        help="Small model to evaluate (default: google/gemma-4-e2b)",
-    )
-    parser.add_argument(
-        "--large-model",
-        default=None,
-        help="Large reference model (optional, e.g. meta-llama/Meta-Llama-3-70B-Instruct)",
-    )
-    parser.add_argument(
-        "--samples",
-        type=int,
-        default=500,
-        help="Questions per benchmark (default: 500). Use 50 for a quick sanity check.",
-    )
-    parser.add_argument(
-        "--no-wandb",
-        action="store_true",
-        help="Disable Weights & Biases logging (useful for offline/dev runs)",
-    )
-    args = parser.parse_args()
-
-    if args.config:
-        cfg = ExperimentConfig.from_yaml(args.config)
-    else:
-        cfg = build_default_config(
-            small_model=args.small_model,
-            large_model=args.large_model,
-            samples=args.samples,
-            no_wandb=args.no_wandb,
-        )
-
-    runner = BaselineRunner(cfg)
+    runner = BaselineRunner(build_default_config())
     runner.execute()
 
 

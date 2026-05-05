@@ -50,10 +50,7 @@ def load_tokenizer(cfg: ModelConfig) -> PreTrainedTokenizer:
     padding_side="right" ensures padding tokens are appended at the end
     of the sequence (left padding can confuse causal language models).
     """
-    tokenizer = AutoTokenizer.from_pretrained(
-        cfg.model_id,
-        trust_remote_code=True,
-    )
+    tokenizer = AutoTokenizer.from_pretrained(cfg.model_id)
 
     # Gemma has no pad token by default — set it to eos
     if tokenizer.pad_token is None:
@@ -71,7 +68,7 @@ def load_model(cfg: ModelConfig) -> AutoModelForCausalLM:
 
     Key decisions:
     ──────────────
-    torch_dtype=bfloat16
+    dtype=bfloat16
         Halves memory usage. Gemma was trained in bfloat16 so this is safe.
         Never use float16 with Gemma — it causes gradient overflow.
 
@@ -91,10 +88,9 @@ def load_model(cfg: ModelConfig) -> AutoModelForCausalLM:
 
     model = AutoModelForCausalLM.from_pretrained(
         cfg.model_id,
-        torch_dtype=dtype,
+        dtype=dtype,
         device_map="auto",  # let accelerate choose device placement
         attn_implementation=cfg.attn_implementation,
-        trust_remote_code=True,
     )
 
     # Log the number of trainable parameters so you know what you're working with

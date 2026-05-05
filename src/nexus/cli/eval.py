@@ -8,14 +8,12 @@ Usage:
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
-import httpx
 import typer
 from rich.console import Console
 
-from nexus.api.backends import ApiBackends
+from nexus.api.backends import DEFAULT_API_BASE_URL, ApiBackends
 from nexus.api.models import ChatCompletionRequest, ChatMessage
 from nexus.runtime import ensure_apple_runtime
 
@@ -116,6 +114,8 @@ def eval_judge(
     the compose-backed Nexus API. No external API keys required.
     """
 
+    import httpx
+
     from nexus.evaluation.judge import judge_responses, print_judge_summary
 
     # Load prompts
@@ -127,8 +127,8 @@ def eval_judge(
     prompts = prompts[:num_prompts]
 
     console.print(f"\n[bold]Generating responses:[/bold] {checkpoint}")
-    api_base = os.getenv("NEXUS_API_URL", "http://127.0.0.1:8787").rstrip("/")
-    backend = ApiBackends.from_env()
+    api_base = DEFAULT_API_BASE_URL
+    backend = ApiBackends.default()
     examples = []
     with httpx.Client(base_url=api_base, timeout=None) as client:
         for prompt in prompts:

@@ -1314,39 +1314,59 @@ name = "nexus"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "datasets" },
-    { name = "httpx" },
     { name = "numpy" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "rich" },
-    { name = "sentencepiece" },
-    { name = "soundfile" },
     { name = "tqdm" },
-    { name = "transformers" },
     { name = "typer" },
-    { name = "wandb" },
 ]
 
 [package.optional-dependencies]
-api = [
-    { name = "fastapi" },
-    { name = "python-multipart" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-apple = [
+all = [
     { name = "accelerate" },
+    { name = "datasets" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "ipywidgets" },
+    { name = "jupyter" },
+    { name = "matplotlib" },
+    { name = "pandas" },
     { name = "peft" },
-    { name = "torch" },
-    { name = "trl" },
-]
-dev = [
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "python-multipart" },
     { name = "ruff" },
+    { name = "seaborn" },
+    { name = "sentencepiece" },
+    { name = "soundfile" },
+    { name = "torch" },
+    { name = "transformers" },
+    { name = "trl" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "wandb" },
+]
+dev = [
+    { name = "accelerate" },
+    { name = "datasets" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "peft" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "python-multipart" },
+    { name = "ruff" },
+    { name = "sentencepiece" },
+    { name = "soundfile" },
+    { name = "torch" },
+    { name = "transformers" },
+    { name = "trl" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "wandb" },
 ]
 notebook = [
     { name = "ipywidgets" },
@@ -1355,41 +1375,111 @@ notebook = [
     { name = "pandas" },
     { name = "seaborn" },
 ]
+runtime = [
+    { name = "datasets" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "python-multipart" },
+    { name = "sentencepiece" },
+    { name = "soundfile" },
+    { name = "transformers" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "wandb" },
+]
+train = [
+    { name = "accelerate" },
+    { name = "datasets" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "peft" },
+    { name = "python-multipart" },
+    { name = "sentencepiece" },
+    { name = "soundfile" },
+    { name = "torch" },
+    { name = "transformers" },
+    { name = "trl" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "wandb" },
+]
 
 [package.metadata]
 requires-dist = [
-    { name = "accelerate", marker = "extra == 'apple'", specifier = ">=1.0.0" },
-    { name = "datasets", specifier = ">=3.0.0" },
-    { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.115.0" },
-    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "accelerate", marker = "extra == 'all'", specifier = ">=1.0.0" },
+    { name = "accelerate", marker = "extra == 'dev'", specifier = ">=1.0.0" },
+    { name = "accelerate", marker = "extra == 'train'", specifier = ">=1.0.0" },
+    { name = "datasets", marker = "extra == 'all'", specifier = ">=3.0.0" },
+    { name = "datasets", marker = "extra == 'dev'", specifier = ">=3.0.0" },
+    { name = "datasets", marker = "extra == 'runtime'", specifier = ">=3.0.0" },
+    { name = "datasets", marker = "extra == 'train'", specifier = ">=3.0.0" },
+    { name = "fastapi", marker = "extra == 'all'", specifier = ">=0.115.0" },
+    { name = "fastapi", marker = "extra == 'dev'", specifier = ">=0.115.0" },
+    { name = "fastapi", marker = "extra == 'runtime'", specifier = ">=0.115.0" },
+    { name = "fastapi", marker = "extra == 'train'", specifier = ">=0.115.0" },
+    { name = "httpx", marker = "extra == 'all'", specifier = ">=0.28.0" },
+    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28.0" },
+    { name = "httpx", marker = "extra == 'runtime'", specifier = ">=0.28.0" },
+    { name = "httpx", marker = "extra == 'train'", specifier = ">=0.28.0" },
+    { name = "ipywidgets", marker = "extra == 'all'", specifier = ">=8.0" },
     { name = "ipywidgets", marker = "extra == 'notebook'", specifier = ">=8.0" },
+    { name = "jupyter", marker = "extra == 'all'", specifier = ">=1.0" },
     { name = "jupyter", marker = "extra == 'notebook'", specifier = ">=1.0" },
+    { name = "matplotlib", marker = "extra == 'all'", specifier = ">=3.8" },
     { name = "matplotlib", marker = "extra == 'notebook'", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=1.26" },
+    { name = "pandas", marker = "extra == 'all'", specifier = ">=2.0" },
     { name = "pandas", marker = "extra == 'notebook'", specifier = ">=2.0" },
-    { name = "peft", marker = "extra == 'apple'", specifier = ">=0.14.0" },
+    { name = "peft", marker = "extra == 'all'", specifier = ">=0.14.0" },
+    { name = "peft", marker = "extra == 'dev'", specifier = ">=0.14.0" },
+    { name = "peft", marker = "extra == 'train'", specifier = ">=0.14.0" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pydantic-settings", specifier = ">=2.0" },
+    { name = "pyright", marker = "extra == 'all'", specifier = ">=1.1.390" },
     { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.390" },
+    { name = "pytest", marker = "extra == 'all'", specifier = ">=8.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pytest-cov", marker = "extra == 'all'", specifier = ">=5.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
     { name = "python-dotenv", specifier = ">=1.0" },
-    { name = "python-multipart", marker = "extra == 'api'", specifier = ">=0.0.9" },
+    { name = "python-multipart", marker = "extra == 'all'", specifier = ">=0.0.9" },
+    { name = "python-multipart", marker = "extra == 'dev'", specifier = ">=0.0.9" },
+    { name = "python-multipart", marker = "extra == 'runtime'", specifier = ">=0.0.9" },
+    { name = "python-multipart", marker = "extra == 'train'", specifier = ">=0.0.9" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "rich", specifier = ">=13.0" },
+    { name = "ruff", marker = "extra == 'all'", specifier = ">=0.8.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+    { name = "seaborn", marker = "extra == 'all'", specifier = ">=0.13" },
     { name = "seaborn", marker = "extra == 'notebook'", specifier = ">=0.13" },
-    { name = "sentencepiece", specifier = ">=0.2.0" },
-    { name = "soundfile", specifier = ">=0.12.0" },
-    { name = "torch", marker = "extra == 'apple'", specifier = ">=2.4.0" },
+    { name = "sentencepiece", marker = "extra == 'all'", specifier = ">=0.2.0" },
+    { name = "sentencepiece", marker = "extra == 'dev'", specifier = ">=0.2.0" },
+    { name = "sentencepiece", marker = "extra == 'runtime'", specifier = ">=0.2.0" },
+    { name = "sentencepiece", marker = "extra == 'train'", specifier = ">=0.2.0" },
+    { name = "soundfile", marker = "extra == 'all'", specifier = ">=0.12.0" },
+    { name = "soundfile", marker = "extra == 'dev'", specifier = ">=0.12.0" },
+    { name = "soundfile", marker = "extra == 'runtime'", specifier = ">=0.12.0" },
+    { name = "soundfile", marker = "extra == 'train'", specifier = ">=0.12.0" },
+    { name = "torch", marker = "extra == 'all'", specifier = ">=2.4.0" },
+    { name = "torch", marker = "extra == 'dev'", specifier = ">=2.4.0" },
+    { name = "torch", marker = "extra == 'train'", specifier = ">=2.4.0" },
     { name = "tqdm", specifier = ">=4.64" },
-    { name = "transformers", specifier = ">=4.49.0" },
-    { name = "trl", marker = "extra == 'apple'", specifier = ">=0.12.0" },
+    { name = "transformers", marker = "extra == 'all'", specifier = ">=5.8.0" },
+    { name = "transformers", marker = "extra == 'dev'", specifier = ">=5.8.0" },
+    { name = "transformers", marker = "extra == 'runtime'", specifier = ">=5.8.0" },
+    { name = "transformers", marker = "extra == 'train'", specifier = ">=5.8.0" },
+    { name = "trl", marker = "extra == 'all'", specifier = ">=0.12.0" },
+    { name = "trl", marker = "extra == 'dev'", specifier = ">=0.12.0" },
+    { name = "trl", marker = "extra == 'train'", specifier = ">=0.12.0" },
     { name = "typer", specifier = ">=0.12.5" },
-    { name = "uvicorn", extras = ["standard"], marker = "extra == 'api'", specifier = ">=0.30.0" },
-    { name = "wandb", specifier = ">=0.19.0" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'all'", specifier = ">=0.30.0" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'dev'", specifier = ">=0.30.0" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'runtime'", specifier = ">=0.30.0" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'train'", specifier = ">=0.30.0" },
+    { name = "wandb", marker = "extra == 'all'", specifier = ">=0.19.0" },
+    { name = "wandb", marker = "extra == 'dev'", specifier = ">=0.19.0" },
+    { name = "wandb", marker = "extra == 'runtime'", specifier = ">=0.19.0" },
+    { name = "wandb", marker = "extra == 'train'", specifier = ">=0.19.0" },
 ]
-provides-extras = ["api", "apple", "dev", "notebook"]
+provides-extras = ["runtime", "train", "dev", "notebook", "all"]
 
 [[package]]
 name = "nodeenv"
@@ -2479,7 +2569,7 @@ wheels = [
 
 [[package]]
 name = "transformers"
-version = "5.3.0"
+version = "5.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "huggingface-hub" },
@@ -2492,9 +2582,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fc/1a/70e830d53ecc96ce69cfa8de38f163712d2b43ac52fbd743f39f56025c31/transformers-5.3.0.tar.gz", hash = "sha256:009555b364029da9e2946d41f1c5de9f15e6b1df46b189b7293f33a161b9c557", size = 8830831, upload-time = "2026-03-04T17:41:46.119Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f2/36/390075693b76d4fb4a2bea360fb6080347763bd1f1147c49ed0ed938778c/transformers-5.8.0.tar.gz", hash = "sha256:6cc9a1f0291d16b1c1b735bad775e78ebefff7722701d4e28f98aaaa2bd6fb91", size = 8528141, upload-time = "2026-05-05T16:50:04.778Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b8/88/ae8320064e32679a5429a2c9ebbc05c2bf32cefb6e076f9b07f6d685a9b4/transformers-5.3.0-py3-none-any.whl", hash = "sha256:50ac8c89c3c7033444fb3f9f53138096b997ebb70d4b5e50a2e810bf12d3d29a", size = 10661827, upload-time = "2026-03-04T17:41:42.722Z" },
+    { url = "https://files.pythonhosted.org/packages/97/7b/5621d08b34ac35deb9fa14b58d27d124d21ef125ee1c64bc724ca47dfb63/transformers-5.8.0-py3-none-any.whl", hash = "sha256:e9d2cae6d195a7e1e05164c5ebf26142a7044e4dc4267274f4809204f92827e4", size = 10630279, upload-time = "2026-05-05T16:50:01.026Z" },
 ]
 
 [[package]]

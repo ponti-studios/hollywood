@@ -35,7 +35,7 @@ OPENAPI_TAGS = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.backends = ApiBackends.from_env()
+    app.state.backends = ApiBackends.default()
     app.state.run_store = RunStore(Path(".data/api/inference.db"))
     app.state.inference_store = InferenceStore(Path(".data/api/inference.db"))
     app.state.experiment_store = ExperimentStore(Path(".data/api/inference.db"))

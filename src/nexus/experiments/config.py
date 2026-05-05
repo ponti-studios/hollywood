@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelSpec(BaseModel):
@@ -35,21 +35,15 @@ class ModelSpec(BaseModel):
     role: "small" = the 3B model under test
           "large" = the reference model we're comparing against (optional)
           "judge" = a model used to score outputs (Phase 3+)
-
-        inference_backend: how to run the model.
-            "transformers"      — standard HuggingFace pipeline. Slowest, most flexible.
-            "openai-compatible" — remote chat-completions API compatible with OpenAI's schema.
     """
 
     model_id: str
     role: Literal["small", "large", "judge"] = "small"
-    inference_backend: Literal["transformers", "openai-compatible"] = "transformers"
     max_new_tokens: int = 256
     temperature: float = 0.0  # 0.0 = greedy decoding (fully deterministic)
     batch_size: int = 8
-    api_base: str | None = None
-    api_key_env: str | None = None
-    request_timeout_seconds: float = 120.0
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class BenchmarkSpec(BaseModel):
@@ -75,6 +69,8 @@ class BenchmarkSpec(BaseModel):
     samples: int | None = 500
     seed: int = 42
     mmlu_subjects: list[str] | None = None  # None = all subjects
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class SyntheticPuzzleSpec(BaseModel):
@@ -102,6 +98,8 @@ class SyntheticPuzzleSpec(BaseModel):
     ]
     vocab_size: int = 200  # how many nonsense words to draw from
 
+    model_config = ConfigDict(extra="forbid")
+
 
 class LoggingSpec(BaseModel):
     """Where to send results.
@@ -121,6 +119,8 @@ class LoggingSpec(BaseModel):
     refresh_reference_cache: bool = False
     reference_cache_warn_after_hours: int = 168
 
+    model_config = ConfigDict(extra="forbid")
+
 
 class ExperimentConfig(BaseModel):
     """A complete experiment definition — ties together models, data, and logging.
@@ -139,6 +139,8 @@ class ExperimentConfig(BaseModel):
     benchmarks: list[BenchmarkSpec] = Field(default_factory=list)
     synthetic: SyntheticPuzzleSpec = Field(default_factory=SyntheticPuzzleSpec)
     logging: LoggingSpec = Field(default_factory=LoggingSpec)
+
+    model_config = ConfigDict(extra="forbid")
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> ExperimentConfig:

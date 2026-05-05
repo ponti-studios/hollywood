@@ -8,7 +8,6 @@ phase: 2
 models:
   - model_id: google/gemma-4-e2b
     role: small
-    inference_backend: transformers
     max_new_tokens: 128
     temperature: 0.0
     batch_size: 8
@@ -16,7 +15,6 @@ models:
   # Optional reference model.
   # - model_id: Qwen/Qwen3.5-4B
   #   role: large
-  #   inference_backend: transformers
   #   max_new_tokens: 128
   #   temperature: 0.0
   #   batch_size: 4
