@@ -22,13 +22,14 @@ in the W&B dashboard.
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import os
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from rich.console import Console
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn, TimeRemainingColumn
@@ -37,6 +38,26 @@ from rich.table import Table
 from nexus.experiments.config import ExperimentConfig, ModelSpec
 from nexus.experiments.reference_cache import build_cache_path
 from nexus.experiments.scoring import BenchmarkScore, QuestionResult
+
+if TYPE_CHECKING:
+    from transformers import TextGenerationPipeline
+else:
+    TextGenerationPipeline = Any
+
+
+class PipelineTokenizer(Protocol):
+    eos_token_id: int | None
+
+
+class PipelineModel(Protocol):
+    generation_config: Any
+
+
+class ConfiguredPipeline(Protocol):
+    model: PipelineModel
+    tokenizer: PipelineTokenizer
+
+    def __call__(self, prompt: str) -> list[dict[str, str]]: ...
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -60,7 +81,7 @@ class BaseRunner(ABC):
 
     def __init__(self, cfg: ExperimentConfig) -> None:
         self.cfg = cfg
-        self._pipelines: dict[str, Any] = {}   # model_id → HuggingFace pipeline
+        self._pipelines: dict[str, Any] = {}  # model_id → HuggingFace pipeline
         self._wandb_run: Any = None
         self._result_provenance: dict[tuple[str, str], str] = {}
         self._result_metadata: dict[tuple[str, str], dict[str, Any]] = {}
@@ -73,7 +94,9 @@ class BaseRunner(ABC):
         """Version string used to invalidate incompatible cache entries."""
         return f"phase{self.cfg.phase}_v1"
 
-    def reference_cache_path(self, model_id: str, benchmark_name: str, benchmark_signature: str) -> Path:
+    def reference_cache_path(
+        self, model_id: str, benchmark_name: str, benchmark_signature: str
+    ) -> Path:
         """Build the shared cache path for one model-benchmark-signature tuple."""
         return build_cache_path(
             self.cfg.logging.reference_cache_dir,
@@ -89,7 +112,9 @@ class BaseRunner(ABC):
     def result_provenance(self, model_id: str, benchmark_name: str) -> str:
         return self._result_provenance.get((model_id, benchmark_name), "live")
 
-    def set_result_metadata(self, model_id: str, benchmark_name: str, metadata: dict[str, Any]) -> None:
+    def set_result_metadata(
+        self, model_id: str, benchmark_name: str, metadata: dict[str, Any]
+    ) -> None:
         self._result_metadata[(model_id, benchmark_name)] = metadata
 
     def result_metadata(self, model_id: str, benchmark_name: str) -> dict[str, Any]:
@@ -122,15 +147,19 @@ class BaseRunner(ABC):
         if spec.inference_backend == "openai-compatible":
             return self._build_openai_compatible_pipeline(spec)
 
-        import torch
         from transformers import GenerationConfig, pipeline
 
-        pipe = pipeline(
-            "text-generation",
-            model=spec.model_id,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-            trust_remote_code=True,
+        torch = cast(Any, importlib.import_module("torch"))
+
+        pipe = cast(
+            ConfiguredPipeline,
+            pipeline(
+                "text-generation",
+                model=spec.model_id,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+                trust_remote_code=True,
+            ),
         )
 
         # Build a GenerationConfig and attach it to the model so we don't mix
@@ -141,10 +170,8 @@ class BaseRunner(ABC):
             max_new_tokens=spec.max_new_tokens,
             do_sample=not greedy,
             temperature=None if greedy else spec.temperature,
-            pad_token_id=pipe.tokenizer.eos_token_id,
+            pad_token_id=pipe.tokenizer.eos_token_id or 0,
         )
-        # Signal to generate() that no extra kwargs are needed
-        pipe._gen_kwargs = {}
         return pipe
 
     def _build_openai_compatible_pipeline(self, spec: ModelSpec) -> Any:
@@ -196,10 +223,14 @@ class BaseRunner(ABC):
                 try:
                     content = body["choices"][0]["message"]["content"]
                 except (KeyError, IndexError, TypeError) as exc:
-                    raise ValueError(f"Unexpected response shape from remote model {spec.model_id}: {body}") from exc
+                    raise ValueError(
+                        f"Unexpected response shape from remote model {spec.model_id}: {body}"
+                    ) from exc
 
                 if isinstance(content, list):
-                    text = "".join(part.get("text", "") for part in content if isinstance(part, dict))
+                    text = "".join(
+                        part.get("text", "") for part in content if isinstance(part, dict)
+                    )
                 else:
                     text = str(content)
                 return [{"generated_text": prompt + text}]
@@ -224,7 +255,7 @@ class BaseRunner(ABC):
         # Pass no generation kwargs — all params are in model.generation_config
         outputs = pipe(prompt)
         full_text: str = outputs[0]["generated_text"]
-        response = full_text[len(prompt):].strip()
+        response = full_text[len(prompt) :].strip()
         return response
 
     # ──────────────────────────────────────────────────────────────────────
@@ -256,6 +287,7 @@ class BaseRunner(ABC):
             return
         try:
             import wandb
+
             self._wandb_run = wandb.init(
                 project=self.cfg.logging.wandb_project,
                 name=self.cfg.name,
@@ -270,6 +302,7 @@ class BaseRunner(ABC):
         """Log aggregate scores to W&B and the local console."""
         if self._wandb_run is not None:
             import wandb
+
             flat = {}
             for key, score in scores.items():
                 for k, v in score.to_dict().items():
@@ -335,7 +368,9 @@ class BaseRunner(ABC):
         table.add_column("Δ Correction", justify="right")
 
         for key, score in scores.items():
-            delta = f"{score.correction_delta:+.1f}pp" if score.correction_delta is not None else "—"
+            delta = (
+                f"{score.correction_delta:+.1f}pp" if score.correction_delta is not None else "—"
+            )
             tool_rate = f"{score.tool_call_rate * 100:.0f}%" if score.tool_call_rate > 0 else "—"
             table.add_row(
                 score.model_id.split("/")[-1],
@@ -425,6 +460,7 @@ class BaseRunner(ABC):
         finally:
             if self._wandb_run is not None:
                 import wandb
+
                 wandb.finish()
 
         self.log_scores(scores)

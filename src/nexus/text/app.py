@@ -80,10 +80,15 @@ def _load_model(model_id: str) -> LoadedModel:
 def _prompt_from_messages(tokenizer: Any, messages: list[dict[str, str]]) -> str:
     if hasattr(tokenizer, "apply_chat_template"):
         try:
-            return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            return tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
         except Exception:
             pass
-    return "\n".join(f"{message['role'].upper()}: {message['content']}" for message in messages) + "\nASSISTANT:"
+    return (
+        "\n".join(f"{message['role'].upper()}: {message['content']}" for message in messages)
+        + "\nASSISTANT:"
+    )
 
 
 def _generate_text(entry: LoadedModel, body: ChatCompletionRequest) -> tuple[str, int, int]:
@@ -110,7 +115,9 @@ def _generate_text(entry: LoadedModel, body: ChatCompletionRequest) -> tuple[str
 
     def _run() -> None:
         with torch.inference_mode():
-            entry.model.generate(**{key: value for key, value in generation_kwargs.items() if value is not None})
+            entry.model.generate(
+                **{key: value for key, value in generation_kwargs.items() if value is not None}
+            )
 
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()

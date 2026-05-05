@@ -35,6 +35,7 @@ def _evaluation_store(request: Request) -> EvaluationStore:
 
 # ── Request / response models ──────────────────────────────────────────────────
 
+
 class RunExperimentRequest(BaseModel):
     config: ExperimentConfig | None = None
     config_path: str | None = None
@@ -99,6 +100,7 @@ def _variant_specs_from_config(
         )
     return variants
 
+
 def _experiment_from_config(
     cfg: ExperimentConfig,
     experiment_id: str,
@@ -122,6 +124,7 @@ def _experiment_from_config(
         started_at=created_at,
         completed_at=None,
     )
+
 
 def _evaluation_records_for_scores(
     experiment: ExperimentSchema,
@@ -151,15 +154,18 @@ def _evaluation_records_for_scores(
 
 # ── Config type detection ─────────────────────────────────────────────────────
 
+
 def _load_config_from_path(path: Path) -> ExperimentConfig:
     """Load a benchmark YAML config file."""
     with open(path) as f:
         import yaml
+
         raw = yaml.safe_load(f)
     return ExperimentConfig(**raw)
 
 
 # ── Runner factory ─────────────────────────────────────────────────────────────
+
 
 def _build_config(body: RunExperimentRequest) -> ExperimentConfig:
     if body.config is not None:
@@ -193,17 +199,21 @@ def _build_config(body: RunExperimentRequest) -> ExperimentConfig:
 def _runner_for(cfg: ExperimentConfig):
     if cfg.phase == 1:
         from nexus.experiments.phases.baseline import BaselineRunner
+
         return BaselineRunner(cfg)
     if cfg.phase == 2:
         from nexus.experiments.phases.open_book import OpenBookRunner
+
         return OpenBookRunner(cfg)
     if cfg.phase == 3:
         from nexus.experiments.phases.reflection import ReflectionRunner
+
         return ReflectionRunner(cfg)
     raise HTTPException(400, f"Phase {cfg.phase} is not yet implemented.")
 
 
 # ── Background execution ───────────────────────────────────────────────────────
+
 
 async def _execute(
     experiment_id: str,
@@ -257,6 +267,7 @@ async def _execute(
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
+
 
 @router.post("", response_model=ExperimentRunResponse, status_code=202)
 async def submit_experiment(body: RunExperimentRequest, request: Request) -> ExperimentRunResponse:

@@ -55,10 +55,10 @@ def build_training_args(recipe: Recipe) -> TrainingArguments:
         learning_rate=t.learning_rate,
         weight_decay=t.weight_decay,
         warmup_ratio=t.warmup_ratio,
-        lr_scheduler_type="cosine",          # cosine decay is standard for LLM fine-tuning
+        lr_scheduler_type="cosine",  # cosine decay is standard for LLM fine-tuning
         max_grad_norm=t.max_grad_norm,
         bf16=t.bf16,
-        fp16=False,                          # never fp16 with Gemma
+        fp16=False,  # never fp16 with Gemma
         # --- Logging ---
         logging_dir=f"{output_dir}/logs",
         logging_steps=t.logging_steps,
@@ -69,14 +69,14 @@ def build_training_args(recipe: Recipe) -> TrainingArguments:
         eval_steps=t.eval_steps,
         save_strategy="steps",
         save_steps=t.save_steps,
-        save_total_limit=3,                  # keep only the 3 most recent checkpoints
+        save_total_limit=3,  # keep only the 3 most recent checkpoints
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
-        greater_is_better=False,             # lower eval loss = better
+        greater_is_better=False,  # lower eval loss = better
         # --- Apple Silicon specific ---
         optim="adamw_torch",
-        dataloader_pin_memory=False,         # pin_memory is CUDA-only
-        use_cpu=False,                       # use MPS not CPU
+        dataloader_pin_memory=False,  # pin_memory is CUDA-only
+        use_cpu=False,  # use MPS not CPU
         # --- Reproducibility ---
         seed=recipe.data.seed,
         data_seed=recipe.data.seed,

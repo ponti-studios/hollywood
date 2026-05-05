@@ -61,9 +61,7 @@ class TtsHealthResponse(BaseModel):
 
 class AsrHealthResponse(BaseModel):
     model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [{"ok": True, "model": "Qwen3-ASR-1.7B", "languages": 52}]
-        }
+        json_schema_extra={"examples": [{"ok": True, "model": "Qwen3-ASR-1.7B", "languages": 52}]}
     )
 
     ok: bool

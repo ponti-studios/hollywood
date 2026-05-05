@@ -3,7 +3,6 @@ description: >
   Phase 3 — Draft, critique, and refine on the existing benchmark suite.
   Measures whether an explicit self-review pass improves answer accuracy.
 phase: 3
-
 models:
   - model_id: google/gemma-4-e2b
     role: small
@@ -13,14 +12,12 @@ models:
     batch_size: 8
 
   # Optional reference model.
-  # - model_id: MiniMax-M2.7
+  # - model_id: Qwen/Qwen3.5-4B
   #   role: large
-  #   inference_backend: openai-compatible
-  #   api_base: https://api.minimax.io/v1
-  #   api_key_env: MINIMAX_API_KEY
+  #   inference_backend: transformers
   #   max_new_tokens: 128
-  #   temperature: 0.01
-  #   batch_size: 1
+  #   temperature: 0.0
+  #   batch_size: 4
 
 benchmarks:
   - name: triviaqa

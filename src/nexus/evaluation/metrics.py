@@ -32,21 +32,30 @@ BLEU / ROUGE
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import math
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
-import torch
 from tqdm import tqdm
-from transformers import AutoModelForCausalLM, PreTrainedTokenizer
+from transformers import PreTrainedTokenizer
+
+if TYPE_CHECKING:
+    from transformers.modeling_utils import PreTrainedModel
+else:
+    PreTrainedModel = Any
+
+
+class TokenizedBatch(Protocol):
+    def __getitem__(self, key: str) -> Any: ...
 
 logger = logging.getLogger(__name__)
 
 
 def compute_perplexity(
-    model: AutoModelForCausalLM,
+    model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
     texts: list[str],
     batch_size: int = 4,
@@ -68,6 +77,8 @@ def compute_perplexity(
     Returns:
         Average perplexity across all texts.
     """
+    torch = cast(Any, importlib.import_module("torch"))
+
     model.eval()
     total_loss = 0.0
     total_tokens = 0
@@ -75,12 +86,15 @@ def compute_perplexity(
     with torch.no_grad():
         for i in tqdm(range(0, len(texts), batch_size), desc="Computing perplexity"):
             batch = texts[i : i + batch_size]
-            encodings = tokenizer(
-                batch,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=max_length,
+            encodings = cast(
+                TokenizedBatch,
+                tokenizer(
+                    batch,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                    max_length=max_length,
+                ),
             )
             input_ids = encodings["input_ids"].to(device)
             attention_mask = encodings["attention_mask"].to(device)
@@ -90,10 +104,13 @@ def compute_perplexity(
             labels = input_ids.clone()
             labels[attention_mask == 0] = -100
 
-            outputs = model(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                labels=labels,
+            outputs = cast(
+                Any,
+                model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    labels=labels,
+                ),
             )
 
             # outputs.loss is the mean cross-entropy over non-padding tokens
@@ -109,7 +126,7 @@ def compute_perplexity(
 
 
 def compute_token_accuracy(
-    model: AutoModelForCausalLM,
+    model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
     texts: list[str],
     max_length: int = 512,
@@ -120,22 +137,27 @@ def compute_token_accuracy(
     A supplementary signal to perplexity — easier to interpret.
     100% accuracy would mean perfect memorisation of the data.
     """
+    torch = cast(Any, importlib.import_module("torch"))
+
     model.eval()
     correct = 0
     total = 0
 
     with torch.no_grad():
         for text in tqdm(texts, desc="Computing token accuracy"):
-            enc = tokenizer(text, return_tensors="pt", truncation=True, max_length=max_length)
+            enc = cast(
+                TokenizedBatch,
+                tokenizer(text, return_tensors="pt", truncation=True, max_length=max_length),
+            )
             input_ids = enc["input_ids"].to(device)
 
-            outputs = model(input_ids=input_ids)
+            outputs = cast(Any, model(input_ids=input_ids))
             logits = outputs.logits  # shape: (1, seq_len, vocab_size)
 
             # Shift: predict token at position i using all tokens before i
             # predictions[i] should match input_ids[i+1]
             preds = logits[0, :-1, :].argmax(dim=-1)  # (seq_len - 1,)
-            targets = input_ids[0, 1:]                # (seq_len - 1,)
+            targets = input_ids[0, 1:]  # (seq_len - 1,)
 
             correct += (preds == targets).sum().item()
             total += len(targets)

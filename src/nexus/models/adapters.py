@@ -27,8 +27,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import torch
-from peft import LoraConfig as PeftLoraConfig, PeftModel, TaskType, get_peft_model
+from peft import LoraConfig as PeftLoraConfig
+from peft import PeftModel, TaskType, get_peft_model
 from transformers import AutoModelForCausalLM, PreTrainedTokenizer
 
 from nexus.config import LoraConfig
@@ -54,13 +54,13 @@ def apply_lora(
         A PeftModel (thin wrapper around the original model + adapters)
     """
     peft_config = PeftLoraConfig(
-        task_type=TaskType.CAUSAL_LM,   # we're fine-tuning a causal language model
+        task_type=TaskType.CAUSAL_LM,  # we're fine-tuning a causal language model
         r=lora_cfg.rank,
         lora_alpha=lora_cfg.alpha,
         lora_dropout=lora_cfg.dropout,
         target_modules=lora_cfg.target_modules,
         bias=lora_cfg.bias,
-        inference_mode=False,           # we want to train, not just infer
+        inference_mode=False,  # we want to train, not just infer
     )
 
     model = get_peft_model(model, peft_config)
@@ -98,7 +98,7 @@ def merge_and_save(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"Merging LoRA weights into base model …")
+    logger.info("Merging LoRA weights into base model …")
 
     # merge_and_unload: fuses A@B into W and removes the adapter wrappers
     merged = model.merge_and_unload()
@@ -107,7 +107,7 @@ def merge_and_save(
     merged.save_pretrained(output_dir, safe_serialization=True)
     tokenizer.save_pretrained(output_dir)
 
-    logger.info("Done. Load with: AutoModelForCausalLM.from_pretrained('{}')".format(output_dir))
+    logger.info(f"Done. Load with: AutoModelForCausalLM.from_pretrained('{output_dir}')")
 
 
 def save_adapter_only(model: PeftModel, output_dir: str | Path) -> None:

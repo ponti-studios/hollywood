@@ -41,9 +41,15 @@ def format_item(benchmark_name: str, item: Any) -> tuple[str, object, str]:
 
 def score_answer(benchmark_name: str, predicted: str, expected: object, item: Any) -> bool:
     if benchmark_name == "triviaqa":
-        return score_triviaqa(predicted, expected)
+        if isinstance(expected, (str, list)):
+            return score_triviaqa(predicted, expected)
+        raise TypeError("TriviaQA expected answer must be a string or list of strings")
     if benchmark_name == "mmlu":
-        return score_mmlu(predicted, expected)
+        if isinstance(expected, str):
+            return score_mmlu(predicted, expected)
+        raise TypeError("MMLU expected answer must be a string")
     if benchmark_name == "synthetic":
-        return score_logic_puzzle(predicted, expected)
+        if isinstance(expected, str):
+            return score_logic_puzzle(predicted, expected)
+        raise TypeError("Synthetic expected answer must be a string")
     return False

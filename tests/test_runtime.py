@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import click
-
 import pytest
 
 from nexus import runtime
@@ -31,7 +30,9 @@ def test_missing_apple_runtime_dependency_exits(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(runtime.sys, "version_info", (3, 12, 5, "final", 0))
     monkeypatch.setattr(runtime.platform, "system", lambda: "Darwin")
     monkeypatch.setattr(runtime.platform, "machine", lambda: "arm64")
-    monkeypatch.setattr(runtime.importlib.util, "find_spec", lambda name: None if name == "torch" else object())
+    monkeypatch.setattr(
+        runtime.importlib.util, "find_spec", lambda name: None if name == "torch" else object()
+    )
 
     with pytest.raises(click.exceptions.Exit):
         runtime.ensure_apple_runtime()

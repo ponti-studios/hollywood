@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from nexus.experiments.config import BenchmarkSpec, ExperimentConfig, LoggingSpec, ModelSpec
 from nexus.experiments.phases.open_book import OpenBookRunner
 from nexus.experiments.phases.reflection import ReflectionRunner
-from nexus.experiments.config import BenchmarkSpec, ExperimentConfig, LoggingSpec, ModelSpec
 
 
 def test_open_book_runner_uses_search_and_records_tool_calls(monkeypatch, tmp_path) -> None:
@@ -19,7 +19,9 @@ def test_open_book_runner_uses_search_and_records_tool_calls(monkeypatch, tmp_pa
     runner = OpenBookRunner(cfg)
 
     items = [SimpleNamespace(question_id="q1")]
-    monkeypatch.setattr("nexus.experiments.phases.open_book.load_benchmark", lambda spec, cfg: items)
+    monkeypatch.setattr(
+        "nexus.experiments.phases.open_book.load_benchmark", lambda spec, cfg: items
+    )
     monkeypatch.setattr(
         "nexus.experiments.phases.open_book.format_item",
         lambda benchmark_name, item: ("Question: capital of France", ["Paris"], item.question_id),
@@ -40,7 +42,9 @@ def test_open_book_runner_uses_search_and_records_tool_calls(monkeypatch, tmp_pa
     responses = iter(["[SEARCH: capital of france]", "[ANSWER: Paris]"])
     monkeypatch.setattr(runner, "generate", lambda model_id, prompt: next(responses))
 
-    results = runner._evaluate_model(cfg.models[0], "triviaqa", runner._benchmark_questions["triviaqa"])
+    results = runner._evaluate_model(
+        cfg.models[0], "triviaqa", runner._benchmark_questions["triviaqa"]
+    )
 
     assert len(results) == 1
     assert results[0].predicted == "Paris"
@@ -60,7 +64,9 @@ def test_reflection_runner_computes_correction_delta(monkeypatch, tmp_path) -> N
     runner = ReflectionRunner(cfg)
 
     items = [SimpleNamespace(question_id="q1")]
-    monkeypatch.setattr("nexus.experiments.phases.reflection.load_benchmark", lambda spec, cfg: items)
+    monkeypatch.setattr(
+        "nexus.experiments.phases.reflection.load_benchmark", lambda spec, cfg: items
+    )
     monkeypatch.setattr(
         "nexus.experiments.phases.reflection.format_item",
         lambda benchmark_name, item: ("Question: Is Tixby a Wumble?", "Yes", item.question_id),
@@ -74,7 +80,9 @@ def test_reflection_runner_computes_correction_delta(monkeypatch, tmp_path) -> N
     responses = iter(["No", "The answer contradicts the premises.", "Yes"])
     monkeypatch.setattr(runner, "generate", lambda model_id, prompt: next(responses))
 
-    results, delta = runner._evaluate_model(cfg.models[0], "synthetic", runner._benchmark_questions["synthetic"])
+    results, delta = runner._evaluate_model(
+        cfg.models[0], "synthetic", runner._benchmark_questions["synthetic"]
+    )
 
     assert delta == 100.0
     assert len(results) == 1

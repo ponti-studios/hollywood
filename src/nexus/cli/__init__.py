@@ -35,8 +35,22 @@ from nexus.cli.eval import eval_app  # noqa: E402
 from nexus.cli.experiment import experiment_app  # noqa: E402
 from nexus.cli.train import train_app  # noqa: E402
 
-app.add_typer(api_app,        name="api",        help="Start the Nexus API server.         nexus api serve")
-app.add_typer(train_app,      name="train",      help="Run model training recipes.         nexus train run --recipe ...")
-app.add_typer(eval_app,       name="eval",       help="Evaluate trained models.            nexus eval perplexity --checkpoint ...")
-app.add_typer(data_app,       name="data",       help="Download and inspect datasets.      nexus data list / download / inspect")
-app.add_typer(experiment_app, name="experiment", help="Run benchmark experiments.          nexus experiment run --phase 1")
+app.add_typer(api_app, name="api", help="Start the Nexus API server.         nexus api serve")
+app.add_typer(
+    train_app, name="train", help="Run model training recipes.         nexus train run --recipe ..."
+)
+app.add_typer(
+    eval_app,
+    name="eval",
+    help="Evaluate trained models.            nexus eval perplexity --checkpoint ...",
+)
+app.add_typer(
+    data_app,
+    name="data",
+    help="Download and inspect datasets.      nexus data list / download / inspect",
+)
+app.add_typer(
+    experiment_app,
+    name="experiment",
+    help="Run benchmark experiments.          nexus experiment run --phase 1",
+)

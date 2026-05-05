@@ -45,7 +45,7 @@ class ModelSpec(BaseModel):
     role: Literal["small", "large", "judge"] = "small"
     inference_backend: Literal["transformers", "openai-compatible"] = "transformers"
     max_new_tokens: int = 256
-    temperature: float = 0.0   # 0.0 = greedy decoding (fully deterministic)
+    temperature: float = 0.0  # 0.0 = greedy decoding (fully deterministic)
     batch_size: int = 8
     api_base: str | None = None
     api_key_env: str | None = None
@@ -96,9 +96,11 @@ class SyntheticPuzzleSpec(BaseModel):
 
     depth_range: tuple[int, int] = (2, 4)
     puzzle_types: list[Literal["syllogism", "conditional", "negation"]] = [
-        "syllogism", "conditional", "negation"
+        "syllogism",
+        "conditional",
+        "negation",
     ]
-    vocab_size: int = 200   # how many nonsense words to draw from
+    vocab_size: int = 200  # how many nonsense words to draw from
 
 
 class LoggingSpec(BaseModel):
@@ -113,7 +115,7 @@ class LoggingSpec(BaseModel):
 
     wandb_project: str | None = "3b-logic-broker"
     output_dir: str = ".data/benchmarks/results"
-    save_transcripts: bool = True   # save full question/answer pairs, not just scores
+    save_transcripts: bool = True  # save full question/answer pairs, not just scores
     reference_cache_dir: str = ".data/benchmarks/cache"
     use_reference_cache: bool = True
     refresh_reference_cache: bool = False

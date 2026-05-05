@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, cast
 
 from datasets import load_dataset
 from rich.console import Console
@@ -49,7 +49,7 @@ class TriviaQAItem:
 
 
 def load_triviaqa(
-    samples: Optional[int] = 500,
+    samples: int | None = 500,
     seed: int = 42,
 ) -> list[TriviaQAItem]:
     """Load a sample of TriviaQA validation questions.
@@ -82,16 +82,21 @@ def load_triviaqa(
 
     items = []
     for row in dataset:
+        row_data = cast(dict[str, Any], dict(row))
+
         # TriviaQA stores answers as {"value": str, "aliases": [str, ...]}
-        answer_obj = row["answer"]
-        aliases: list[str] = answer_obj.get("aliases", [])
-        canonical: str = answer_obj.get("value", "")
+        answer_obj = row_data.get("answer", {})
+        if not isinstance(answer_obj, dict):
+            answer_obj = {}
+        aliases_raw = answer_obj.get("aliases", [])
+        aliases = [str(alias) for alias in aliases_raw] if isinstance(aliases_raw, list) else []
+        canonical = str(answer_obj.get("value", ""))
         all_answers = list({canonical} | set(aliases))  # deduplicate
 
         items.append(
             TriviaQAItem(
-                question_id=row["question_id"],
-                question=row["question"],
+                question_id=str(row_data.get("question_id", "")),
+                question=str(row_data.get("question", "")),
                 answers=all_answers,
             )
         )

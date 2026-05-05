@@ -6,7 +6,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from nexus.device import (
+from nexus.device import (  # noqa: E402
     estimate_model_memory_gb,
     get_device,
     get_dtype,
@@ -51,4 +51,4 @@ def test_estimate_memory_4b_bfloat16():
 def test_estimate_memory_float32_is_double():
     gb_bf16 = estimate_model_memory_gb(1_000_000_000, dtype=torch.bfloat16)
     gb_fp32 = estimate_model_memory_gb(1_000_000_000, dtype=torch.float32)
-    assert abs(gb_fp32 / gb_bf16 - 2.0) < 0.01   # float32 uses exactly 2× the memory
+    assert abs(gb_fp32 / gb_bf16 - 2.0) < 0.01  # float32 uses exactly 2× the memory

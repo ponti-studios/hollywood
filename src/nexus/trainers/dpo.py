@@ -111,9 +111,9 @@ def run_dpo(recipe: Recipe) -> None:
         dataloader_pin_memory=False,
         seed=recipe.data.seed,
         # DPO-specific hyperparameters
-        beta=0.1,        # KL penalty — how far to allow deviating from reference
-                         # higher β → stays closer to reference model
-                         # lower β → more aggressive preference optimisation
+        beta=0.1,  # KL penalty — how far to allow deviating from reference
+        # higher β → stays closer to reference model
+        # lower β → more aggressive preference optimisation
         max_length=recipe.model.max_seq_len,
         max_prompt_length=recipe.model.max_seq_len // 2,
     )
@@ -121,7 +121,7 @@ def run_dpo(recipe: Recipe) -> None:
     # ── 5. Train ───────────────────────────────────────────────────────────
     trainer = DPOTrainer(
         model=model,
-        ref_model=None,    # None = use the frozen base model as reference (memory efficient)
+        ref_model=None,  # None = use the frozen base model as reference (memory efficient)
         args=dpo_config,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,

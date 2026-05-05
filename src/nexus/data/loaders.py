@@ -27,7 +27,6 @@ The validation loss is the most important number to watch during training:
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from datasets import Dataset, DatasetDict, load_dataset
 from rich.console import Console

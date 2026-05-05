@@ -11,7 +11,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 # Artifact kinds capture durable output classes across capabilities.
-type ArtifactKind = Literal["model", "audio", "image", "transcript", "report", "dataset_export", "other"]
+type ArtifactKind = Literal[
+    "model", "audio", "image", "transcript", "report", "dataset_export", "other"
+]
 
 
 class ArtifactSchema(BaseModel):

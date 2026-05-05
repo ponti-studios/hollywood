@@ -40,7 +40,9 @@ class RunSchema(BaseModel):
     capability: str = Field(description="Primary capability, such as text, image, or audio.")
     status: RunStatus = Field(description="Lifecycle state for the run.")
     model_id: str | None = Field(default=None, description="Model identifier used by the run.")
-    job_id: str | None = Field(default=None, description="Parent job ID when the run belongs to a job.")
+    job_id: str | None = Field(
+        default=None, description="Parent job ID when the run belongs to a job."
+    )
     experiment_id: str | None = Field(
         default=None,
         description="Parent experiment ID when the run participates in an experiment.",
@@ -84,7 +86,9 @@ class RunSchema(BaseModel):
         default=None,
         description="Legacy-compatible inference input messages.",
     )
-    response: str | None = Field(default=None, description="Legacy-compatible inference response text.")
+    response: str | None = Field(
+        default=None, description="Legacy-compatible inference response text."
+    )
     prompt_tokens: int | None = Field(
         default=None,
         description="Legacy-compatible prompt token count for inference runs.",

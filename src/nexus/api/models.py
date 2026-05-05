@@ -62,7 +62,9 @@ class ChatCompletionRequest(BaseModel):
         le=2.0,
         description="Sampling temperature for non-deterministic generation.",
     )
-    stream: bool = Field(default=False, description="Whether to stream tokens as server-sent events.")
+    stream: bool = Field(
+        default=False, description="Whether to stream tokens as server-sent events."
+    )
     stop: list[str] | None = Field(
         default=None,
         description="Optional stop sequences that truncate the returned completion.",
@@ -93,9 +95,7 @@ class ChatCompletionResponse(BaseModel):
 class LoadModelRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
-            "examples": [
-                {"model_id": "HuggingFaceTB/SmolLM2-135M-Instruct", "quantize": "4bit"}
-            ]
+            "examples": [{"model_id": "HuggingFaceTB/SmolLM2-135M-Instruct", "quantize": "4bit"}]
         }
     )
 

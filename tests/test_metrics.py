@@ -4,8 +4,6 @@ Tests for evaluation metrics.
 These tests use tiny synthetic tensors/data — no model downloads required.
 """
 
-import math
-
 import pytest
 
 torch = pytest.importorskip("torch")
@@ -14,8 +12,9 @@ torch = pytest.importorskip("torch")
 class TestPerplexity:
     def test_perfect_prediction_is_low_perplexity(self):
         """A model that always predicts correctly should have perplexity close to 1."""
+        from unittest.mock import MagicMock
+
         from nexus.evaluation.metrics import compute_perplexity
-        from unittest.mock import MagicMock, patch
 
         # Mock a model that always returns zero loss
         mock_model = MagicMock()
@@ -31,15 +30,13 @@ class TestPerplexity:
         }
 
         # Low loss → perplexity close to e^0.01 ≈ 1.01
-        ppl = compute_perplexity(
-            mock_model, mock_tokenizer, ["test text"], device="cpu"
-        )
-        assert ppl < 5.0   # very low perplexity for near-zero loss
+        ppl = compute_perplexity(mock_model, mock_tokenizer, ["test text"], device="cpu")
+        assert ppl < 5.0  # very low perplexity for near-zero loss
 
 
 class TestSaveLoadMetrics:
     def test_round_trip(self, tmp_path):
-        from nexus.evaluation.metrics import save_metrics, load_metrics
+        from nexus.evaluation.metrics import load_metrics, save_metrics
 
         metrics = {"perplexity": 12.5, "accuracy": 0.87, "dataset": "alpaca"}
         save_metrics(metrics, tmp_path)
@@ -70,14 +67,14 @@ class TestJudgeOutputParsing:
         from nexus.evaluation.judge import parse_judge_output
 
         score, _ = parse_judge_output("SCORE: 15\nREASONING: too high")
-        assert score == 10.0   # clamped to max
+        assert score == 10.0  # clamped to max
 
         score, _ = parse_judge_output("SCORE: -1\nREASONING: too low")
-        assert score == 1.0    # clamped to min
+        assert score == 1.0  # clamped to min
 
     def test_defaults_when_unparseable(self):
         from nexus.evaluation.judge import parse_judge_output
 
         score, reasoning = parse_judge_output("I cannot evaluate this.")
-        assert score == 5.0    # default mid-range score
+        assert score == 5.0  # default mid-range score
         assert "No reasoning" in reasoning

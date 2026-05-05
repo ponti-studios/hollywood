@@ -74,9 +74,7 @@ def run_sft(recipe: Recipe) -> None:
     # ── 3. Load and format dataset ─────────────────────────────────────────
     splits = load_and_split(recipe.data)
     train_dataset = prepare_sft_dataset(splits["train"], tokenizer, recipe.data.dataset_name)
-    eval_dataset = prepare_sft_dataset(
-        splits["validation"], tokenizer, recipe.data.dataset_name
-    )
+    eval_dataset = prepare_sft_dataset(splits["validation"], tokenizer, recipe.data.dataset_name)
 
     # ── 4. Build training config ───────────────────────────────────────────
     # SFTConfig extends TrainingArguments with SFT-specific options

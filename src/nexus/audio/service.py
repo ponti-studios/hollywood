@@ -67,7 +67,9 @@ def _require_torch():
 
 
 class AudioError(Exception):
-    def __init__(self, status_code: int, code: str, message: str, details: str | None = None) -> None:
+    def __init__(
+        self, status_code: int, code: str, message: str, details: str | None = None
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.code = code
@@ -82,7 +84,17 @@ class AudioGenService:
     multiple speakers and natural language instructions.
     """
 
-    SUPPORTED_SPEAKERS = ["aiden", "dylan", "eric", "ono_anna", "ryan", "serena", "sohee", "uncle_fu", "vivian"]
+    SUPPORTED_SPEAKERS = [
+        "aiden",
+        "dylan",
+        "eric",
+        "ono_anna",
+        "ryan",
+        "serena",
+        "sohee",
+        "uncle_fu",
+        "vivian",
+    ]
 
     def __init__(self, paths: AudioPaths | None = None) -> None:
         self.paths = paths or default_audio_paths()

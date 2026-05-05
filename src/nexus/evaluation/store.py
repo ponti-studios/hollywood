@@ -37,10 +37,18 @@ class EvaluationStore:
                 )
                 """
             )
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_evaluations_subject ON evaluations (subject_type, subject_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_evaluations_benchmark ON evaluations (benchmark_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_evaluations_capability ON evaluations (capability)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_evaluations_created ON evaluations (created_at)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_evaluations_subject ON evaluations (subject_type, subject_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_evaluations_benchmark ON evaluations (benchmark_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_evaluations_capability ON evaluations (capability)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_evaluations_created ON evaluations (created_at)"
+            )
 
     def save(self, record: EvaluationSchema) -> None:
         with self._connect() as conn:
@@ -68,7 +76,9 @@ class EvaluationStore:
 
     def get(self, evaluation_id: str) -> EvaluationSchema | None:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM evaluations WHERE id = ?", (evaluation_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM evaluations WHERE id = ?", (evaluation_id,)
+            ).fetchone()
         return _row_to_evaluation(row) if row else None
 
     def list(

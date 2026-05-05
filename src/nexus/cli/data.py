@@ -91,6 +91,7 @@ def download(
     and won't be re-downloaded on subsequent runs.
     """
     from datasets import load_dataset
+
     from nexus.data.loaders import inspect_dataset
 
     console.print(f"\n[bold]Downloading:[/bold] {name} (split={split})")
@@ -113,6 +114,7 @@ def inspect(
 ) -> None:
     """Preview a dataset without fully downloading it (uses streaming)."""
     from datasets import load_dataset
+
     from nexus.data.loaders import inspect_dataset
 
     console.print(f"\n[bold]Inspecting:[/bold] {name}")
@@ -122,5 +124,6 @@ def inspect(
     examples = list(ds.take(num_examples))  # type: ignore
 
     from datasets import Dataset
+
     preview = Dataset.from_list(examples)
     inspect_dataset(preview, num_examples=num_examples)

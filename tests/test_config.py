@@ -20,7 +20,7 @@ class TestModelConfig:
     def test_valid_config(self):
         cfg = ModelConfig(model_id="google/gemma-4-e2b")
         assert cfg.model_id == "google/gemma-4-e2b"
-        assert cfg.dtype == "bfloat16"      # correct default
+        assert cfg.dtype == "bfloat16"  # correct default
         assert cfg.max_seq_len == 2048
         assert cfg.attn_implementation == "eager"
 
@@ -59,12 +59,12 @@ class TestTrainingConfig:
         cfg = TrainingConfig(method="sft")
         assert cfg.method == "sft"
         assert cfg.learning_rate == 2e-4
-        assert cfg.fp16 is False   # MUST be False for Gemma
+        assert cfg.fp16 is False  # MUST be False for Gemma
 
     def test_fp16_always_false(self):
         # Even if you try to set fp16=True, it should be forced to False
         cfg = TrainingConfig(method="sft", fp16=True)
-        assert cfg.fp16 is False   # validator forces this
+        assert cfg.fp16 is False  # validator forces this
 
     def test_all_methods_valid(self):
         for method in ["sft", "dpo", "orpo", "simpo", "grpo"]:
@@ -73,7 +73,7 @@ class TestTrainingConfig:
 
     def test_invalid_method_rejected(self):
         with pytest.raises(ValidationError):
-            TrainingConfig(method="rlhf")   # not a supported method
+            TrainingConfig(method="rlhf")  # not a supported method
 
 
 class TestRecipe:
@@ -96,6 +96,7 @@ class TestRecipe:
 
     def test_from_yaml(self, tmp_path, sample_recipe_dict):
         import yaml
+
         yaml_file = tmp_path / "test_recipe.yaml"
         yaml_file.write_text(yaml.dump(sample_recipe_dict))
 

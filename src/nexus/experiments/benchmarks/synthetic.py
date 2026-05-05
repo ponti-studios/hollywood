@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import logging
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -44,36 +45,177 @@ logger = logging.getLogger(__name__)
 # 200 pronounceable nonsense words, evenly split between noun-like and
 # name-like forms. Carefully chosen to be unambiguously meaningless in English.
 NOUNS: list[str] = [
-    "Wumble", "Frobb", "Glark", "Tixby", "Zorn", "Pleeb", "Varg", "Snirp",
-    "Blivet", "Zarp", "Quibb", "Florp", "Nerg", "Spudd", "Drimp", "Clurp",
-    "Fwobb", "Grix", "Hulb", "Jarv", "Klerp", "Lurb", "Mirv", "Nurp",
-    "Olb", "Pirg", "Quorp", "Rorb", "Slurv", "Triff", "Urvp", "Virb",
-    "Wolb", "Xurp", "Yerb", "Zurv", "Ablorp", "Briff", "Clurb", "Dreff",
-    "Eblorp", "Frinx", "Glorb", "Humf", "Iklorp", "Jirv", "Klorb", "Leff",
-    "Morv", "Nulb", "Orfp", "Prulb", "Querb", "Riff", "Sluff", "Trulb",
-    "Uplorb", "Virff", "Wulb", "Xorb", "Yulb", "Zurff", "Abliff", "Brinx",
-    "Cleff", "Drulb", "Eplorf", "Frorb", "Gliff", "Hurb", "Iplorf", "Jirff",
-    "Klorff", "Lorb", "Murff", "Nulff", "Orpf", "Prulff", "Querff", "Riff",
-    "Slulb", "Trurb", "Upluff", "Virbb", "Wulff", "Xorff", "Yulff", "Zurbb",
-    "Ablimp", "Brimp", "Climp", "Drimp", "Eplimp", "Frimp", "Glimp", "Hulimp",
-    "Iplimp", "Jimp", "Klimp", "Limp", "Mulimp", "Nulimp", "Olimp", "Primp",
-    "Quimp", "Rimp", "Slimp", "Trimp", "Ulimp", "Vimp", "Wulimp", "Xolimp",
+    "Wumble",
+    "Frobb",
+    "Glark",
+    "Tixby",
+    "Zorn",
+    "Pleeb",
+    "Varg",
+    "Snirp",
+    "Blivet",
+    "Zarp",
+    "Quibb",
+    "Florp",
+    "Nerg",
+    "Spudd",
+    "Drimp",
+    "Clurp",
+    "Fwobb",
+    "Grix",
+    "Hulb",
+    "Jarv",
+    "Klerp",
+    "Lurb",
+    "Mirv",
+    "Nurp",
+    "Olb",
+    "Pirg",
+    "Quorp",
+    "Rorb",
+    "Slurv",
+    "Triff",
+    "Urvp",
+    "Virb",
+    "Wolb",
+    "Xurp",
+    "Yerb",
+    "Zurv",
+    "Ablorp",
+    "Briff",
+    "Clurb",
+    "Dreff",
+    "Eblorp",
+    "Frinx",
+    "Glorb",
+    "Humf",
+    "Iklorp",
+    "Jirv",
+    "Klorb",
+    "Leff",
+    "Morv",
+    "Nulb",
+    "Orfp",
+    "Prulb",
+    "Querb",
+    "Riff",
+    "Sluff",
+    "Trulb",
+    "Uplorb",
+    "Virff",
+    "Wulb",
+    "Xorb",
+    "Yulb",
+    "Zurff",
+    "Abliff",
+    "Brinx",
+    "Cleff",
+    "Drulb",
+    "Eplorf",
+    "Frorb",
+    "Gliff",
+    "Hurb",
+    "Iplorf",
+    "Jirff",
+    "Klorff",
+    "Lorb",
+    "Murff",
+    "Nulff",
+    "Orpf",
+    "Prulff",
+    "Querff",
+    "Riff",
+    "Slulb",
+    "Trurb",
+    "Upluff",
+    "Virbb",
+    "Wulff",
+    "Xorff",
+    "Yulff",
+    "Zurbb",
+    "Ablimp",
+    "Brimp",
+    "Climp",
+    "Drimp",
+    "Eplimp",
+    "Frimp",
+    "Glimp",
+    "Hulimp",
+    "Iplimp",
+    "Jimp",
+    "Klimp",
+    "Limp",
+    "Mulimp",
+    "Nulimp",
+    "Olimp",
+    "Primp",
+    "Quimp",
+    "Rimp",
+    "Slimp",
+    "Trimp",
+    "Ulimp",
+    "Vimp",
+    "Wulimp",
+    "Xolimp",
 ]
 
 NAMES: list[str] = [
-    "Blarkon", "Drixel", "Forvath", "Grunzel", "Hixby", "Jorbel", "Kelvon",
-    "Lorrex", "Mivzor", "Norbel", "Orvath", "Prexon", "Quorvel", "Rivzon",
-    "Sorbel", "Trevox", "Ulvon", "Vorvex", "Worbel", "Xorvon", "Yelvex",
-    "Zorvath", "Axbel", "Brolvon", "Crixel", "Delvath", "Exorb", "Frolvon",
-    "Grexon", "Horbel", "Ivzon", "Jolvex", "Kribel", "Lorzon", "Morbex",
-    "Nelvon", "Orxel", "Prelvath", "Quixon", "Rorbel", "Solvex", "Tixon",
-    "Ulvath", "Vrelbel", "Wixon", "Xolvex", "Yorbel", "Zorxon", "Axolvon",
+    "Blarkon",
+    "Drixel",
+    "Forvath",
+    "Grunzel",
+    "Hixby",
+    "Jorbel",
+    "Kelvon",
+    "Lorrex",
+    "Mivzor",
+    "Norbel",
+    "Orvath",
+    "Prexon",
+    "Quorvel",
+    "Rivzon",
+    "Sorbel",
+    "Trevox",
+    "Ulvon",
+    "Vorvex",
+    "Worbel",
+    "Xorvon",
+    "Yelvex",
+    "Zorvath",
+    "Axbel",
+    "Brolvon",
+    "Crixel",
+    "Delvath",
+    "Exorb",
+    "Frolvon",
+    "Grexon",
+    "Horbel",
+    "Ivzon",
+    "Jolvex",
+    "Kribel",
+    "Lorzon",
+    "Morbex",
+    "Nelvon",
+    "Orxel",
+    "Prelvath",
+    "Quixon",
+    "Rorbel",
+    "Solvex",
+    "Tixon",
+    "Ulvath",
+    "Vrelbel",
+    "Wixon",
+    "Xolvex",
+    "Yorbel",
+    "Zorxon",
+    "Axolvon",
 ]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Puzzle data structures
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class LogicPuzzle:
@@ -102,6 +244,7 @@ class LogicPuzzle:
 # Generators
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def _sample_nouns(rng: random.Random, n: int) -> list[str]:
     """Sample n unique nouns without replacement."""
     return rng.sample(NOUNS, n)
@@ -123,7 +266,7 @@ def _generate_syllogism(rng: random.Random, depth: int, idx: int) -> LogicPuzzle
     nouns = _sample_nouns(rng, depth + 1)  # A, B, C, ... (depth+1 nouns)
     name = _sample_name(rng)
 
-    premises = [f"All {nouns[i]}s are {nouns[i+1]}s." for i in range(depth)]
+    premises = [f"All {nouns[i]}s are {nouns[i + 1]}s." for i in range(depth)]
     premises.append(f"{name} is a {nouns[0]}.")
 
     question = f"Is {name} a {nouns[-1]}?"
@@ -131,7 +274,9 @@ def _generate_syllogism(rng: random.Random, depth: int, idx: int) -> LogicPuzzle
 
     explanation_steps = [f"{name} is a {nouns[0]}"]
     for i in range(depth):
-        explanation_steps.append(f"All {nouns[i]}s are {nouns[i+1]}s → {name} is a {nouns[i+1]}")
+        explanation_steps.append(
+            f"All {nouns[i]}s are {nouns[i + 1]}s → {name} is a {nouns[i + 1]}"
+        )
     explanation = ". ".join(explanation_steps) + f". Therefore {name} is a {nouns[-1]}."
 
     return LogicPuzzle(
@@ -159,7 +304,7 @@ def _generate_conditional(rng: random.Random, depth: int, idx: int) -> LogicPuzz
 
     premises = [f"If something is a {nouns[0]}, then it is also a {nouns[1]}."]
     for i in range(1, depth):
-        premises.append(f"If something is a {nouns[i]}, then it is also a {nouns[i+1]}.")
+        premises.append(f"If something is a {nouns[i]}, then it is also a {nouns[i + 1]}.")
     premises.append(f"{name} is a {nouns[0]}.")
 
     question = f"Is {name} a {nouns[-1]}?"
@@ -167,10 +312,7 @@ def _generate_conditional(rng: random.Random, depth: int, idx: int) -> LogicPuzz
 
     explanation = (
         f"{name} is a {nouns[0]}. "
-        + " ".join(
-            f"Being a {nouns[i]} implies being a {nouns[i+1]}."
-            for i in range(depth)
-        )
+        + " ".join(f"Being a {nouns[i]} implies being a {nouns[i + 1]}." for i in range(depth))
         + f" Therefore {name} is a {nouns[-1]}."
     )
 
@@ -213,17 +355,17 @@ def _generate_negation(rng: random.Random, depth: int, idx: int) -> LogicPuzzle:
     else:
         # Chain: All A are B. All B are C. ... No (last-1) are (last). Is name a (last)?
         chain_depth = depth - 1
-        premises = [f"All {nouns[i]}s are {nouns[i+1]}s." for i in range(chain_depth)]
-        premises.append(f"No {nouns[chain_depth]}s are {nouns[chain_depth+1]}s.")
+        premises = [f"All {nouns[i]}s are {nouns[i + 1]}s." for i in range(chain_depth)]
+        premises.append(f"No {nouns[chain_depth]}s are {nouns[chain_depth + 1]}s.")
         premises.append(f"{name} is a {nouns[0]}.")
 
         question = f"Is {name} a {nouns[-1]}?"
         answer = "No"
-        chain = " → ".join(f"{name} is a {nouns[i+1]}" for i in range(chain_depth))
+        chain = " → ".join(f"{name} is a {nouns[i + 1]}" for i in range(chain_depth))
         explanation = (
             f"{name} is a {nouns[0]}. "
             f"{chain}. "
-            f"But no {nouns[chain_depth]}s are {nouns[chain_depth+1]}s, "
+            f"But no {nouns[chain_depth]}s are {nouns[chain_depth + 1]}s, "
             f"so {name} cannot be a {nouns[-1]}."
         )
 
@@ -253,7 +395,7 @@ def generate_puzzles(
     n: int = 500,
     seed: int = 42,
     depth_range: tuple[int, int] = (2, 4),
-    puzzle_types: Optional[list[str]] = None,
+    puzzle_types: Sequence[str] | None = None,
 ) -> list[LogicPuzzle]:
     """Generate n synthetic logic puzzles.
 
@@ -270,7 +412,6 @@ def generate_puzzles(
     Returns:
         List of LogicPuzzle objects, shuffled randomly.
     """
-    from typing import Optional  # local import to avoid circular issue at module level
 
     puzzle_types = puzzle_types or ["syllogism", "conditional", "negation"]
     rng = random.Random(seed)

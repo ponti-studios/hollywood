@@ -115,9 +115,9 @@ class DataConfig(BaseModel):
     val_split: float = 0.05
     max_samples: int | None = None
     seed: int = 42
-    text_column: str = "text"          # column name containing the text/messages
-    prompt_column: str = "prompt"      # for DPO/ORPO: column with the prompt
-    chosen_column: str = "chosen"      # for DPO/ORPO: preferred response
+    text_column: str = "text"  # column name containing the text/messages
+    prompt_column: str = "prompt"  # for DPO/ORPO: column with the prompt
+    chosen_column: str = "chosen"  # for DPO/ORPO: preferred response
     rejected_column: str = "rejected"  # for DPO/ORPO: dispreferred response
 
 
@@ -168,9 +168,9 @@ class TrainingConfig(BaseModel):
     save_steps: int = 100
     logging_steps: int = 10
     eval_steps: int = 100
-    max_grad_norm: float = 1.0         # clips gradients to prevent exploding updates
-    bf16: bool = True                  # use bfloat16 for training (required for Gemma)
-    fp16: bool = False                 # do NOT use float16 with Gemma
+    max_grad_norm: float = 1.0  # clips gradients to prevent exploding updates
+    bf16: bool = True  # use bfloat16 for training (required for Gemma)
+    fp16: bool = False  # do NOT use float16 with Gemma
 
     @field_validator("fp16")
     @classmethod
@@ -192,7 +192,7 @@ class WandbConfig(BaseModel):
 
     enabled: bool = True
     project: str = "nexus-posttraining"
-    run_name: str | None = None     # auto-generated from recipe name if None
+    run_name: str | None = None  # auto-generated from recipe name if None
     tags: list[str] = []
     notes: str = ""
 

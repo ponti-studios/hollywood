@@ -47,8 +47,14 @@ class TestDPOFormatter:
 
         row = {
             "prompt": "What is 2+2?",
-            "chosen": [{"role": "user", "content": "What is 2+2?"}, {"role": "assistant", "content": "4"}],
-            "rejected": [{"role": "user", "content": "What is 2+2?"}, {"role": "assistant", "content": "5"}],
+            "chosen": [
+                {"role": "user", "content": "What is 2+2?"},
+                {"role": "assistant", "content": "4"},
+            ],
+            "rejected": [
+                {"role": "user", "content": "What is 2+2?"},
+                {"role": "assistant", "content": "5"},
+            ],
         }
         result = format_ultrafeedback_for_dpo(row)
 

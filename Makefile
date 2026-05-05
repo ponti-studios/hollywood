@@ -6,8 +6,8 @@ UV := uv
 	smoke-eval \
         test test-cov lint format typecheck clean help
 
-# MINIMAX_API_KEY must be set in env before running smoke-eval
-SMOKE_MODEL   ?= MiniMax-M2.7
+# Default smoke-eval reference model.
+SMOKE_MODEL   ?= Qwen/Qwen3.5-4B
 SMOKE_SAMPLES ?= 25
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
@@ -68,11 +68,7 @@ exp-open-book: ## Phase 2 open-book benchmark (500 samples, search-enabled)
 exp-reflection: ## Phase 3 reflection benchmark (500 samples, draft/critique/refine)
 	$(UV) run nexus experiment run --config configs/benchmarks/exp_03.yaml
 
-smoke-eval: ## Live 3-phase smoke eval against MiniMax (25 samples, no W&B)
-	@if [ -z "$$MINIMAX_API_KEY" ]; then \
-		echo "ERROR: MINIMAX_API_KEY is not set. Export it before running smoke-eval."; \
-		exit 1; \
-	fi
+smoke-eval: ## Live 3-phase smoke eval against Qwen (25 samples, no W&B)
 	@echo "=== Phase 1: closed-book baseline ==="
 	$(UV) run nexus experiment run --phase 1 --samples $(SMOKE_SAMPLES) \
 		--large-model $(SMOKE_MODEL) --no-wandb

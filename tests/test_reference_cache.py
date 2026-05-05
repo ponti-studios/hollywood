@@ -1,15 +1,24 @@
 from __future__ import annotations
 
-from pathlib import Path
 import time
+from pathlib import Path
+from typing import Any
 
 import click
 import pytest
 from rich.console import Console
 
-from nexus.cli.experiment import _build_large_model_spec, inspect_reference_cache, list_reference_caches
+from nexus.cli.experiment import (
+    _build_large_model_spec,
+    inspect_reference_cache,
+    list_reference_caches,
+)
 from nexus.experiments.config import ExperimentConfig, LoggingSpec, ModelSpec
-from nexus.experiments.reference_cache import find_reference_caches, save_reference_cache, summarize_cache_file
+from nexus.experiments.reference_cache import (
+    find_reference_caches,
+    save_reference_cache,
+    summarize_cache_file,
+)
 from nexus.experiments.runner import BaseRunner
 from nexus.experiments.scoring import BenchmarkScore, QuestionResult
 
@@ -20,7 +29,9 @@ class DummyRunner(BaseRunner):
 
 
 def test_reference_cache_listing_and_summary(tmp_path: Path) -> None:
-    cache_path = tmp_path / "cache" / "exp_01_baseline" / "meta-llama__model" / "triviaqa_abc123.json"
+    cache_path = (
+        tmp_path / "cache" / "exp_01_baseline" / "meta-llama__model" / "triviaqa_abc123.json"
+    )
     save_reference_cache(
         cache_path,
         experiment_name="exp_01_baseline",
@@ -51,7 +62,9 @@ def test_reference_cache_listing_and_summary(tmp_path: Path) -> None:
         ],
     )
 
-    matches = find_reference_caches(tmp_path / "cache", experiment="exp_01_baseline", benchmark="triviaqa")
+    matches = find_reference_caches(
+        tmp_path / "cache", experiment="exp_01_baseline", benchmark="triviaqa"
+    )
     assert matches == [cache_path]
 
     summary = summarize_cache_file(cache_path)
@@ -154,11 +167,13 @@ def test_comparison_table_warns_on_stale_cache(monkeypatch) -> None:
 
 def test_openai_compatible_pipeline_uses_chat_completions(monkeypatch) -> None:
     runner = DummyRunner(
-        ExperimentConfig(name="exp_01_baseline", description="test", logging=LoggingSpec(wandb_project=None))
+        ExperimentConfig(
+            name="exp_01_baseline", description="test", logging=LoggingSpec(wandb_project=None)
+        )
     )
-    monkeypatch.setenv("MINIMAX_API_KEY", "secret")
+    monkeypatch.setenv("REMOTE_API_KEY", "secret")
 
-    captured: dict[str, object] = {}
+    captured: dict[str, Any] = {}
 
     class FakeResponse:
         def raise_for_status(self) -> None:
@@ -184,11 +199,11 @@ def test_openai_compatible_pipeline_uses_chat_completions(monkeypatch) -> None:
 
     pipeline = runner._build_openai_compatible_pipeline(
         ModelSpec(
-            model_id="MiniMax-M2.7",
+            model_id="remote-model",
             role="large",
             inference_backend="openai-compatible",
-            api_base="https://api.minimax.io/v1",
-            api_key_env="MINIMAX_API_KEY",
+            api_base="https://example.invalid/v1",
+            api_key_env="REMOTE_API_KEY",
             max_new_tokens=64,
             temperature=0.0,
         )
@@ -196,27 +211,35 @@ def test_openai_compatible_pipeline_uses_chat_completions(monkeypatch) -> None:
     result = pipeline("What is the capital of France?")
 
     assert result == [{"generated_text": "What is the capital of France?Paris"}]
-    assert captured["base_url"] == "https://api.minimax.io/v1"
+    assert captured["base_url"] == "https://example.invalid/v1"
     assert captured["path"] == "/chat/completions"
-    assert captured["payload"]["model"] == "MiniMax-M2.7"
+    assert captured["payload"]["model"] == "remote-model"
     assert captured["payload"]["temperature"] == 0.01
 
 
-def test_minimax_large_model_spec_defaults_to_remote_backend() -> None:
-    spec = _build_large_model_spec("MiniMax-M2.7")
-    assert spec.inference_backend == "openai-compatible"
-    assert spec.api_base == "https://api.minimax.io/v1"
-    assert spec.api_key_env == "MINIMAX_API_KEY"
-    assert spec.temperature == 0.01
+def test_qwen_large_model_spec_uses_local_transformers_defaults() -> None:
+    spec = _build_large_model_spec("Qwen/Qwen3.5-4B")
+    assert spec.inference_backend == "transformers"
+    assert spec.api_base is None
+    assert spec.api_key_env is None
+    assert spec.max_new_tokens == 256
+    assert spec.temperature == 0.0
+    assert spec.batch_size == 4
 
 
 def test_cache_cli_json_output(monkeypatch, tmp_path: Path) -> None:
-    cache_path = tmp_path / "cache" / "exp_01_baseline" / "MiniMax-M2.7" / "triviaqa_abc123.json"
+    cache_path = (
+        tmp_path
+        / "cache"
+        / "exp_01_baseline"
+        / "Qwen__Qwen2.5-7B-Instruct"
+        / "triviaqa_abc123.json"
+    )
     save_reference_cache(
         cache_path,
         experiment_name="exp_01_baseline",
         score_version="phase1_v1",
-        model_id="MiniMax-M2.7",
+        model_id="Qwen/Qwen3.5-4B",
         role="large",
         benchmark="triviaqa",
         benchmark_signature="abc123",
@@ -227,7 +250,7 @@ def test_cache_cli_json_output(monkeypatch, tmp_path: Path) -> None:
                 expected="Paris",
                 predicted="Paris",
                 correct=True,
-                model_id="MiniMax-M2.7",
+                model_id="Qwen/Qwen3.5-4B",
                 benchmark="triviaqa",
             )
         ],
@@ -248,7 +271,7 @@ def test_cache_cli_json_output(monkeypatch, tmp_path: Path) -> None:
         )
 
     rendered = capture_console.export_text()
-    assert '"model_id": "MiniMax-M2.7"' in rendered
+    assert '"model_id": "Qwen/Qwen3.5-4B"' in rendered
 
     capture_console = Console(record=True, width=140)
     monkeypatch.setattr(experiment_module, "console", capture_console)

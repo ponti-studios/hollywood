@@ -2,8 +2,14 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from nexus.experiments.config import (
+    BenchmarkSpec,
+    ExperimentConfig,
+    LoggingSpec,
+    ModelSpec,
+    SyntheticPuzzleSpec,
+)
 from nexus.experiments.phases.baseline import BaselineRunner
-from nexus.experiments.config import BenchmarkSpec, ExperimentConfig, LoggingSpec, ModelSpec, SyntheticPuzzleSpec
 from nexus.experiments.scoring import QuestionResult
 
 
@@ -26,7 +32,9 @@ def build_config(tmp_path, benchmarks: list[BenchmarkSpec]) -> ExperimentConfig:
     )
 
 
-def install_fake_benchmarks(runner: BaselineRunner, benchmark_items: dict[str, list[SimpleNamespace]]) -> None:
+def install_fake_benchmarks(
+    runner: BaselineRunner, benchmark_items: dict[str, list[SimpleNamespace]]
+) -> None:
     def fake_load(spec: BenchmarkSpec) -> list[SimpleNamespace]:
         return benchmark_items[spec.name]
 

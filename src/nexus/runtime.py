@@ -18,6 +18,8 @@ from rich.console import Console
 
 SUPPORTED_PYTHON = (3, 12)
 APPLE_RUNTIME_PACKAGES = ("torch", "accelerate", "peft", "trl")
+
+
 def _package_missing(name: str) -> bool:
     return importlib.util.find_spec(name) is None
 

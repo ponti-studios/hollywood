@@ -3,10 +3,9 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from nexus.experiments.scoring import QuestionResult
-
 
 CACHE_SCHEMA_VERSION = 1
 
@@ -23,7 +22,12 @@ def build_cache_path(
     benchmark_signature: str,
 ) -> Path:
     root = Path(cache_root)
-    return root / experiment_name / safe_model_id(model_id) / f"{benchmark_name}_{benchmark_signature}.json"
+    return (
+        root
+        / experiment_name
+        / safe_model_id(model_id)
+        / f"{benchmark_name}_{benchmark_signature}.json"
+    )
 
 
 def serialize_question_result(result: QuestionResult) -> dict[str, Any]:
@@ -66,7 +70,7 @@ def save_reference_cache(
     benchmark: str,
     benchmark_signature: str,
     results: list[QuestionResult],
-    extra_metadata: Optional[dict[str, Any]] = None,
+    extra_metadata: dict[str, Any] | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
@@ -91,7 +95,7 @@ def load_reference_cache(
     *,
     score_version: str,
     benchmark_signature: str,
-) -> Optional[list[QuestionResult]]:
+) -> list[QuestionResult] | None:
     if not path.exists():
         return None
 
@@ -113,7 +117,7 @@ def read_cache_metadata(path: Path) -> dict[str, Any]:
         return json.load(f)
 
 
-def load_cache_metadata(path: Path) -> Optional[dict[str, Any]]:
+def load_cache_metadata(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     return read_cache_metadata(path)
@@ -143,23 +147,29 @@ def summarize_cache_file(path: Path) -> dict[str, Any]:
 def find_reference_caches(
     cache_root: str | Path,
     *,
-    experiment: Optional[str] = None,
-    model: Optional[str] = None,
-    benchmark: Optional[str] = None,
+    experiment: str | None = None,
+    model: str | None = None,
+    benchmark: str | None = None,
 ) -> list[Path]:
     root = Path(cache_root)
     if not root.exists():
         return []
 
     matches: list[Path] = []
-    experiment_dirs = [root / experiment] if experiment else [path for path in root.iterdir() if path.is_dir()]
+    experiment_dirs = (
+        [root / experiment] if experiment else [path for path in root.iterdir() if path.is_dir()]
+    )
 
     for experiment_dir in experiment_dirs:
         if not experiment_dir.exists() or not experiment_dir.is_dir():
             continue
 
         model_dir_name = safe_model_id(model) if model else None
-        model_dirs = [experiment_dir / model_dir_name] if model_dir_name else [path for path in experiment_dir.iterdir() if path.is_dir()]
+        model_dirs = (
+            [experiment_dir / model_dir_name]
+            if model_dir_name
+            else [path for path in experiment_dir.iterdir() if path.is_dir()]
+        )
 
         for model_dir in model_dirs:
             if not model_dir.exists() or not model_dir.is_dir():

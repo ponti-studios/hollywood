@@ -68,7 +68,9 @@ def test_experiment_store_saves_and_loads_schema(tmp_path: Path) -> None:
     assert loaded.summary == {"phase": 1}
 
 
-def test_execute_marks_experiment_completed_and_persists_scores(tmp_path: Path, monkeypatch) -> None:
+def test_execute_marks_experiment_completed_and_persists_scores(
+    tmp_path: Path, monkeypatch
+) -> None:
     store = ExperimentStore(tmp_path / "experiments.db")
     cfg = _build_config(tmp_path)
     experiment = _experiment_from_config(cfg, "exp_complete")

@@ -7,7 +7,6 @@ description: >
     - Synthetic (pure logic: expects small model to be competitive)
   The gap on Synthetic vs the gap on TriviaQA/MMLU is the key finding.
 phase: 1
-
 models:
   - model_id: google/gemma-4-e2b
     role: small
@@ -17,26 +16,23 @@ models:
     batch_size: 8
 
   # Uncomment to add a large model comparison.
-  # MiniMax M2.7 is API-only and uses its OpenAI-compatible endpoint.
-  # Export MINIMAX_API_KEY before running.
-  # - model_id: MiniMax-M2.7
+  # Qwen runs locally through the standard transformers backend.
+  # - model_id: Qwen/Qwen3.5-4B
   #   role: large
-  #   inference_backend: openai-compatible
-  #   api_base: https://api.minimax.io/v1
-  #   api_key_env: MINIMAX_API_KEY
+  #   inference_backend: transformers
   #   max_new_tokens: 128
-  #   temperature: 0.01
-  #   batch_size: 1
+  #   temperature: 0.0
+  #   batch_size: 4
 
 benchmarks:
   - name: triviaqa
-    samples: 500          # 500 questions → ~15-20 min on Apple Silicon M-series
+    samples: 500 # 500 questions → ~15-20 min on Apple Silicon M-series
     seed: 42
 
   - name: mmlu
     samples: 500
     seed: 42
-    mmlu_subjects:        # 12 subjects — one per broad domain
+    mmlu_subjects: # 12 subjects — one per broad domain
       - high_school_mathematics
       - high_school_physics
       - college_computer_science
@@ -55,7 +51,7 @@ benchmarks:
     seed: 42
 
 synthetic:
-  depth_range: [2, 4]     # 2-step to 4-step reasoning chains
+  depth_range: [2, 4] # 2-step to 4-step reasoning chains
   puzzle_types:
     - syllogism
     - conditional

@@ -30,9 +30,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
-from datasets import load_dataset, concatenate_datasets
+from datasets import concatenate_datasets, load_dataset
 from rich.console import Console
 
 logger = logging.getLogger(__name__)
@@ -40,43 +39,80 @@ console = Console()
 
 # Full list of MMLU subjects — 57 total
 ALL_SUBJECTS: list[str] = [
-    "abstract_algebra", "anatomy", "astronomy", "business_ethics",
-    "clinical_knowledge", "college_biology", "college_chemistry",
-    "college_computer_science", "college_mathematics", "college_medicine",
-    "college_physics", "computer_security", "conceptual_physics",
-    "econometrics", "electrical_engineering", "elementary_mathematics",
-    "formal_logic", "global_facts", "high_school_biology",
-    "high_school_chemistry", "high_school_computer_science",
-    "high_school_european_history", "high_school_geography",
-    "high_school_government_and_politics", "high_school_macroeconomics",
-    "high_school_mathematics", "high_school_microeconomics",
-    "high_school_physics", "high_school_psychology",
-    "high_school_statistics", "high_school_us_history",
-    "high_school_world_history", "human_aging", "human_sexuality",
-    "international_law", "jurisprudence", "logical_fallacies",
-    "machine_learning", "management", "marketing", "medical_genetics",
-    "miscellaneous", "moral_disputes", "moral_scenarios",
-    "nutrition", "philosophy", "prehistory", "professional_accounting",
-    "professional_law", "professional_medicine", "professional_psychology",
-    "public_relations", "security_studies", "sociology",
-    "us_foreign_policy", "virology", "world_religions",
+    "abstract_algebra",
+    "anatomy",
+    "astronomy",
+    "business_ethics",
+    "clinical_knowledge",
+    "college_biology",
+    "college_chemistry",
+    "college_computer_science",
+    "college_mathematics",
+    "college_medicine",
+    "college_physics",
+    "computer_security",
+    "conceptual_physics",
+    "econometrics",
+    "electrical_engineering",
+    "elementary_mathematics",
+    "formal_logic",
+    "global_facts",
+    "high_school_biology",
+    "high_school_chemistry",
+    "high_school_computer_science",
+    "high_school_european_history",
+    "high_school_geography",
+    "high_school_government_and_politics",
+    "high_school_macroeconomics",
+    "high_school_mathematics",
+    "high_school_microeconomics",
+    "high_school_physics",
+    "high_school_psychology",
+    "high_school_statistics",
+    "high_school_us_history",
+    "high_school_world_history",
+    "human_aging",
+    "human_sexuality",
+    "international_law",
+    "jurisprudence",
+    "logical_fallacies",
+    "machine_learning",
+    "management",
+    "marketing",
+    "medical_genetics",
+    "miscellaneous",
+    "moral_disputes",
+    "moral_scenarios",
+    "nutrition",
+    "philosophy",
+    "prehistory",
+    "professional_accounting",
+    "professional_law",
+    "professional_medicine",
+    "professional_psychology",
+    "public_relations",
+    "security_studies",
+    "sociology",
+    "us_foreign_policy",
+    "virology",
+    "world_religions",
 ]
 
 # A representative 12-subject subset — one per broad domain area — used
 # when you want faster runs without losing cross-domain coverage.
 DEFAULT_SUBJECTS: list[str] = [
-    "high_school_mathematics",      # STEM — math
-    "high_school_physics",          # STEM — physical science
-    "college_computer_science",     # STEM — CS
-    "high_school_biology",          # STEM — life science
-    "high_school_us_history",       # Humanities — history
-    "philosophy",                   # Humanities — reasoning
-    "high_school_psychology",       # Social Science
-    "econometrics",                 # Social Science — quant
-    "professional_medicine",        # Other — medicine
-    "nutrition",                    # Other — applied science
-    "logical_fallacies",            # Tests reasoning over knowledge
-    "machine_learning",             # CS + math hybrid
+    "high_school_mathematics",  # STEM — math
+    "high_school_physics",  # STEM — physical science
+    "college_computer_science",  # STEM — CS
+    "high_school_biology",  # STEM — life science
+    "high_school_us_history",  # Humanities — history
+    "philosophy",  # Humanities — reasoning
+    "high_school_psychology",  # Social Science
+    "econometrics",  # Social Science — quant
+    "professional_medicine",  # Other — medicine
+    "nutrition",  # Other — applied science
+    "logical_fallacies",  # Tests reasoning over knowledge
+    "machine_learning",  # CS + math hybrid
 ]
 
 # Letter choices for the 4-way multiple choice format
@@ -102,8 +138,8 @@ class MMLUItem:
 
 
 def load_mmlu(
-    subjects: Optional[list[str]] = None,
-    samples: Optional[int] = 500,
+    subjects: list[str] | None = None,
+    samples: int | None = 500,
     seed: int = 42,
 ) -> list[MMLUItem]:
     """Load MMLU questions from one or more subjects.
@@ -167,9 +203,7 @@ def format_prompt(item: MMLUItem) -> str:
     respond with only the letter. The "Only respond with the letter"
     instruction makes extraction reliable.
     """
-    choices_text = "\n".join(
-        f"  {letter}. {text}" for letter, text in zip(CHOICES, item.choices)
-    )
+    choices_text = "\n".join(f"  {letter}. {text}" for letter, text in zip(CHOICES, item.choices))
     return (
         f"The following is a multiple choice question. "
         f"Answer with only the letter of the correct choice (A, B, C, or D).\n\n"

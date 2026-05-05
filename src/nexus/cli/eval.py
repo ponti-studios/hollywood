@@ -27,13 +27,15 @@ console = Console()
 def eval_perplexity(
     checkpoint: Path = typer.Option(
         ...,
-        "--checkpoint", "-c",
+        "--checkpoint",
+        "-c",
         help="Path to a trained model checkpoint directory.",
         exists=True,
     ),
     dataset: str = typer.Option(
         "tatsu-lab/alpaca",
-        "--dataset", "-d",
+        "--dataset",
+        "-d",
         help="HuggingFace dataset to evaluate on.",
     ),
     max_samples: int = typer.Option(
@@ -87,7 +89,8 @@ def eval_perplexity(
 def eval_judge(
     checkpoint: Path = typer.Option(
         ...,
-        "--checkpoint", "-c",
+        "--checkpoint",
+        "-c",
         help="Path to a trained model checkpoint directory.",
         exists=True,
     ),
@@ -149,12 +152,21 @@ def eval_judge(
 
     # Save results
     import json
+
     output = checkpoint / "judge_results.json"
     with open(output, "w") as f:
         json.dump(
-            [{"prompt": r.prompt, "response": r.response, "score": r.score, "reasoning": r.reasoning}
-             for r in results],
-            f, indent=2,
+            [
+                {
+                    "prompt": r.prompt,
+                    "response": r.response,
+                    "score": r.score,
+                    "reasoning": r.reasoning,
+                }
+                for r in results
+            ],
+            f,
+            indent=2,
         )
     console.print(f"\nResults saved to {output}")
 

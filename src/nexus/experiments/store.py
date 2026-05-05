@@ -42,9 +42,15 @@ class ExperimentStore:
                 )
                 """
             )
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_experiments_status ON experiments (status)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_experiments_capability ON experiments (capability)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_experiments_created ON experiments (created_at)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_experiments_status ON experiments (status)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_experiments_capability ON experiments (capability)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_experiments_created ON experiments (created_at)"
+            )
 
     def save(self, record: ExperimentSchema) -> None:
         with self._connect() as conn:
@@ -64,7 +70,9 @@ class ExperimentStore:
                     record.capability,
                     record.status,
                     json.dumps(record.benchmark_ids),
-                    json.dumps([variant.model_dump(mode="json") for variant in record.variant_specs]),
+                    json.dumps(
+                        [variant.model_dump(mode="json") for variant in record.variant_specs]
+                    ),
                     json.dumps(record.run_ids),
                     json.dumps(record.evaluation_ids),
                     json.dumps(record.config),
@@ -79,7 +87,9 @@ class ExperimentStore:
 
     def get(self, experiment_id: str) -> ExperimentSchema | None:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM experiments WHERE id = ?", (experiment_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM experiments WHERE id = ?", (experiment_id,)
+            ).fetchone()
         return _row_to_experiment(row) if row else None
 
     def list(

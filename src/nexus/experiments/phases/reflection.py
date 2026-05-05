@@ -17,9 +17,18 @@ from rich.console import Console
 
 from nexus.experiments.benchmark_support import format_item, load_benchmark, score_answer
 from nexus.experiments.config import BenchmarkSpec, ExperimentConfig, ModelSpec
-from nexus.experiments.reference_cache import load_cache_metadata, load_reference_cache, save_reference_cache
+from nexus.experiments.reference_cache import (
+    load_cache_metadata,
+    load_reference_cache,
+    save_reference_cache,
+)
 from nexus.experiments.runner import BaseRunner
-from nexus.experiments.scoring import BenchmarkScore, QuestionResult, aggregate_scores, compute_correction_delta
+from nexus.experiments.scoring import (
+    BenchmarkScore,
+    QuestionResult,
+    aggregate_scores,
+    compute_correction_delta,
+)
 
 console = Console()
 
@@ -56,11 +65,15 @@ class ReflectionRunner(BaseRunner):
             all_results.extend(results_per_benchmark)
 
             for model_spec in self.cfg.models:
-                model_results = [r for r in results_per_benchmark if r.model_id == model_spec.model_id]
+                model_results = [
+                    r for r in results_per_benchmark if r.model_id == model_spec.model_id
+                ]
                 if not model_results:
                     continue
                 score = aggregate_scores(model_results)
-                score.correction_delta = self._correction_deltas.get((model_spec.model_id, benchmark_spec.name))
+                score.correction_delta = self._correction_deltas.get(
+                    (model_spec.model_id, benchmark_spec.name)
+                )
                 score.provenance = self.result_provenance(model_spec.model_id, benchmark_spec.name)
                 scores[f"{model_spec.role}/{benchmark_spec.name}"] = score
 
@@ -84,7 +97,9 @@ class ReflectionRunner(BaseRunner):
         for spec in self.cfg.benchmarks:
             questions = load_benchmark(spec, self.cfg)
             self._benchmark_questions[spec.name] = questions
-            self._benchmark_signatures[spec.name] = self._compute_benchmark_signature(spec.name, questions)
+            self._benchmark_signatures[spec.name] = self._compute_benchmark_signature(
+                spec.name, questions
+            )
 
     def _compute_benchmark_signature(self, benchmark_name: str, questions: list[Any]) -> str:
         payload: list[dict[str, str]] = []
@@ -123,7 +138,9 @@ class ReflectionRunner(BaseRunner):
             return False
         return all(self._cache_path(model_spec, spec.name).exists() for spec in self.cfg.benchmarks)
 
-    def _load_cached_results(self, model_spec: ModelSpec, benchmark_name: str) -> tuple[list[QuestionResult], float] | None:
+    def _load_cached_results(
+        self, model_spec: ModelSpec, benchmark_name: str
+    ) -> tuple[list[QuestionResult], float] | None:
         if model_spec.role != "large" or not self.cfg.logging.use_reference_cache:
             return None
         if self.cfg.logging.refresh_reference_cache:
@@ -193,14 +210,18 @@ class ReflectionRunner(BaseRunner):
         draft_results: list[QuestionResult] = []
         correct = 0
 
-        with self.progress_bar(len(questions), f"{model_spec.model_id} / {benchmark_name}") as progress:
+        with self.progress_bar(
+            len(questions), f"{model_spec.model_id} / {benchmark_name}"
+        ) as progress:
             task = progress.add_task(
                 f"[cyan]{model_spec.model_id.split('/')[-1]}[/cyan] on {benchmark_name}",
                 total=len(questions),
             )
             for item in questions:
                 question_prompt, expected, question_id = format_item(benchmark_name, item)
-                draft = self.generate(model_spec.model_id, self._draft_prompt(question_prompt)).strip()
+                draft = self.generate(
+                    model_spec.model_id, self._draft_prompt(question_prompt)
+                ).strip()
                 critique = self.generate(
                     model_spec.model_id,
                     self._critique_prompt(question_prompt, draft),

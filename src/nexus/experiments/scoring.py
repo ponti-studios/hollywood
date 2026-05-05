@@ -29,8 +29,7 @@ from __future__ import annotations
 
 import re
 import string
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 
 @dataclass
@@ -57,8 +56,8 @@ class QuestionResult:
     model_id: str
     benchmark: str
     tool_calls: int = 0
-    draft: Optional[str] = None
-    critique: Optional[str] = None
+    draft: str | None = None
+    critique: str | None = None
 
 
 @dataclass
@@ -81,7 +80,7 @@ class BenchmarkScore:
     total: int
     tool_call_rate: float = 0.0
     avg_tool_calls: float = 0.0
-    correction_delta: Optional[float] = None   # only set in Phase 3
+    correction_delta: float | None = None  # only set in Phase 3
     provenance: str = "live"
 
     @property

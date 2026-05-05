@@ -9,7 +9,6 @@ Usage:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -26,7 +25,8 @@ console = Console()
 def run(
     recipe: Path = typer.Option(
         ...,
-        "--recipe", "-r",
+        "--recipe",
+        "-r",
         help="Path to the YAML recipe file (e.g. configs/recipes/sft_lora.yaml)",
         exists=True,
     ),
@@ -59,18 +59,20 @@ def run(
         cfg.wandb.enabled = False
 
     # Print a summary panel
-    console.print(Panel(
-        f"[bold]{cfg.name}[/bold]\n"
-        f"[dim]{cfg.description}[/dim]\n\n"
-        f"  Model:   {cfg.model.model_id}\n"
-        f"  Method:  [cyan]{cfg.training.method.upper()}[/cyan]\n"
-        f"  Dataset: {cfg.data.dataset_name}\n"
-        f"  LoRA:    {'rank=' + str(cfg.lora.rank) if cfg.lora else 'disabled'}\n"
-        f"  Output:  {cfg.resolve_output_dir()}\n"
-        f"  W&B:     {'enabled' if cfg.wandb.enabled else 'disabled'}",
-        title="Training Recipe",
-        border_style="blue",
-    ))
+    console.print(
+        Panel(
+            f"[bold]{cfg.name}[/bold]\n"
+            f"[dim]{cfg.description}[/dim]\n\n"
+            f"  Model:   {cfg.model.model_id}\n"
+            f"  Method:  [cyan]{cfg.training.method.upper()}[/cyan]\n"
+            f"  Dataset: {cfg.data.dataset_name}\n"
+            f"  LoRA:    {'rank=' + str(cfg.lora.rank) if cfg.lora else 'disabled'}\n"
+            f"  Output:  {cfg.resolve_output_dir()}\n"
+            f"  W&B:     {'enabled' if cfg.wandb.enabled else 'disabled'}",
+            title="Training Recipe",
+            border_style="blue",
+        )
+    )
 
     if dry_run:
         console.print("[yellow]Dry run — skipping training.[/yellow]")
@@ -87,15 +89,19 @@ def run(
 
     if method == "sft":
         from nexus.trainers.sft import run_sft
+
         run_sft(cfg)
     elif method == "dpo":
         from nexus.trainers.dpo import run_dpo
+
         run_dpo(cfg)
     elif method == "orpo":
         from nexus.trainers.orpo import run_orpo
+
         run_orpo(cfg)
     elif method == "grpo":
         from nexus.trainers.grpo import run_grpo
+
         run_grpo(cfg)
     else:
         console.print(f"[red]Unknown training method: {method}[/red]")

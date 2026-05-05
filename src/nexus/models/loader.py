@@ -92,7 +92,7 @@ def load_model(cfg: ModelConfig) -> AutoModelForCausalLM:
     model = AutoModelForCausalLM.from_pretrained(
         cfg.model_id,
         torch_dtype=dtype,
-        device_map="auto",                        # let accelerate choose device placement
+        device_map="auto",  # let accelerate choose device placement
         attn_implementation=cfg.attn_implementation,
         trust_remote_code=True,
     )
@@ -101,8 +101,7 @@ def load_model(cfg: ModelConfig) -> AutoModelForCausalLM:
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(
-        f"  Parameters: {total_params / 1e6:.0f}M total, "
-        f"{trainable_params / 1e6:.0f}M trainable"
+        f"  Parameters: {total_params / 1e6:.0f}M total, {trainable_params / 1e6:.0f}M trainable"
     )
 
     return model

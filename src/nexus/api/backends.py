@@ -18,9 +18,7 @@ class ApiBackends:
     @classmethod
     def from_env(cls) -> ApiBackends:
         return cls(
-            text_model_id=os.getenv(
-                "NEXUS_TEXT_MODEL_ID", "HuggingFaceTB/SmolLM2-135M-Instruct"
-            ),
+            text_model_id=os.getenv("NEXUS_TEXT_MODEL_ID", "HuggingFaceTB/SmolLM2-135M-Instruct"),
             text_model_url=_normalize_url(
                 os.getenv("NEXUS_TEXT_MODEL_URL", "http://nexus-text:8080")
             ),

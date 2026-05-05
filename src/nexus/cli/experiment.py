@@ -20,22 +20,23 @@ experiment_app = typer.Typer(no_args_is_help=True)
 cache_app = typer.Typer(no_args_is_help=True)
 console = Console()
 
+DEFAULT_LARGE_MODEL_ID = "Qwen/Qwen3.5-4B"
+DEFAULT_LARGE_MODEL_BATCH_SIZE = 4
+
 experiment_app.add_typer(cache_app, name="cache")
 
 
 def _build_large_model_spec(model_id: str):
     from nexus.experiments.config import ModelSpec
 
-    if model_id == "MiniMax-M2.7":
+    if model_id == DEFAULT_LARGE_MODEL_ID:
         return ModelSpec(
             model_id=model_id,
             role="large",
-            inference_backend="openai-compatible",
-            api_base="https://api.minimax.io/v1",
-            api_key_env="MINIMAX_API_KEY",
+            inference_backend="transformers",
             max_new_tokens=256,
-            temperature=0.01,
-            batch_size=1,
+            temperature=0.0,
+            batch_size=DEFAULT_LARGE_MODEL_BATCH_SIZE,
         )
 
     return ModelSpec(model_id=model_id, role="large")
@@ -45,12 +46,14 @@ def _build_large_model_spec(model_id: str):
 def run_experiment(
     config: Path | None = typer.Option(
         None,
-        "--config", "-c",
+        "--config",
+        "-c",
         help="Path to experiment YAML config file.",
     ),
     phase: int = typer.Option(
         1,
-        "--phase", "-p",
+        "--phase",
+        "-p",
         help="Which experiment phase to run (1–4). Ignored if --config is provided.",
         min=1,
         max=4,
@@ -67,7 +70,8 @@ def run_experiment(
     ),
     samples: int = typer.Option(
         500,
-        "--samples", "-n",
+        "--samples",
+        "-n",
         help="Number of questions per benchmark. Use 50 for a quick sanity check.",
     ),
     no_wandb: bool = typer.Option(
@@ -105,7 +109,7 @@ def run_experiment(
     \b
     \b
     # Compare small vs large model:
-    nexus experiment run --large-model MiniMax-M2.7
+    nexus experiment run --large-model Qwen/Qwen3.5-4B
     """
     if config is not None:
         if not config.exists():
@@ -203,6 +207,7 @@ def _run_phase_1(
 
     # Import here so the CLI startup stays fast (avoids loading torch on --help)
     from nexus.experiments.phases.baseline import BaselineRunner
+
     runner = BaselineRunner(cfg)
     runner.execute()
 
@@ -310,6 +315,7 @@ def list_experiments(
     table.add_column("Description")
 
     from nexus.experiments.config import ExperimentConfig
+
     for path in yaml_files:
         try:
             cfg = ExperimentConfig.from_yaml(path)
@@ -335,7 +341,9 @@ def list_reference_caches(
     """List reference cache entries."""
     from nexus.experiments.reference_cache import find_reference_caches, summarize_cache_file
 
-    matches = find_reference_caches(cache_dir, experiment=experiment, model=model, benchmark=benchmark)
+    matches = find_reference_caches(
+        cache_dir, experiment=experiment, model=model, benchmark=benchmark
+    )
     if not matches:
         if as_json:
             console.print_json(data=[])
@@ -398,7 +406,7 @@ def inspect_reference_cache(
     if as_json:
         console.print_json(
             data={
-                "summary": {**summary, "path": str(summary["path"])} ,
+                "summary": {**summary, "path": str(summary["path"])},
                 "results_preview": payload.get("results", [])[:5],
                 "results_total": len(payload.get("results", [])),
             }
@@ -410,12 +418,16 @@ def inspect_reference_cache(
     console.print(f"Model: {summary['model_id']}")
     console.print(f"Role: {summary['role']}")
     console.print(f"Benchmark: {summary['benchmark']}")
-    console.print(f"Accuracy: {summary['accuracy'] * 100:.1f}% ({summary['correct']}/{summary['total']})")
+    console.print(
+        f"Accuracy: {summary['accuracy'] * 100:.1f}% ({summary['correct']}/{summary['total']})"
+    )
     console.print(f"Signature: {summary['benchmark_signature']}")
     console.print(f"Score Version: {summary['score_version']}")
     created_at = summary.get("created_at")
     if isinstance(created_at, int):
-        console.print(f"Created: {datetime.fromtimestamp(created_at).isoformat(timespec='seconds')}")
+        console.print(
+            f"Created: {datetime.fromtimestamp(created_at).isoformat(timespec='seconds')}"
+        )
 
     results = payload.get("results", [])
     preview = Table(title="Cached Result Preview", show_lines=True)
@@ -424,7 +436,11 @@ def inspect_reference_cache(
     preview.add_column("Prediction")
 
     for item in results[:5]:
-        preview.add_row(item.get("id", "—"), "yes" if item.get("correct") else "no", str(item.get("predicted", ""))[:100])
+        preview.add_row(
+            item.get("id", "—"),
+            "yes" if item.get("correct") else "no",
+            str(item.get("predicted", ""))[:100],
+        )
 
     console.print(preview)
     if len(results) > 5:
@@ -450,14 +466,18 @@ def purge_reference_cache(
     if cache_path is not None:
         targets = [cache_path]
     else:
-        targets = find_reference_caches(cache_dir, experiment=experiment, model=model, benchmark=benchmark)
+        targets = find_reference_caches(
+            cache_dir, experiment=experiment, model=model, benchmark=benchmark
+        )
 
     if not targets:
         console.print("[yellow]No reference caches matched the requested filters.[/yellow]")
         raise typer.Exit(code=0)
 
     if not yes:
-        console.print(f"[yellow]Refusing to delete {len(targets)} cache file(s) without --yes.[/yellow]")
+        console.print(
+            f"[yellow]Refusing to delete {len(targets)} cache file(s) without --yes.[/yellow]"
+        )
         raise typer.Exit(code=1)
 
     deleted = 0

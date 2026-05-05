@@ -27,15 +27,17 @@ def serve(
         console.print("[red]uvicorn is required. Install with: pip install 'nexus[api]'[/red]")
         raise typer.Exit(code=1)
 
-    console.print(Panel(
-        f"Host:    {host}\n"
-        f"Port:    {port}\n"
-        f"URL:     http://{host}:{port}\n"
-        f"Docs:    http://{host}:{port}/docs\n"
-        f"Health:  http://{host}:{port}/health",
-        title="Nexus Control Plane",
-        border_style="green",
-    ))
+    console.print(
+        Panel(
+            f"Host:    {host}\n"
+            f"Port:    {port}\n"
+            f"URL:     http://{host}:{port}\n"
+            f"Docs:    http://{host}:{port}/docs\n"
+            f"Health:  http://{host}:{port}/health",
+            title="Nexus Control Plane",
+            border_style="green",
+        )
+    )
 
     uvicorn.run(
         "nexus.api.app:app",

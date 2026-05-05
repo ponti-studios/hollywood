@@ -1,15 +1,65 @@
 # nexus — Multimodal Inference, Training, and Evaluation Platform
 
-Nexus is the studio control plane for multimodal generative systems.
+Nexus is the control plane for multimodal generative systems.
 
-For the **canonical definition of Nexus**, see:
-- `docs/taxonomy/nexus.md`
+Today, the repo contains three closely related layers:
 
-For the canonical noun model and implementation contracts, see:
-- `docs/taxonomy/README.md`
-- `docs/api-taxonomy.md`
-- `docs/storage-model.md`
-- `src/nexus/*/schema.py`
+- a public FastAPI control plane for text, audio, runs, and experiments
+- private text and audio worker services behind that API
+- local training, evaluation, and benchmark workflows for posttraining experiments
+
+The canonical product language and implementation contracts live here:
+
+- `docs/taxonomy/nexus.md` — what Nexus is
+- `docs/taxonomy/README.md` — the canonical noun model
+- `docs/api-taxonomy.md` — how nouns map to routes
+- `docs/storage-model.md` — what counts as durable platform state
+- `src/nexus/*/schema.py` — package-owned schemas
+
+## Platform Shape
+
+Nexus uses a simple rule:
+
+- platform resources live at `/v1/{noun}`
+- capability actions live at `/v1/{capability}/{action}`
+
+Examples that exist today:
+
+- `POST /v1/chat/completions`
+- `GET /v1/audio/health`
+- `POST /v1/audio/tts`
+- `POST /v1/audio/transcribe`
+- `GET /v1/runs`
+- `GET /v1/runs/{id}`
+- `GET /v1/experiments`
+- `POST /v1/experiments`
+
+Examples defined in the taxonomy but not yet exposed:
+
+- `/v1/evaluations`
+- `/v1/jobs`
+- `/v1/artifacts`
+- `/v1/benchmarks`
+
+## Storage Model
+
+Nexus keeps durable platform records in a shared SQLite database at
+`.data/api/inference.db`.
+
+Stored today:
+
+- `runs` — the canonical run ledger
+- `experiments` — benchmark comparisons and summaries
+- `evaluations` — quality measurements linked to runs and experiments
+
+Not stored yet as first-class tables:
+
+- `jobs`
+- `artifacts`
+- `models`
+
+Capability-specific files and caches still exist on disk, but they are not the
+system of record.
 
 ---
 
@@ -37,7 +87,7 @@ The main techniques, roughly in order of complexity:
 
 - [mise](https://mise.jdx.dev/) for pinned tool versions
 - Apple Silicon Mac (M1 Pro/Max or M2/M3 recommended)
-- Python 3.12.5 for the Apple runtime stack
+- Python 3.12.x for the Apple runtime stack
 - [uv](https://docs.astral.sh/uv/) for package management
 - A free [HuggingFace account](https://huggingface.co) + API token
 - A free [Weights & Biases account](https://wandb.ai) for experiment tracking
@@ -94,7 +144,7 @@ With the compose stack up, the public API is the only endpoint you need:
 
 ```bash
 # Text generation
-  curl -sS -X POST http://localhost:8787/v1/chat/completions \
+curl -sS -X POST http://localhost:8787/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "HuggingFaceTB/SmolLM2-135M-Instruct",
@@ -110,6 +160,12 @@ curl -sS -X POST http://localhost:8787/v1/audio/tts \
 # STT
 curl -sS -X POST http://localhost:8787/v1/audio/transcribe \
   -F "audio=@/tmp/nexus-tts.wav"
+
+# List recorded runs
+curl -sS http://localhost:8787/v1/runs
+
+# List submitted experiments
+curl -sS http://localhost:8787/v1/experiments
 ```
 
 ### Accept the Gemma 4 license
@@ -149,11 +205,12 @@ before running.
 
 ---
 
----
-
 ## All commands
 
 ```bash
+# API
+nexus api serve
+
 # Training
 nexus train run --recipe configs/recipes/sft_lora.yaml    # SFT + LoRA
 nexus train run --recipe configs/recipes/dpo.yaml         # DPO
@@ -164,6 +221,11 @@ nexus train run --recipe my-recipe.yaml --no-wandb        # disable W&B
 # Evaluation
 nexus eval perplexity --checkpoint .data/checkpoints/my-run
 nexus eval judge --checkpoint .data/checkpoints/my-run
+
+# Experiments
+nexus experiment run --phase 1
+nexus experiment run --phase 2 --large-model MiniMax-M2.7
+nexus experiment run --phase 3 --samples 50 --no-wandb
 
 # Data
 nexus data list                              # show recommended datasets
@@ -176,47 +238,60 @@ nexus data download --name tatsu-lab/alpaca # download and cache
 
 ## Project structure
 
-```
+```text
 nexus/
+├── compose.yml             # local runtime graph: API + text/audio workers
 ├── configs/
-│   ├── models/           # Gemma model configs
-│   ├── data/             # alpaca.yaml, ultrafeedback.yaml
-│   ├── recipes/          # sft_lora.yaml, dpo.yaml, orpo.yaml, grpo.yaml
-│   └── benchmarks/       # exp_01.yaml, exp_02.yaml, exp_03.yaml
-│
-├── assets/               # example/sample artifacts used for local workflows
+│   ├── models/             # model configs
+│   ├── data/               # dataset configs
+│   ├── recipes/            # training recipes
+│   └── benchmarks/         # experiment presets
+├── assets/                 # sample assets used in local workflows
+├── docs/
+│   ├── taxonomy/           # canonical platform nouns
+│   ├── api-taxonomy.md     # route naming contract
+│   └── storage-model.md    # durable storage contract
 ├── src/nexus/
-│   ├── config.py         # Pydantic config models (Recipe, ModelConfig, …)
-│   ├── device.py         # Apple Silicon / MPS detection
-│   ├── data/
-│   │   ├── loaders.py    # HuggingFace dataset loading + train/val split
-│   │   └── formatters.py # chat templates, SFT/DPO/GRPO data formatting
-│   ├── models/
-│   │   ├── loader.py     # load Gemma with bf16, MPS placement
-│   │   └── adapters.py   # LoRA: apply, merge, save, load
-│   ├── trainers/
-│   │   ├── sft.py        # Supervised Fine-Tuning
-│   │   ├── dpo.py        # Direct Preference Optimization
-│   │   ├── orpo.py       # Odds Ratio Preference Optimization
-│   │   └── grpo.py       # Group Relative Policy Optimization
-│   ├── evaluation/
-│   │   ├── metrics.py    # perplexity, token accuracy
-│   │   └── judge.py      # LLM-as-judge scoring
-│   └── cli/
-│       ├── train.py      # nexus train
-│       ├── eval.py       # nexus eval
-│       ├── data.py       # nexus data
-│       └── api.py        # nexus api
-│
-├── apps/                 # legacy app entrypoints; being folded into src/nexus/api
-├── research/             # model bake-offs and disposable labs
-├── infra/                # Dockerfiles, Compose, and operational assets
-├── .data/                # ignored local runtime data and caches
-└── tests/                # pytest test suite
+│   ├── api/                # public control-plane app, routers, API models
+│   ├── text/               # private text-generation worker service
+│   ├── audio/              # private TTS / ASR worker service
+│   ├── runs/               # canonical run schema + SQLite store
+│   ├── experiments/        # benchmark schemas, runners, cache, store
+│   ├── evaluation/         # evaluation schemas, metrics, store
+│   ├── artifacts/          # artifact schemas (store not implemented yet)
+│   ├── jobs/               # job schemas (store not implemented yet)
+│   ├── cli/                # nexus api/train/eval/data/experiment commands
+│   ├── data/               # dataset loading and formatting helpers
+│   ├── models/             # model loading and adapter helpers
+│   ├── trainers/           # SFT, DPO, ORPO, and GRPO trainers
+│   ├── config.py           # training and benchmark config models
+│   ├── device.py           # Apple Silicon / MPS detection
+│   ├── runtime.py          # explicit runtime guards for Apple workflows
+│   └── schemas/            # compatibility shims for canonical schemas
+├── infra/                  # Dockerfiles and runtime assets
+├── research/               # disposable labs and benchmark notes
+├── .data/                  # ignored local runtime data and caches
+└── tests/                  # pytest test suite
 ```
 
-See `docs/taxonomy/nexus.md` for the current Nexus platform boundaries and runtime topology.
-See `docs/taxonomy/README.md` for the canonical Nexus noun model.
+## Current State
+
+Implemented and tested today:
+
+- public API routes for text, audio, runs, and experiments
+- canonical SQLite stores for runs, experiments, and evaluations
+- text and audio backend worker apps
+- local posttraining workflows for SFT, DPO, ORPO, and GRPO
+- benchmark phases for baseline, open-book, and reflection experiments
+
+Still in progress:
+
+- exposing evaluations, jobs, artifacts, and benchmarks as public API resources
+- adding durable stores for jobs and artifacts
+- reducing legacy compatibility shims as the canonical noun model settles
+
+See `docs/taxonomy/nexus.md` for platform boundaries and runtime topology.
+See `docs/taxonomy/README.md` for the canonical noun model.
 See `docs/api-taxonomy.md`, `docs/storage-model.md`, and `src/nexus/*/schema.py` for implementation contracts.
 
 ---

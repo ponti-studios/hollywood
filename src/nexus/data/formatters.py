@@ -32,8 +32,8 @@ from typing import Any
 from datasets import Dataset
 from transformers import PreTrainedTokenizer
 
-
 # ── SFT formatting ────────────────────────────────────────────────────────────
+
 
 def format_alpaca_for_sft(example: dict[str, Any]) -> dict[str, Any]:
     """Convert an Alpaca-style row into the chat message format for SFTTrainer.
@@ -104,6 +104,7 @@ def prepare_sft_dataset(
 
 # ── DPO / ORPO formatting ─────────────────────────────────────────────────────
 
+
 def format_ultrafeedback_for_dpo(example: dict[str, Any]) -> dict[str, Any]:
     """Convert an UltraFeedback row into the (prompt, chosen, rejected) format.
 
@@ -117,6 +118,7 @@ def format_ultrafeedback_for_dpo(example: dict[str, Any]) -> dict[str, Any]:
     The model implicitly learns a preference model without training a separate
     reward model. It's much simpler than PPO-based RLHF.
     """
+
     # UltraFeedback stores chosen/rejected as [{"role": ..., "content": ...}, ...]
     # We extract just the last assistant turn as the response text
     def extract_response(messages: list[dict[str, str]]) -> str:
@@ -148,6 +150,7 @@ def prepare_dpo_dataset(dataset: Dataset, dataset_name: str = "") -> Dataset:
 
 
 # ── GRPO formatting ───────────────────────────────────────────────────────────
+
 
 def prepare_grpo_dataset(dataset: Dataset) -> Dataset:
     """Ensure a dataset has the 'prompt' column required by GRPOTrainer.

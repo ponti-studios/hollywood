@@ -42,18 +42,22 @@ from pathlib import Path
 
 from rich.console import Console
 
-from nexus.experiments.config import ExperimentConfig, ModelSpec, BenchmarkSpec
-from nexus.experiments.reference_cache import load_cache_metadata, load_reference_cache, save_reference_cache
+from nexus.experiments.benchmarks import mmlu, synthetic, triviaqa
+from nexus.experiments.config import BenchmarkSpec, ExperimentConfig, ModelSpec
+from nexus.experiments.reference_cache import (
+    load_cache_metadata,
+    load_reference_cache,
+    save_reference_cache,
+)
 from nexus.experiments.runner import BaseRunner
 from nexus.experiments.scoring import (
     BenchmarkScore,
     QuestionResult,
     aggregate_scores,
-    score_triviaqa,
-    score_mmlu,
     score_logic_puzzle,
+    score_mmlu,
+    score_triviaqa,
 )
-from nexus.experiments.benchmarks import triviaqa, mmlu, synthetic
 
 console = Console()
 
@@ -82,10 +86,14 @@ class BaselineRunner(BaseRunner):
 
             # Aggregate per (model, benchmark) pair
             for model_spec in self.cfg.models:
-                model_results = [r for r in results_per_benchmark if r.model_id == model_spec.model_id]
+                model_results = [
+                    r for r in results_per_benchmark if r.model_id == model_spec.model_id
+                ]
                 if model_results:
                     score = aggregate_scores(model_results)
-                    score.provenance = self.result_provenance(model_spec.model_id, benchmark_spec.name)
+                    score.provenance = self.result_provenance(
+                        model_spec.model_id, benchmark_spec.name
+                    )
                     key = f"{model_spec.role}/{benchmark_spec.name}"
                     scores[key] = score
 
@@ -164,7 +172,9 @@ class BaselineRunner(BaseRunner):
         for spec in self.cfg.benchmarks:
             questions = self._load_benchmark(spec)
             self._benchmark_questions[spec.name] = questions
-            self._benchmark_signatures[spec.name] = self._compute_benchmark_signature(spec.name, questions)
+            self._benchmark_signatures[spec.name] = self._compute_benchmark_signature(
+                spec.name, questions
+            )
 
     def _compute_benchmark_signature(self, benchmark_name: str, questions: list) -> str:
         payload: list[dict[str, str]] = []
@@ -288,7 +298,9 @@ class BaselineRunner(BaseRunner):
         results: list[QuestionResult] = []
         correct = 0
 
-        with self.progress_bar(len(questions), f"{model_spec.model_id} / {benchmark_name}") as progress:
+        with self.progress_bar(
+            len(questions), f"{model_spec.model_id} / {benchmark_name}"
+        ) as progress:
             task = progress.add_task(
                 f"[cyan]{model_spec.model_id.split('/')[-1]}[/cyan] on {benchmark_name}",
                 total=len(questions),
@@ -348,6 +360,7 @@ class BaselineRunner(BaseRunner):
 # CLI entry point
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def build_default_config(
     small_model: str,
     large_model: str | None,
@@ -385,9 +398,7 @@ def build_default_config(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Phase 1: Closed-book baseline experiment"
-    )
+    parser = argparse.ArgumentParser(description="Phase 1: Closed-book baseline experiment")
     parser.add_argument(
         "--config",
         type=Path,
