@@ -1,7 +1,7 @@
 id: constrain-model-loading-to-approved-paths
 title: Constrain model loading to approved paths
 status: active
-goalId: stabilize-nexus-platform-before-customization
+goalId: rebuild-engine
 epicId: lock-platform-surfaces
 tags:
   - hardening

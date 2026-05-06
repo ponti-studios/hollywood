@@ -1,7 +1,7 @@
 id: make-training-and-data-config-schemas-strict
 title: Make training and data config schemas strict
 status: active
-goalId: stabilize-nexus-platform-before-customization
+goalId: rebuild-engine
 epicId: lock-platform-surfaces
 tags:
   - hardening

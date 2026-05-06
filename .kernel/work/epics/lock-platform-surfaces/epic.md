@@ -7,7 +7,7 @@ eliminating hidden behavior and making the system deterministic by default.
 
 ## Context
 
-This epic sits directly under the platform-hardening goal because it has the best leverage: strict schemas and
+This epic sits directly under the rebuild-engine goal because it has the best leverage: strict schemas and
 frozen presets reduce ambiguity everywhere else. Once these surfaces are locked, the rest of the platform can
 build on a much steadier contract.
 

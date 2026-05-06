@@ -1,129 +1,26 @@
 [project]
 name = "nexus"
 version = "0.1.0"
-description = "Multimodal inference, training, and evaluation platform for Nexus"
+description = "Gemini-first multimodal API adapter and eval layer"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 authors = [{ name = "Charles Ponti" }]
-
 dependencies = [
-    # --- Config & CLI core ---
-    # pydantic: runtime type validation. All YAML configs are validated through
-    # Pydantic models so you get clear errors when something is misconfigured.
+    "fastapi>=0.115.0",
+    "httpx>=0.28.0",
     "pydantic>=2.0",
-    "pydantic-settings>=2.0",
-    "pyyaml>=6.0",
-    "python-dotenv>=1.0",
-    "typer>=0.12.5",
+    "python-multipart>=0.0.9",
     "rich>=13.0",
-    "tqdm>=4.64",
-    "numpy>=1.26",
+    "uvicorn[standard]>=0.30.0",
 ]
 
 [project.optional-dependencies]
-api = [
-    # --- API core runtime (minimal, for audio services) ---
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.30.0",
-    "python-multipart>=0.0.9",
-    "httpx>=0.28.0",
-    "soundfile>=0.12.0",
-]
-api-text = [
-    # --- Text service API with transformers ---
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.30.0",
-    "python-multipart>=0.0.9",
-    "httpx>=0.28.0",
-    "datasets>=3.0.0",
-    "sentencepiece>=0.2.0",
-    "transformers>=5.8.0",
-    "soundfile>=0.12.0",
-    "wandb>=0.19.0",
-]
-runtime = [
-    # --- Public API + CLI runtime ---
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.30.0",
-    "python-multipart>=0.0.9",
-    "httpx>=0.28.0",
-    "datasets>=3.0.0",
-    "sentencepiece>=0.2.0",
-    "transformers>=5.8.0",
-    "soundfile>=0.12.0",
-    "wandb>=0.19.0",
-]
-train = [
-    # --- Training / evaluation stack ---
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.30.0",
-    "python-multipart>=0.0.9",
-    "httpx>=0.28.0",
-    "datasets>=3.0.0",
-    "sentencepiece>=0.2.0",
-    "transformers>=5.8.0",
-    "soundfile>=0.12.0",
-    "wandb>=0.19.0",
-    "torch>=2.4.0",
-    "accelerate>=1.0.0",
-    "peft>=0.14.0",
-    "trl>=0.12.0",
-]
 dev = [
-    # --- Full contributor environment ---
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.30.0",
-    "python-multipart>=0.0.9",
-    "httpx>=0.28.0",
-    "datasets>=3.0.0",
-    "sentencepiece>=0.2.0",
-    "transformers>=5.8.0",
-    "soundfile>=0.12.0",
-    "wandb>=0.19.0",
-    "torch>=2.4.0",
-    "accelerate>=1.0.0",
-    "peft>=0.14.0",
-    "trl>=0.12.0",
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "ruff>=0.8.0",
     "pyright>=1.1.390",
 ]
-notebook = [
-    "jupyter>=1.0",
-    "ipywidgets>=8.0",
-    "matplotlib>=3.8",
-    "pandas>=2.0",
-    "seaborn>=0.13",
-]
-all = [
-    # --- Everything ---
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.30.0",
-    "python-multipart>=0.0.9",
-    "httpx>=0.28.0",
-    "datasets>=3.0.0",
-    "sentencepiece>=0.2.0",
-    "transformers>=5.8.0",
-    "soundfile>=0.12.0",
-    "wandb>=0.19.0",
-    "torch>=2.4.0",
-    "accelerate>=1.0.0",
-    "peft>=0.14.0",
-    "trl>=0.12.0",
-    "pytest>=8.0",
-    "pytest-cov>=5.0",
-    "ruff>=0.8.0",
-    "pyright>=1.1.390",
-    "jupyter>=1.0",
-    "ipywidgets>=8.0",
-    "matplotlib>=3.8",
-    "pandas>=2.0",
-    "seaborn>=0.13",
-]
-
-[project.scripts]
-nexus = "nexus.cli:app"
 
 [build-system]
 requires = ["hatchling"]
@@ -139,7 +36,6 @@ sources = ["src"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
-markers = ["inference: real model inference checks that may download model weights"]
 
 [tool.ruff]
 line-length = 100

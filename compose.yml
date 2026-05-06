@@ -2,100 +2,17 @@ services:
   nexus:
     build:
       context: .
-      dockerfile: infra/images/nexus/api.dockerfile
-    init: true
-    restart: unless-stopped
+      dockerfile: Dockerfile
     ports:
       - "8787:8787"
-    volumes:
-      - .:/app
     environment:
-      NEXUS_TEXT_MODEL_ID: google/gemma-4-E2B-it
-      NEXUS_TEXT_MODEL_URL: http://nexus-text:8080
-      NEXUS_AUDIO_TTS_URL: http://nexus-audio-tts:8001
-      NEXUS_AUDIO_ASR_URL: http://nexus-audio-asr:8002
-    depends_on:
-      nexus-text:
-        condition: service_healthy
-      nexus-audio-tts:
-        condition: service_healthy
-      nexus-audio-asr:
-        condition: service_healthy
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health').read()\"",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-
-  nexus-text:
-    build:
-      context: .
-      dockerfile: infra/images/text/text.dockerfile
-    init: true
-    restart: unless-stopped
-    environment:
-      NEXUS_TEXT_MODEL_ID: google/gemma-4-E2B-it
-      NEXUS_TEXT_AUTOLOAD: "true"
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta}
+      GEMINI_TEXT_MODEL: ${GEMINI_TEXT_MODEL:-gemini-2.5-flash}
+      GEMINI_AUDIO_MODEL: ${GEMINI_AUDIO_MODEL:-gemini-2.5-flash}
+      GEMINI_IMAGE_MODEL: ${GEMINI_IMAGE_MODEL:-gemini-2.5-flash}
+      GEMINI_SPEECH_VOICE: ${GEMINI_SPEECH_VOICE:-Kore}
+      NEXUS_AUDIO_DIR: ${NEXUS_AUDIO_DIR:-.data/audio}
     volumes:
-      - .:/app
-      - nexus_text_cache:/root/.cache
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/v1/health').read()\"",
-        ]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 180s
-
-  nexus-audio-tts:
-    build:
-      context: .
-      dockerfile: infra/images/audio/tts.dockerfile
-    init: true
-    restart: unless-stopped
-    volumes:
-      - .:/app
-      - nexus_audio_tts_cache:/root/.cache
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health').read()\"",
-        ]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 180s
-
-  nexus-audio-asr:
-    build:
-      context: .
-      dockerfile: infra/images/audio/asr.dockerfile
-    init: true
-    restart: unless-stopped
-    volumes:
-      - .:/app
-      - nexus_audio_asr_cache:/root/.cache
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health').read()\"",
-        ]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 180s
-
-volumes:
-  nexus_text_cache:
-  nexus_audio_tts_cache:
-  nexus_audio_asr_cache:
+      - ./.data:/app/.data
+    command: ["python", "-m", "uvicorn", "nexus.api.app:app", "--host", "0.0.0.0", "--port", "8787"]

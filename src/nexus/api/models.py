@@ -1,33 +1,17 @@
 from __future__ import annotations
 
-import time
-import uuid
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-
-from nexus.models.policy import validate_text_model_reference
-from nexus.runs.schema import RunSchema
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ApiHealthResponse(BaseModel):
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "ok": True,
-                    "service": "nexus",
-                    "api": "control-plane",
-                    "capabilities": ["text", "audio", "experiments", "runs"],
-                }
-            ]
-        }
-    )
-
-    ok: bool = Field(description="Whether the API is healthy.")
-    service: str = Field(description="Service name.")
-    api: str = Field(description="API role or topology label.")
-    capabilities: list[str] = Field(description="Top-level capabilities exposed by the API.")
+    ok: bool
+    service: str = "nexus"
+    api: str = "gemini-first"
+    capabilities: list[str]
+    providers: dict[str, bool]
+    models: dict[str, str]
 
 
 class ChatMessage(BaseModel):
@@ -35,143 +19,69 @@ class ChatMessage(BaseModel):
     content: str
 
 
-class CompletionRequest(BaseModel):
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "input": "What is 2+2?",
-                    "max_tokens": 32,
-                    "temperature": 0.7
-                }
-            ]
-        }
-    )
-
-    input: str = Field(description="Text prompt to generate a completion for.")
-    max_tokens: int = Field(
-        default=512,
-        description="Maximum number of new tokens to generate.",
-    )
-    temperature: float = Field(
-        default=0.7,
-        ge=0.0,
-        le=2.0,
-        description="Sampling temperature for non-deterministic generation.",
-    )
-    stream: bool = Field(
-        default=False, description="Whether to stream tokens as server-sent events."
-    )
-    stop: list[str] | None = Field(
-        default=None,
-        description="Optional stop sequences that truncate the returned completion.",
-    )
-
-
-class CompletionResponse(BaseModel):
-    id: str = Field(default_factory=lambda: f"cmpl-{uuid.uuid4().hex}")
-    object: str = "text.completion"
-    created: int = Field(default_factory=lambda: int(time.time()))
-    model: str
-    choices: list[dict[str, str]]
-    usage: Usage
-
-
-class ChatCompletionRequest(BaseModel):
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "messages": [{"role": "user", "content": "What is 2+2?"}],
-                    "stream": False
-                }
-            ]
-        }
-    )
-
-    model: str | None = Field(
-        default=None,
-        description="Model identifier. Defaults to the configured Gemma server model.",
-    )
-    messages: list[ChatMessage] = Field(description="Conversation messages to continue from.")
-    max_tokens: int = Field(
-        default=512,
-        description="Maximum number of new tokens to generate.",
-    )
-    temperature: float = Field(
-        default=0.7,
-        ge=0.0,
-        le=2.0,
-        description="Sampling temperature for non-deterministic generation.",
-    )
-    stream: bool = Field(
-        default=False, description="Whether to stream tokens as server-sent events."
-    )
-    stop: list[str] | None = Field(
-        default=None,
-        description="Optional stop sequences that truncate the returned completion.",
-    )
-
-
-class ChatCompletionChoice(BaseModel):
-    index: int
-    message: ChatMessage
-    finish_reason: str = "stop"
-
-
 class Usage(BaseModel):
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
 
 
-class ChatCompletionResponse(BaseModel):
-    id: str = Field(default_factory=lambda: f"chatcmpl-{uuid.uuid4().hex}")
-    object: str = "chat.completion"
-    created: int = Field(default_factory=lambda: int(time.time()))
-    model: str
-    choices: list[ChatCompletionChoice]
-    usage: Usage
-
-
-class LoadModelRequest(BaseModel):
+class TextReplyRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
-            "examples": [{"model_id": "google/gemma-4-E2B-it", "quantize": "4bit"}]
+            "examples": [
+                {
+                    "prompt": "What is 2+2?",
+                    "max_tokens": 32,
+                    "temperature": 0.7,
+                }
+            ]
         }
     )
 
-    model_id: str = Field(description="Approved Gemma model identifier or Nexus checkpoint to load.")
+    prompt: str = Field(min_length=1)
+    model: str | None = None
+    max_tokens: int = Field(default=512, ge=1, le=4096)
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    top_p: float = Field(default=0.9, ge=0.0, le=1.0)
+    stop: list[str] | None = None
 
-    @field_validator("model_id")
-    @classmethod
-    def model_id_must_use_approved_gemma_base(cls, v: str) -> str:
-        return validate_text_model_reference(v)
-    quantize: Literal["4bit", "8bit"] | None = Field(
-        default=None,
-        description="Optional quantization mode for backends that support it.",
+
+class TextReplyResponse(BaseModel):
+    text: str
+    model: str
+    provider: str = "gemini"
+    usage: Usage = Field(default_factory=Usage)
+
+
+class TextChatRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "messages": [{"role": "user", "content": "Explain gravity"}],
+                    "max_tokens": 64,
+                    "temperature": 0.7,
+                }
+            ]
+        }
     )
 
-
-class ModelInfo(BaseModel):
-    id: str
-    object: str = "model"
-    owned_by: str = "nexus"
-
-
-class ModelsResponse(BaseModel):
-    object: str = "list"
-    data: list[ModelInfo]
+    messages: list[ChatMessage] = Field(min_length=1)
+    model: str | None = None
+    max_tokens: int = Field(default=512, ge=1, le=4096)
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    top_p: float = Field(default=0.9, ge=0.0, le=1.0)
+    stop: list[str] | None = None
 
 
-class ModelOperationResponse(BaseModel):
-    status: str = Field(description="Operation status.")
-    model_id: str = Field(description="Model identifier affected by the operation.")
+class TextChatResponse(BaseModel):
+    message: ChatMessage
+    model: str
+    provider: str = "gemini"
+    usage: Usage = Field(default_factory=Usage)
 
 
-class RunResponse(RunSchema):
-    """Temporary API alias for the canonical platform run schema.
-
-    Keep this alias while the API models module remains the import home for
-    route response models. Over time, routes can import `RunSchema` directly.
-    """
+class ImageAnalyzeResponse(BaseModel):
+    text: str
+    model: str
+    provider: str = "gemini"
+    usage: Usage = Field(default_factory=Usage)
