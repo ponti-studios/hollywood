@@ -25,19 +25,19 @@ from nexus.experiments.config import (
 
 class TestModelConfig:
     def test_valid_config(self):
-        cfg = ModelConfig(model_id="google/gemma-4-e2b")
-        assert cfg.model_id == "google/gemma-4-e2b"
+        cfg = ModelConfig(model_id="google/gemma-4-E2B-it")
+        assert cfg.model_id == "google/gemma-4-E2B-it"
         assert cfg.dtype == "bfloat16"  # correct default
         assert cfg.max_seq_len == 2048
         assert cfg.attn_implementation == "eager"
 
     def test_invalid_dtype_rejected(self):
         with pytest.raises(ValidationError):
-            ModelConfig(model_id="google/gemma-4-e2b", dtype="float16")
+            ModelConfig(model_id="google/gemma-4-E2B-it", dtype="float16")
 
     def test_unknown_field_rejected(self):
         with pytest.raises(ValidationError):
-            ModelConfig(model_id="google/gemma-4-e2b", extra_field=True)  # type: ignore
+            ModelConfig(model_id="google/gemma-4-E2B-it", extra_field=True)  # type: ignore
 
     def test_model_id_required(self):
         with pytest.raises(ValidationError):
@@ -110,7 +110,7 @@ class TestRecipe:
     def test_recipe_from_dict(self, sample_recipe_dict):
         recipe = Recipe(**sample_recipe_dict)
         assert recipe.name == "test-recipe"
-        assert recipe.model.model_id == "google/gemma-4-e2b"
+        assert recipe.model.model_id == "google/gemma-4-E2B-it"
         assert recipe.lora is not None
         assert recipe.lora.rank == 8
 
@@ -138,7 +138,7 @@ class TestRecipe:
             Recipe(
                 name="test-recipe",
                 description="A test recipe",
-                model=ModelConfig(model_id="google/gemma-4-e2b"),
+                model=ModelConfig(model_id="google/gemma-4-E2B-it"),
                 data=DataConfig(dataset_name="tatsu-lab/alpaca"),
                 training=TrainingConfig(method="sft"),
                 unexpected=True,  # type: ignore
@@ -148,7 +148,7 @@ class TestRecipe:
 class TestExperimentConfigStrictness:
     def test_model_spec_rejects_unknown_fields(self):
         with pytest.raises(ValidationError):
-            ModelSpec(model_id="google/gemma-4-e2b", extra_field=True)  # type: ignore
+            ModelSpec(model_id="google/gemma-4-E2B-it", extra_field=True)  # type: ignore
 
     def test_benchmark_spec_rejects_unknown_fields(self):
         with pytest.raises(ValidationError):

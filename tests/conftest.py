@@ -15,7 +15,7 @@ def sample_recipe_dict() -> dict:
         "name": "test-recipe",
         "description": "A test recipe",
         "model": {
-            "model_id": "google/gemma-4-e2b",
+            "model_id": "google/gemma-4-E2B-it",
             "dtype": "bfloat16",
             "max_seq_len": 512,
         },

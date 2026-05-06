@@ -23,17 +23,19 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from nexus.models.policy import validate_text_model_reference
 
 
 class ModelSpec(BaseModel):
     """Specifies a model to load during an experiment.
 
-    model_id: HuggingFace repo name, e.g. "google/gemma-4-e2b"
-              Can also be a local path to a fine-tuned checkpoint.
+    model_id: approved Hugging Face repo name, e.g. "google/gemma-4-E2B-it"
+              Can also be a Nexus-managed local checkpoint derived from it.
 
-    role: "small" = the 3B model under test
-          "large" = the reference model we're comparing against (optional)
+    role: "small" = the model under test
+          "large" = an optional local reference checkpoint
           "judge" = a model used to score outputs (Phase 3+)
     """
 
@@ -44,6 +46,11 @@ class ModelSpec(BaseModel):
     batch_size: int = 8
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("model_id")
+    @classmethod
+    def model_id_must_use_approved_gemma_base(cls, v: str) -> str:
+        return validate_text_model_reference(v)
 
 
 class BenchmarkSpec(BaseModel):

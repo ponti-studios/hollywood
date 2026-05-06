@@ -20,11 +20,14 @@ from nexus.api.models import (
     ChatCompletionRequest,
     ChatCompletionResponse,
     ChatMessage,
+    CompletionRequest,
+    CompletionResponse,
     LoadModelRequest,
     ModelInfo,
     ModelsResponse,
     Usage,
 )
+from nexus.models.policy import validate_text_model_reference
 
 
 def _trim_stop(text: str, stop: list[str] | None) -> str:
@@ -55,6 +58,7 @@ def _get_or_404(request: Request, model_id: str) -> LoadedModel:
 
 
 def _load_model(model_id: str) -> LoadedModel:
+    model_id = validate_text_model_reference(model_id)
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -110,19 +114,68 @@ def _generate_text(entry: LoadedModel, body: ChatCompletionRequest) -> tuple[str
                 **{key: value for key, value in generation_kwargs.items() if value is not None}
             )
 
-    thread = threading.Thread(target=_run, daemon=True)
+    thread = threading.Thread(target=_run)
     thread.start()
-
-    completion = "".join(token for token in streamer)
+    full_text = ""
+    for text in streamer:
+        if text:
+            full_text += text
     thread.join()
-    completion = _trim_stop(completion, body.stop)
 
-    prompt_tokens = len(entry.tokenizer.encode(prompt))
-    completion_tokens = len(entry.tokenizer.encode(completion))
-    return completion, prompt_tokens, completion_tokens
+    response_text = _trim_stop(full_text, body.stop)
+    completion_tokens = len(entry.tokenizer(response_text, add_special_tokens=False).input_ids)
+    prompt_tokens = input_ids["input_ids"].shape[1]
+
+    return response_text, prompt_tokens, completion_tokens
+
+
+def _generate_completion(entry: LoadedModel, body: CompletionRequest) -> tuple[str, int, int]:
+    # Convert to chat format so the model generates correctly
+    messages = [{"role": "user", "content": body.input}]
+    prompt = _prompt_from_messages(entry.tokenizer, messages)
+
+    input_ids = entry.tokenizer(prompt, return_tensors="pt")
+    streamer = TextIteratorStreamer(
+        entry.tokenizer,
+        skip_prompt=True,
+        skip_special_tokens=True,
+    )
+
+    generation_kwargs = {
+        "input_ids": input_ids["input_ids"],
+        "attention_mask": input_ids.get("attention_mask"),
+        "max_new_tokens": body.max_tokens,
+        "do_sample": body.temperature > 0,
+        "temperature": body.temperature if body.temperature > 0 else None,
+        "pad_token_id": entry.tokenizer.pad_token_id,
+        "eos_token_id": entry.tokenizer.eos_token_id,
+        "streamer": streamer,
+    }
+
+    def _run() -> None:
+        with torch.inference_mode():
+            entry.model.generate(
+                **{key: value for key, value in generation_kwargs.items() if value is not None}
+            )
+
+    thread = threading.Thread(target=_run)
+    thread.start()
+    full_text = ""
+    for text in streamer:
+        if text:
+            full_text += text
+    thread.join()
+
+    response_text = _trim_stop(full_text, body.stop)
+    completion_tokens = len(entry.tokenizer(response_text, add_special_tokens=False).input_ids)
+    prompt_tokens = input_ids["input_ids"].shape[1]
+
+    return response_text, prompt_tokens, completion_tokens
 
 
 def create_app(default_model_id: str = DEFAULT_TEXT_MODEL_ID, autoload: bool = True) -> FastAPI:
+    default_model_id = validate_text_model_reference(default_model_id)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if autoload:
@@ -151,8 +204,9 @@ def create_app(default_model_id: str = DEFAULT_TEXT_MODEL_ID, autoload: bool = T
         if body.model_id in models:
             return {"status": "already_loaded", "model_id": body.model_id}
 
-        models[body.model_id] = await asyncio.to_thread(_load_model, body.model_id)
-        return {"status": "loaded", "model_id": body.model_id}
+        model_id = validate_text_model_reference(body.model_id)
+        models[model_id] = await asyncio.to_thread(_load_model, model_id)
+        return {"status": "loaded", "model_id": model_id}
 
     @router.delete("/models/{model_id}")
     def unload_model(model_id: str, request: Request) -> dict[str, str]:
@@ -188,6 +242,37 @@ def create_app(default_model_id: str = DEFAULT_TEXT_MODEL_ID, autoload: bool = T
                     message=ChatMessage(role="assistant", content=response_text),
                 )
             ],
+            usage=Usage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+            ),
+        )
+
+    @router.post("/completions")
+    async def completions(body: CompletionRequest, request: Request):
+        models = _models(request)
+        if not models:
+            raise HTTPException(503, "No models loaded. POST /v1/models/load first.")
+        entry = next(iter(models.values()))
+
+        if body.stream:
+            return StreamingResponse(
+                _stream_completion(entry, body),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
+
+        response_text, prompt_tokens, completion_tokens = await asyncio.to_thread(
+            _generate_completion,
+            entry,
+            body,
+        )
+
+        return CompletionResponse(
+            id=f"cmpl-{uuid.uuid4().hex}",
+            model=entry.model_id,
+            choices=[{"text": response_text}],
             usage=Usage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
@@ -241,6 +326,53 @@ def create_app(default_model_id: str = DEFAULT_TEXT_MODEL_ID, autoload: bool = T
 
         thread.join()
         yield _chunk({}, finish_reason="stop")
+
+    async def _stream_completion(entry: LoadedModel, body: CompletionRequest):
+        prompt = body.input
+        input_ids = entry.tokenizer(prompt, return_tensors="pt")
+        streamer = TextIteratorStreamer(
+            entry.tokenizer,
+            skip_prompt=True,
+            skip_special_tokens=True,
+        )
+
+        completion_id = f"cmpl-{uuid.uuid4().hex}"
+        created = int(time.time())
+
+        def _chunk(text: str, finish_reason: str | None = None) -> str:
+            payload = {
+                "id": completion_id,
+                "object": "text.completion.chunk",
+                "created": created,
+                "model": entry.model_id,
+                "choices": [{"text": text, "finish_reason": finish_reason}],
+            }
+            return f"data: {json.dumps(payload)}\n\n"
+
+        def _run() -> None:
+            with torch.inference_mode():
+                entry.model.generate(
+                    input_ids=input_ids["input_ids"],
+                    attention_mask=input_ids.get("attention_mask"),
+                    max_new_tokens=body.max_tokens,
+                    do_sample=body.temperature > 0,
+                    pad_token_id=entry.tokenizer.pad_token_id,
+                    eos_token_id=entry.tokenizer.eos_token_id,
+                    streamer=streamer,
+                    **({"temperature": body.temperature} if body.temperature > 0 else {}),
+                )
+
+        thread = threading.Thread(target=_run, daemon=True)
+        thread.start()
+
+        full_text = ""
+        for text in streamer:
+            full_text += text
+            yield _chunk(text)
+
+        thread.join()
+        _trim_stop(full_text, body.stop)
+        yield _chunk("", finish_reason="stop")
 
     app.include_router(router, prefix="/v1")
     return app

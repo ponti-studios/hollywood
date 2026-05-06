@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-DEFAULT_TEXT_MODEL_ID = "HuggingFaceTB/SmolLM2-135M-Instruct"
+from nexus.models.policy import GEMMA_TEXT_MODEL_ID
+
+DEFAULT_TEXT_MODEL_ID = GEMMA_TEXT_MODEL_ID
 DEFAULT_TEXT_MODEL_URL = "http://nexus-text:8080"
 DEFAULT_AUDIO_TTS_URL = "http://nexus-audio-tts:8001"
 DEFAULT_AUDIO_ASR_URL = "http://nexus-audio-asr:8002"

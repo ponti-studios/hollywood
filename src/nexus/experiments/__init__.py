@@ -1,13 +1,12 @@
 """
-Experiment orchestration for the 3B Logic Broker project.
+Experiment orchestration for Nexus benchmark and comparison runs.
 
-This package provides the scaffolding to run, score, and log all four phases
-of the procedural intelligence hypothesis:
+This package provides the scaffolding to run, score, and log the benchmark
+phases used to evaluate Gemma 4 E2B-it and any approved local checkpoints:
 
-  Phase 1 (exp_01): Baseline — 3B vs 70B on knowledge vs pure logic
-  Phase 2 (exp_02): Open Book — 3B + tool-use vs 70B on knowledge tasks
+  Phase 1 (exp_01): Baseline — closed-book evaluation
+  Phase 2 (exp_02): Open Book — tool-assisted evaluation
   Phase 3 (exp_03): Reflection — Draft → Critique → Refine loop
-  Phase 4 (exp_04): Fine-tuned 3B vs zero-shot frontier models
 
 Every experiment follows the same contract:
   - Reads a YAML config (ExperimentConfig)

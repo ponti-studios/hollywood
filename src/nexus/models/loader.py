@@ -1,5 +1,5 @@
 """
-loader.py — Load Gemma models and tokenizers correctly on Apple Silicon.
+loader.py — Load the approved Gemma 4 model and tokenizers correctly on Apple Silicon.
 
 What happens when you "load a model"?
 ──────────────────────────────────────
@@ -36,6 +36,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenize
 
 from nexus.config import ModelConfig
 from nexus.device import get_device, get_dtype
+from nexus.models.policy import validate_text_model_reference
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,8 @@ def load_tokenizer(cfg: ModelConfig) -> PreTrainedTokenizer:
     padding_side="right" ensures padding tokens are appended at the end
     of the sequence (left padding can confuse causal language models).
     """
-    tokenizer = AutoTokenizer.from_pretrained(cfg.model_id)
+    model_id = validate_text_model_reference(cfg.model_id)
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
 
     # Gemma has no pad token by default — set it to eos
     if tokenizer.pad_token is None:
@@ -83,11 +85,13 @@ def load_model(cfg: ModelConfig) -> AutoModelForCausalLM:
     """
     dtype = get_dtype()
 
-    logger.info(f"Loading model: {cfg.model_id}")
+    model_id = validate_text_model_reference(cfg.model_id)
+
+    logger.info(f"Loading model: {model_id}")
     logger.info(f"  dtype={dtype}, device={get_device()}, attn={cfg.attn_implementation}")
 
     model = AutoModelForCausalLM.from_pretrained(
-        cfg.model_id,
+        model_id,
         dtype=dtype,
         device_map="auto",  # let accelerate choose device placement
         attn_implementation=cfg.attn_implementation,

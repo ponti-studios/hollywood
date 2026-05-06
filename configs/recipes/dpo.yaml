@@ -15,13 +15,13 @@
 #   rewards/accuracy — fraction of examples where chosen > rejected (should → 1.0)
 #   rewards/margin   — gap between chosen and rejected rewards (should ↑)
 
-name: "gemma4-e2b-dpo"
+name: "gemma4-e2b-it-dpo"
 description: "DPO preference tuning on Gemma 4 E2B using UltraFeedback."
 
 model:
-  model_id: "google/gemma-4-e2b"
+  model_id: "google/gemma-4-E2B-it"
   # To continue from your SFT run, change to:
-  # model_id: ".data/checkpoints/gemma4-e2b-sft-lora"
+  # model_id: ".data/checkpoints/gemma4-e2b-it-sft-lora"
   dtype: "bfloat16"
   max_seq_len: 2048
   attn_implementation: "eager"
@@ -57,4 +57,4 @@ training:
 wandb:
   enabled: true
   project: "nexus-posttraining"
-  tags: ["dpo", "lora", "gemma4-e2b", "ultrafeedback"]
+  tags: ["dpo", "lora", "gemma4-e2b-it", "ultrafeedback"]

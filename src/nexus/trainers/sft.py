@@ -36,8 +36,9 @@ from trl import SFTConfig, SFTTrainer
 from nexus.config import Recipe
 from nexus.data.formatters import prepare_sft_dataset
 from nexus.data.loaders import load_and_split
-from nexus.models.adapters import apply_lora
+from nexus.models.adapters import apply_lora, merge_and_save
 from nexus.models.loader import load_model, load_tokenizer
+from nexus.models.policy import write_model_manifest
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +131,11 @@ def run_sft(recipe: Recipe) -> None:
     trainer.train()
 
     # ── 6. Save final model ───────────────────────────────────────────────
-    trainer.save_model(output_dir)
-    tokenizer.save_pretrained(output_dir)
+    if recipe.lora is not None:
+        merge_and_save(model, tokenizer, output_dir)
+    else:
+        trainer.save_model(output_dir)
+        tokenizer.save_pretrained(output_dir)
+        write_model_manifest(output_dir)
+
     logger.info(f"Model saved to {output_dir}")

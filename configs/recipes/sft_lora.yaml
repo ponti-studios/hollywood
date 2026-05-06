@@ -17,11 +17,11 @@
 #   max_samples: 500
 #   num_epochs: 1
 
-name: "gemma4-e2b-sft-lora"
+name: "gemma4-e2b-it-sft-lora"
 description: "SFT with LoRA adapters on Gemma 4 E2B using the Alpaca dataset."
 
 model:
-  model_id: "google/gemma-4-e2b"
+  model_id: "google/gemma-4-E2B-it"
   dtype: "bfloat16"
   max_seq_len: 2048
   attn_implementation: "eager"
@@ -63,5 +63,5 @@ training:
 wandb:
   enabled: true
   project: "nexus-posttraining"
-  tags: ["sft", "lora", "gemma4-e2b", "alpaca"]
+  tags: ["sft", "lora", "gemma4-e2b-it", "alpaca"]
   notes: "Baseline SFT + LoRA experiment"

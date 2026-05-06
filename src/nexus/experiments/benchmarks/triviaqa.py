@@ -9,13 +9,12 @@ question has multiple valid answer aliases (e.g., "JFK" and "John F. Kennedy"
 are both valid for the same question).
 
 In Phase 1 (baseline), TriviaQA is used as the "knowledge-heavy" benchmark —
-a test that large models dominate because they have the answers memorized in
-their weights. We expect the 70B model to significantly outperform the 3B
-model here.
+a test that the Gemma 4 E2B-it text model must answer from memory rather than
+from tools or search.
 
-In Phase 2 (open book), we re-run these same questions but let the 3B model
-search the web for answers. The expected outcome is that the gap closes
-dramatically — because the 3B model can look up what it doesn't know.
+In Phase 2 (open book), we re-run these same questions but allow the model to
+use search before answering. The expected outcome is that the gap closes
+because the model can look up what it doesn't know.
 
 HuggingFace dataset: "trivia_qa" (config: "rc.wikipedia")
 Split used: "validation" (so we never touch the test set)

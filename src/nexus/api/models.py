@@ -4,8 +4,9 @@ import time
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from nexus.models.policy import validate_text_model_reference
 from nexus.runs.schema import RunSchema
 
 
@@ -34,26 +35,67 @@ class ChatMessage(BaseModel):
     content: str
 
 
-class ChatCompletionRequest(BaseModel):
+class CompletionRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
                 {
-                    "model": "HuggingFaceTB/SmolLM2-135M-Instruct",
-                    "messages": [{"role": "user", "content": "What is 2+2?"}],
+                    "input": "What is 2+2?",
                     "max_tokens": 32,
-                    "temperature": 0.7,
-                    "stream": False,
+                    "temperature": 0.7
                 }
             ]
         }
     )
 
-    model: str = Field(description="Model identifier to use for generation.")
+    input: str = Field(description="Text prompt to generate a completion for.")
+    max_tokens: int = Field(
+        default=512,
+        description="Maximum number of new tokens to generate.",
+    )
+    temperature: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=2.0,
+        description="Sampling temperature for non-deterministic generation.",
+    )
+    stream: bool = Field(
+        default=False, description="Whether to stream tokens as server-sent events."
+    )
+    stop: list[str] | None = Field(
+        default=None,
+        description="Optional stop sequences that truncate the returned completion.",
+    )
+
+
+class CompletionResponse(BaseModel):
+    id: str = Field(default_factory=lambda: f"cmpl-{uuid.uuid4().hex}")
+    object: str = "text.completion"
+    created: int = Field(default_factory=lambda: int(time.time()))
+    model: str
+    choices: list[dict[str, str]]
+    usage: Usage
+
+
+class ChatCompletionRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "messages": [{"role": "user", "content": "What is 2+2?"}],
+                    "stream": False
+                }
+            ]
+        }
+    )
+
+    model: str | None = Field(
+        default=None,
+        description="Model identifier. Defaults to the configured Gemma server model.",
+    )
     messages: list[ChatMessage] = Field(description="Conversation messages to continue from.")
     max_tokens: int = Field(
         default=512,
-        gt=0,
         description="Maximum number of new tokens to generate.",
     )
     temperature: float = Field(
@@ -95,11 +137,16 @@ class ChatCompletionResponse(BaseModel):
 class LoadModelRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
-            "examples": [{"model_id": "HuggingFaceTB/SmolLM2-135M-Instruct", "quantize": "4bit"}]
+            "examples": [{"model_id": "google/gemma-4-E2B-it", "quantize": "4bit"}]
         }
     )
 
-    model_id: str = Field(description="Registered model identifier to load.")
+    model_id: str = Field(description="Approved Gemma model identifier or Nexus checkpoint to load.")
+
+    @field_validator("model_id")
+    @classmethod
+    def model_id_must_use_approved_gemma_base(cls, v: str) -> str:
+        return validate_text_model_reference(v)
     quantize: Literal["4bit", "8bit"] | None = Field(
         default=None,
         description="Optional quantization mode for backends that support it.",

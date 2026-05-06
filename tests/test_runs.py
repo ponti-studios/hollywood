@@ -10,7 +10,7 @@ def test_run_store_saves_and_loads_platform_run(tmp_path: Path) -> None:
     store = RunStore(tmp_path / "runs.db")
     record = RunRecord.inference(
         id="run-1",
-        model_id="HuggingFaceTB/SmolLM2-135M-Instruct",
+        model_id="google/gemma-4-E2B-it",
         messages=[{"role": "user", "content": "hello"}],
         response="world",
         prompt_tokens=4,
@@ -27,7 +27,7 @@ def test_run_store_saves_and_loads_platform_run(tmp_path: Path) -> None:
     assert loaded.kind == "inference"
     assert loaded.capability == "text"
     assert loaded.status == "completed"
-    assert loaded.model_id == "HuggingFaceTB/SmolLM2-135M-Instruct"
+    assert loaded.model_id == "google/gemma-4-E2B-it"
     assert loaded.input == {"messages": [{"role": "user", "content": "hello"}]}
     assert loaded.output == {"response": "world"}
     assert loaded.metrics == {

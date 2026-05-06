@@ -1,26 +1,19 @@
 name: exp_01_baseline
 description: >
   Phase 1 — Closed-book baseline.
-  Runs a small (4B) model and a larger reference model on three benchmark types:
-    - TriviaQA (knowledge-heavy: expects large model to dominate)
-    - MMLU     (knowledge-heavy: expects large model to dominate)
-    - Synthetic (pure logic: expects small model to be competitive)
-  The gap on Synthetic vs the gap on TriviaQA/MMLU is the key finding.
+  Runs the Gemma 4 E2B-it model on three benchmark types:
+    - TriviaQA (knowledge-heavy: tests factual recall)
+    - MMLU     (knowledge-heavy: tests broad academic knowledge)
+    - Synthetic (pure logic: tests reasoning without memorisation)
+  The contrast between Synthetic and the knowledge-heavy sets is the key finding.
 phase: 1
 models:
-  - model_id: google/gemma-4-e2b
+  - model_id: google/gemma-4-E2B-it
     role: small
     max_new_tokens: 128
     temperature: 0.0
     batch_size: 8
 
-  # Uncomment to add a large model comparison.
-  # Qwen runs locally through the standard transformers backend.
-  # - model_id: Qwen/Qwen3.5-4B
-  #   role: large
-  #   max_new_tokens: 128
-  #   temperature: 0.0
-  #   batch_size: 4
 
 benchmarks:
   - name: triviaqa

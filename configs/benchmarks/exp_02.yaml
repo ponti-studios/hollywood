@@ -1,23 +1,16 @@
 name: exp_02_open_book
 description: >
   Phase 2 — Open-book benchmark.
-  The small model may issue search queries before answering.
-  The optional large reference model remains closed-book and is primarily used
-  as a cached comparison baseline.
+  The Gemma 4 E2B-it model may issue search queries before answering.
+  Cached reference results are retained for reproducibility when available.
 phase: 2
 models:
-  - model_id: google/gemma-4-e2b
+  - model_id: google/gemma-4-E2B-it
     role: small
     max_new_tokens: 128
     temperature: 0.0
     batch_size: 8
 
-  # Optional reference model.
-  # - model_id: Qwen/Qwen3.5-4B
-  #   role: large
-  #   max_new_tokens: 128
-  #   temperature: 0.0
-  #   batch_size: 4
 
 benchmarks:
   - name: triviaqa

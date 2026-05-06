@@ -19,11 +19,11 @@
 #   kl           — KL divergence from reference (should stay bounded)
 #   num_generations — how many responses generated per prompt per step
 
-name: "gemma4-e2b-grpo-math"
+name: "gemma4-e2b-it-grpo-math"
 description: "GRPO reasoning training on Gemma 4 E2B using GSM8K math problems."
 
 model:
-  model_id: "google/gemma-4-e2b"
+  model_id: "google/gemma-4-E2B-it"
   dtype: "bfloat16"
   max_seq_len: 1024        # math problems are shorter — save memory
   attn_implementation: "eager"
@@ -59,5 +59,5 @@ training:
 wandb:
   enabled: true
   project: "nexus-posttraining"
-  tags: ["grpo", "lora", "gemma4-e2b", "gsm8k", "reasoning"]
+  tags: ["grpo", "lora", "gemma4-e2b-it", "gsm8k", "reasoning"]
   notes: "GRPO reasoning experiment — reward function: correct final answer"

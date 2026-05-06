@@ -24,11 +24,14 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from nexus.models.policy import validate_text_model_reference
+
 
 class ModelConfig(BaseModel):
     """Which model to load and how to load it.
 
-    model_id: the HuggingFace repo name, e.g. "google/gemma-4-e2b"
+    model_id: the approved Hugging Face repo name, e.g. "google/gemma-4-E2B-it"
+              or a Nexus-managed checkpoint directory derived from it.
               "-it" means "instruction-tuned" — the model already knows how
               to follow instructions, which is a much better starting point
               for posttraining than the raw base model.
@@ -50,6 +53,11 @@ class ModelConfig(BaseModel):
     attn_implementation: str = "eager"
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("model_id")
+    @classmethod
+    def model_id_must_use_approved_gemma_base(cls, v: str) -> str:
+        return validate_text_model_reference(v)
 
 
 class LoraConfig(BaseModel):

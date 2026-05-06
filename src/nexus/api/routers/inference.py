@@ -12,6 +12,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from nexus.api.models import (
     ChatCompletionRequest,
     ChatCompletionResponse,
+    CompletionRequest,
+    CompletionResponse,
 )
 from nexus.api.store import InferenceRecord, InferenceStore
 
@@ -58,8 +60,10 @@ def _backend_url(request: Request, model_id: str) -> str:
     },
 )
 async def chat_completions(body: ChatCompletionRequest, request: Request):
-    backend_url = _backend_url(request, body.model)
+    model_id = body.model or request.app.state.backends.text_model_id
+    backend_url = _backend_url(request, model_id)
     payload = body.model_dump()
+    payload["model"] = model_id
 
     if body.stream:
         return StreamingResponse(
@@ -75,7 +79,57 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
         _raise_http(response.status_code, response.text)
 
     response_payload = response.json()
-    _save_run(request, body, response_payload, time.perf_counter() - t0)
+    _save_run(request, model_id, body, response_payload, time.perf_counter() - t0)
+    return JSONResponse(response_payload, status_code=response.status_code)
+
+
+@router.post(
+    "/completions",
+    response_model=CompletionResponse,
+    responses={
+        200: {
+            "description": "Returns a text completion or an SSE stream when `stream=true`.",
+            "content": {
+                "text/event-stream": {
+                    "schema": {"type": "string"},
+                    "examples": {
+                        "chunk": {
+                            "summary": "Streaming chunk",
+                            "value": "data: {...}\n\n",
+                        }
+                    },
+                }
+            },
+        }
+    },
+)
+async def completions(body: CompletionRequest, request: Request):
+    model_id = request.app.state.backends.text_model_id
+    backend_url = _backend_url(request, model_id)
+    payload = {
+        "input": body.input,
+        "max_tokens": body.max_tokens,
+        "temperature": body.temperature,
+        "stream": body.stream,
+    }
+    if body.stop:
+        payload["stop"] = body.stop
+
+    if body.stream:
+        return StreamingResponse(
+            _stream_completion(backend_url, payload),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    t0 = time.perf_counter()
+    async with httpx.AsyncClient(timeout=None) as client:
+        response = await client.post(f"{backend_url}/v1/completions", json=payload)
+    if response.status_code >= 400:
+        _raise_http(response.status_code, response.text)
+
+    response_payload = response.json()
+    _save_completion_run(request, model_id, body, response_payload, time.perf_counter() - t0)
     return JSONResponse(response_payload, status_code=response.status_code)
 
 
@@ -92,8 +146,22 @@ async def _stream_chat(backend_url: str, payload: dict) -> AsyncGenerator[bytes,
                 yield chunk
 
 
+async def _stream_completion(backend_url: str, payload: dict) -> AsyncGenerator[bytes, None]:
+    async with httpx.AsyncClient(timeout=None) as client:
+        async with client.stream(
+            "POST", f"{backend_url}/v1/completions", json=payload
+        ) as response:
+            if response.status_code >= 400:
+                body = await response.aread()
+                _raise_http(response.status_code, body.decode("utf-8", errors="replace"))
+
+            async for chunk in response.aiter_bytes():
+                yield chunk
+
+
 def _save_run(
     request: Request,
+    model_id: str,
     body: ChatCompletionRequest,
     response_payload: dict,
     latency_seconds: float,
@@ -111,8 +179,38 @@ def _save_run(
         InferenceRecord(
             id=str(run_id).removeprefix("chatcmpl-"),
             created_at=float(response_payload.get("created", time.time())),
-            model_id=body.model,
+            model_id=model_id,
             messages=[message.model_dump() for message in body.messages],
+            response=response_text,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            latency_ms=round(latency_seconds * 1000, 2),
+        )
+    )
+
+
+def _save_completion_run(
+    request: Request,
+    model_id: str,
+    body: CompletionRequest,
+    response_payload: dict,
+    latency_seconds: float,
+) -> None:
+    prompt_tokens = int(response_payload.get("usage", {}).get("prompt_tokens", 0))
+    completion_tokens = int(response_payload.get("usage", {}).get("completion_tokens", 0))
+    response_text = ""
+    try:
+        response_text = response_payload["choices"][0]["text"]
+    except (KeyError, IndexError, TypeError):
+        response_text = ""
+
+    run_id = response_payload.get("id", f"cmpl-{uuid.uuid4().hex}")
+    _store(request).save(
+        InferenceRecord(
+            id=str(run_id).removeprefix("cmpl-"),
+            created_at=float(response_payload.get("created", time.time())),
+            model_id=model_id,
+            messages=[{"role": "user", "content": body.input}],
             response=response_text,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,

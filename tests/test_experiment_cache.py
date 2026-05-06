@@ -11,6 +11,13 @@ from nexus.experiments.config import (
 )
 from nexus.experiments.phases.baseline import BaselineRunner
 from nexus.experiments.scoring import QuestionResult
+from nexus.models.policy import write_model_manifest
+
+
+def _make_checkpoint(tmp_path, name: str) -> str:
+    path = tmp_path / "models" / name
+    write_model_manifest(path)
+    return str(path)
 
 
 def build_config(tmp_path, benchmarks: list[BenchmarkSpec]) -> ExperimentConfig:
@@ -19,8 +26,8 @@ def build_config(tmp_path, benchmarks: list[BenchmarkSpec]) -> ExperimentConfig:
         description="cache test",
         phase=1,
         models=[
-            ModelSpec(model_id="small-model", role="small"),
-            ModelSpec(model_id="large-model", role="large"),
+            ModelSpec(model_id=_make_checkpoint(tmp_path, "small"), role="small"),
+            ModelSpec(model_id=_make_checkpoint(tmp_path, "large"), role="large"),
         ],
         benchmarks=benchmarks,
         synthetic=SyntheticPuzzleSpec(),
@@ -64,7 +71,7 @@ def test_large_model_uses_cached_results(tmp_path) -> None:
             expected="Yes",
             predicted="Yes",
             correct=True,
-            model_id="large-model",
+            model_id=cfg.models[1].model_id,
             benchmark="synthetic",
         ),
         QuestionResult(
@@ -73,7 +80,7 @@ def test_large_model_uses_cached_results(tmp_path) -> None:
             expected="No",
             predicted="No",
             correct=True,
-            model_id="large-model",
+            model_id=cfg.models[1].model_id,
             benchmark="synthetic",
         ),
     ]
@@ -91,7 +98,7 @@ def test_large_model_uses_cached_results(tmp_path) -> None:
     )
 
     assert [result.predicted for result in results] == ["Yes", "No"]
-    assert all(result.model_id == "large-model" for result in results)
+    assert all(result.model_id == cfg.models[1].model_id for result in results)
 
 
 def test_load_models_skips_large_reference_when_cache_is_complete(tmp_path) -> None:
@@ -121,7 +128,7 @@ def test_load_models_skips_large_reference_when_cache_is_complete(tmp_path) -> N
                     expected=items[0].expected,
                     predicted=items[0].expected,
                     correct=True,
-                    model_id="large-model",
+                    model_id=cfg.models[1].model_id,
                     benchmark=benchmark_name,
                 )
             ],
@@ -137,6 +144,6 @@ def test_load_models_skips_large_reference_when_cache_is_complete(tmp_path) -> N
 
     runner.load_models()
 
-    assert loaded_models == ["small-model"]
-    assert "small-model" in runner._pipelines
-    assert "large-model" not in runner._pipelines
+    assert loaded_models == [cfg.models[0].model_id]
+    assert cfg.models[0].model_id in runner._pipelines
+    assert cfg.models[1].model_id not in runner._pipelines

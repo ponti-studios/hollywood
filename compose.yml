@@ -10,7 +10,7 @@ services:
     volumes:
       - .:/app
     environment:
-      NEXUS_TEXT_MODEL_ID: HuggingFaceTB/SmolLM2-135M-Instruct
+      NEXUS_TEXT_MODEL_ID: google/gemma-4-E2B-it
       NEXUS_TEXT_MODEL_URL: http://nexus-text:8080
       NEXUS_AUDIO_TTS_URL: http://nexus-audio-tts:8001
       NEXUS_AUDIO_ASR_URL: http://nexus-audio-asr:8002
@@ -39,7 +39,7 @@ services:
     init: true
     restart: unless-stopped
     environment:
-      NEXUS_TEXT_MODEL_ID: HuggingFaceTB/SmolLM2-135M-Instruct
+      NEXUS_TEXT_MODEL_ID: google/gemma-4-E2B-it
       NEXUS_TEXT_AUTOLOAD: "true"
     volumes:
       - .:/app

@@ -3,24 +3,23 @@ exp_01_baseline.py — Phase 1: The "Category Error" Baseline
 
 What this experiment proves
 ────────────────────────────
-Large models (70B+) are trained on vastly more data, giving them a much
-richer store of memorized facts. But do their extra parameters also make
-them better *reasoners*, or do they just know more trivia?
+Gemma 4 E2B-it is the single approved text model in this repository. The
+baseline compares the model against itself and any approved local Gemma
+checkpoint to keep the benchmark and cache machinery honest.
 
-This experiment separates the two by running both a small model (3B/4B)
-and a large reference model on:
+The benchmark suite covers:
 
-  1. TriviaQA  — knowledge-heavy, tests memorized facts
+  1. TriviaQA  — knowledge-heavy, tests factual recall
   2. MMLU      — knowledge-heavy, tests academic subject knowledge
   3. Synthetic — pure logic, tests reasoning with made-up words
 
 Expected outcome:
-  - Large model wins big on TriviaQA and MMLU  (it has more facts stored)
-  - Small model performs *surprisingly close* on Synthetic  (it can reason too)
-  - The gap on Synthetic is the key finding — it means the 3B model's
-    reasoning is nearly as capable, just its fact-store is smaller
+  - TriviaQA and MMLU are the hard factual sets
+  - Synthetic should remain relatively strong because it is pure reasoning
+  - Differences between the sets tell us whether the model is relying on
+    memorisation or actually reasoning
 
-If the gap on Synthetic is also large, we need to revisit the hypothesis.
+If the Synthetic gap grows unexpectedly large, we need to revisit the setup.
 
 Usage:
     python -m nexus.experiments.phases.baseline
@@ -55,11 +54,11 @@ console = Console()
 
 
 class BaselineRunner(BaseRunner):
-    """Phase 1 runner — evaluates models on all three benchmark types.
+    """Phase 1 runner — evaluates the approved Gemma model on all benchmarks.
 
-    Runs each model on each benchmark sequentially and collects results.
-    No tools, no reflection — this is the pure "closed book" baseline
-    that every subsequent phase will be compared against.
+    Runs each configured model on each benchmark sequentially and collects
+    results. No tools, no reflection — this is the pure "closed book"
+    baseline that every subsequent phase will be compared against.
     """
 
     def run(self) -> tuple[dict[str, BenchmarkScore], list[QuestionResult]]:

@@ -1,45 +1,17 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO
+from typing import Any, BinaryIO
 
 from nexus.audio.models import AudioGenRequest
 from nexus.audio.paths import AudioPaths, default_audio_paths
+from nexus.models.policy import GEMMA_TEXT_MODEL_ID, QWEN_TTS_MODEL_ID
 
-# Lazy imports for Qwen models
+# Lazy imports keep the runtime light until a model-backed path is hit.
 _qwen_tts_model = None
-_qwen_asr_model = None
-
-
-def _get_qwen_tts_model():
-    global _qwen_tts_model
-    if _qwen_tts_model is None:
-        from qwen_tts import Qwen3TTSModel
-
-        torch = _require_torch()
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        _qwen_tts_model = Qwen3TTSModel.from_pretrained(
-            "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
-            device_map=device,
-            dtype=torch.bfloat16 if device == "cuda" else torch.float32,
-        )
-    return _qwen_tts_model
-
-
-def _get_qwen_asr_model():
-    global _qwen_asr_model
-    if _qwen_asr_model is None:
-        from qwen_asr import QwenASRModel
-
-        torch = _require_torch()
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        _qwen_asr_model = QwenASRModel(
-            model="Qwen/Qwen3-ASR-1.7B",
-            device=device,
-            dtype=torch.bfloat16 if device == "cuda" else torch.float32,
-        )
-    return _qwen_asr_model
+_gemma_audio_model = None
 
 
 def _require_soundfile():
@@ -61,9 +33,73 @@ def _require_torch():
         raise AudioError(
             503,
             "MISSING_DEPENDENCY",
-            "torch is not installed. Install the train bundle to enable TTS and ASR.",
+            "torch is not installed. Install the runtime bundle to enable TTS and ASR.",
         ) from exc
     return torch
+
+
+@dataclass
+class GemmaAudioModel:
+    model_id: str
+    processor: Any
+    model: Any
+
+
+def _get_qwen_tts_model():
+    global _qwen_tts_model
+    if _qwen_tts_model is None:
+        from qwen_tts import Qwen3TTSModel
+
+        torch = _require_torch()
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        _qwen_tts_model = Qwen3TTSModel.from_pretrained(
+            QWEN_TTS_MODEL_ID,
+            device_map=device,
+            dtype=torch.bfloat16 if device == "cuda" else torch.float32,
+        )
+    return _qwen_tts_model
+
+
+def _get_gemma_audio_model() -> GemmaAudioModel:
+    global _gemma_audio_model
+    if _gemma_audio_model is None:
+        from transformers import AutoModelForMultimodalLM, AutoProcessor
+
+        torch = _require_torch()
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        processor = AutoProcessor.from_pretrained(GEMMA_TEXT_MODEL_ID)
+        model = AutoModelForMultimodalLM.from_pretrained(
+            GEMMA_TEXT_MODEL_ID,
+            device_map="auto",
+            dtype=torch.bfloat16 if device == "cuda" else torch.float32,
+        )
+        model.eval()
+        _gemma_audio_model = GemmaAudioModel(
+            model_id=GEMMA_TEXT_MODEL_ID,
+            processor=processor,
+            model=model,
+        )
+    return _gemma_audio_model
+
+
+def _parse_gemma_response(processor: Any, response: str) -> str:
+    parser = getattr(processor, "parse_response", None)
+    if callable(parser):
+        try:
+            parsed = parser(response)
+        except Exception:
+            parsed = None
+        else:
+            if isinstance(parsed, str):
+                return parsed.strip()
+            if isinstance(parsed, dict):
+                for key in ("text", "content", "response"):
+                    value = parsed.get(key)
+                    if isinstance(value, str):
+                        return value.strip()
+            if parsed is not None:
+                return str(parsed).strip()
+    return response.strip()
 
 
 class AudioError(Exception):
@@ -78,10 +114,10 @@ class AudioError(Exception):
 
 
 class AudioGenService:
-    """Audio generation service using Qwen3 TTS.
+    """Audio generation service using Qwen TTS.
 
-    Provides text-to-speech via the qwen-tts package with support for
-    multiple speakers and natural language instructions.
+    TTS remains on the purpose-built Qwen speech synthesis model. The service
+    is intentionally separate from the Gemma audio-understanding path.
     """
 
     SUPPORTED_SPEAKERS = [
@@ -102,12 +138,12 @@ class AudioGenService:
     def health(self) -> dict[str, object]:
         return {
             "ok": True,
-            "model": "Qwen3-TTS-12Hz-1.7B-CustomVoice",
+            "model": QWEN_TTS_MODEL_ID,
             "supported_speakers": self.SUPPORTED_SPEAKERS,
         }
 
     async def generate(self, request: AudioGenRequest) -> Path:
-        """Generate speech from text using Qwen3 TTS."""
+        """Generate speech from text using Qwen TTS."""
         sf = _require_soundfile()
         model = _get_qwen_tts_model()
 
@@ -139,10 +175,10 @@ class AudioGenService:
 
 
 class ASRService:
-    """Automatic Speech Recognition service using Qwen3 ASR.
+    """Automatic Speech Recognition and speech understanding via Gemma 4.
 
-    Provides transcription via the qwen-asr package with support for
-    52 languages and dialects.
+    Gemma 4 E2B-it handles audio understanding in this repository. The service
+    transcribes uploaded audio into text and keeps the model path fixed.
     """
 
     def __init__(self, paths: AudioPaths | None = None) -> None:
@@ -151,51 +187,79 @@ class ASRService:
     def health(self) -> dict[str, object]:
         return {
             "ok": True,
-            "model": "Qwen3-ASR-1.7B",
-            "languages": 52,
+            "model": GEMMA_TEXT_MODEL_ID,
+            "languages": 140,
         }
 
     async def transcribe(self, filename: str | None, fileobj: BinaryIO) -> str:
-        """Transcribe audio to text using Qwen3 ASR."""
+        """Transcribe audio to text using Gemma 4 E2B-it."""
         import io
 
         sf = _require_soundfile()
-        model = _get_qwen_asr_model()
+        gemma = _get_gemma_audio_model()
 
-        # Read audio bytes
         audio_bytes = fileobj.read()
 
-        # Save to temp file for qwen-asr
         with io.BytesIO(audio_bytes) as buffer:
-            audio_data, sr = sf.read(buffer)
+            audio_data, sr = sf.read(buffer, dtype="float32")
 
-        # Create temp file
-        run_dir = self.paths.runtime_root
-        run_dir.mkdir(parents=True, exist_ok=True)
-        temp_audio = run_dir / f"temp_{uuid.uuid4().hex}.wav"
+        if getattr(audio_data, "ndim", 1) > 1:
+            audio_data = audio_data.mean(axis=1).astype("float32")
+
+        temp_dir = self.paths.runtime_root
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_audio = temp_dir / f"gemma_audio_{uuid.uuid4().hex}.wav"
         sf.write(str(temp_audio), audio_data, sr)
 
         try:
-            # Transcribe
-            result = model.transcribe(str(temp_audio))
-            text = result["text"]
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "audio", "audio": str(temp_audio)},
+                        {
+                            "type": "text",
+                            "text": (
+                                "Transcribe the following speech segment in its original language. "
+                                "Only output the transcription, with no extra formatting."
+                            ),
+                        },
+                    ],
+                }
+            ]
+
+            inputs = gemma.processor.apply_chat_template(
+                messages,
+                tokenize=True,
+                return_dict=True,
+                return_tensors="pt",
+                add_generation_prompt=True,
+            ).to(gemma.model.device)
+            input_len = inputs["input_ids"].shape[-1]
+
+            torch = _require_torch()
+            with torch.inference_mode():
+                outputs = gemma.model.generate(
+                    **inputs,
+                    max_new_tokens=256,
+                    do_sample=False,
+                    pad_token_id=getattr(gemma.processor.tokenizer, "eos_token_id", None) or 0,
+                )
+
+            response = gemma.processor.decode(outputs[0][input_len:], skip_special_tokens=True)
+            text = _parse_gemma_response(gemma.processor, response)
         finally:
-            # Cleanup temp file
             temp_audio.unlink(missing_ok=True)
 
         return text
 
-    def _make_run_dir(self, prefix: str) -> Path:
-        self.paths.runtime_root.mkdir(parents=True, exist_ok=True)
-        run_dir = self.paths.runtime_root / f"{prefix}-{uuid.uuid4().hex}"
-        run_dir.mkdir(parents=True, exist_ok=False)
-        return run_dir
-
 
 class AudioService:
-    """Audio service using Qwen models for both TTS and ASR.
+    """Audio service using Qwen TTS and Gemma 4 ASR.
 
-    Delegates work to local Qwen models (TTS and ASR).
+    The repository policy is:
+      - Gemma 4 E2B-it for audio understanding / transcription
+      - Qwen TTS for speech synthesis
     """
 
     def __init__(self, paths: AudioPaths | None = None) -> None:
@@ -211,9 +275,9 @@ class AudioService:
         }
 
     async def tts(self, request: AudioGenRequest) -> Path:
-        """Synthesize speech from text using Qwen3 TTS."""
+        """Synthesize speech from text using Qwen TTS."""
         return await self._tts_service.generate(request)
 
     async def transcribe(self, filename: str | None, fileobj: BinaryIO) -> str:
-        """Transcribe audio to text using Qwen3 ASR."""
+        """Transcribe audio to text using Gemma 4 E2B-it."""
         return await self._asr_service.transcribe(filename, fileobj)

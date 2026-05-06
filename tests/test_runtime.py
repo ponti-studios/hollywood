@@ -125,7 +125,7 @@ def test_model_loader_does_not_use_remote_code(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr("nexus.models.loader.get_device", lambda: "mps")
 
     class DummyCfg:
-        model_id = "google/gemma-4-e2b"
+        model_id = "google/gemma-4-E2B-it"
         attn_implementation = "eager"
 
     load_tokenizer(DummyCfg())
@@ -156,7 +156,7 @@ def test_text_pipeline_does_not_use_remote_code(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(transformers, "pipeline", fake_pipeline)
 
     class DummySpec:
-        model_id = "google/gemma-4-e2b"
+        model_id = "google/gemma-4-E2B-it"
         inference_backend = "transformers"
         max_new_tokens = 8
         temperature = 0.0

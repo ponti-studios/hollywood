@@ -37,6 +37,7 @@ from rich.table import Table
 from nexus.experiments.config import ExperimentConfig, ModelSpec
 from nexus.experiments.reference_cache import build_cache_path
 from nexus.experiments.scoring import BenchmarkScore, QuestionResult
+from nexus.models.policy import validate_text_model_reference
 
 if TYPE_CHECKING:
     from transformers import TextGenerationPipeline
@@ -146,12 +147,13 @@ class BaseRunner(ABC):
         from transformers import GenerationConfig, pipeline
 
         torch = cast(Any, importlib.import_module("torch"))
+        model_id = validate_text_model_reference(spec.model_id)
 
         pipe = cast(
             ConfiguredPipeline,
             pipeline(
                 "text-generation",
-                model=spec.model_id,
+                model=model_id,
                 dtype=torch.bfloat16,
                 device_map="auto",
             ),

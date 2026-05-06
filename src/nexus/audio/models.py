@@ -47,7 +47,7 @@ class TtsHealthResponse(BaseModel):
             "examples": [
                 {
                     "ok": True,
-                    "model": "Qwen3-TTS-12Hz-1.7B-CustomVoice",
+                    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
                     "supported_speakers": ["serena", "aiden"],
                 }
             ]
@@ -61,7 +61,7 @@ class TtsHealthResponse(BaseModel):
 
 class AsrHealthResponse(BaseModel):
     model_config = ConfigDict(
-        json_schema_extra={"examples": [{"ok": True, "model": "Qwen3-ASR-1.7B", "languages": 52}]}
+        json_schema_extra={"examples": [{"ok": True, "model": "google/gemma-4-E2B-it", "languages": 140}]}
     )
 
     ok: bool

@@ -10,8 +10,8 @@ COPY pyproject.toml .
 COPY README.md .
 COPY src/ src/
 
-RUN uv pip install --system -e ".[api]" torch
+RUN uv pip install --system -e ".[api-text]" torch
 
-ENV NEXUS_TEXT_MODEL_ID=HuggingFaceTB/SmolLM2-135M-Instruct
+ENV NEXUS_TEXT_MODEL_ID=google/gemma-4-E2B-it
 
 CMD ["uvicorn", "nexus.text.app:app", "--host", "0.0.0.0", "--port", "8080"]

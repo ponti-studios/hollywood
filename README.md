@@ -197,7 +197,7 @@ With the compose stack up, the public API is the only endpoint you need:
 curl -sS -X POST http://localhost:8787/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "model": "google/gemma-4-E2B-it",
     "messages": [{"role": "user", "content": "What is 2+2?"}]
   }'
 
@@ -221,7 +221,7 @@ curl -sS http://localhost:8787/v1/experiments
 ### Accept the Gemma 4 license
 
 Gemma 4 is a gated model, so you must accept the license before downloading or using it in training/evaluation workflows:
-1. Go to https://huggingface.co/google/gemma-4-e2b
+1. Go to https://huggingface.co/google/gemma-4-E2B-it
 2. Click "Agree and access repository"
 3. Make sure your `HF_TOKEN` in `.env` matches your HuggingFace account
 
@@ -239,13 +239,13 @@ nexus data inspect --name tatsu-lab/alpaca
 nexus train run --recipe configs/recipes/sft_lora.yaml
 
 # Evaluate your trained model
-nexus eval perplexity --checkpoint .data/checkpoints/gemma4-e2b-sft-lora
+nexus eval perplexity --checkpoint .data/checkpoints/gemma4-e2b-it-sft-lora
 
 # Chat with your fine-tuned model through the API
 curl -sS -X POST http://localhost:8787/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "model": "google/gemma-4-E2B-it",
     "messages": [{"role": "user", "content": "Explain why the sky is blue."}]
   }'
 ```

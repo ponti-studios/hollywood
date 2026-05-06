@@ -16,6 +16,8 @@ import httpx
 from rich.console import Console
 from rich.table import Table
 
+from nexus.models.policy import GEMMA_TEXT_MODEL_ID, validate_text_model_reference
+
 logger = logging.getLogger(__name__)
 console = Console()
 
@@ -69,11 +71,12 @@ def _api_base_url() -> str:
 
 def judge_responses(
     examples: list[dict[str, str]],
-    judge_model_id: str = "HuggingFaceTB/SmolLM2-135M-Instruct",
+    judge_model_id: str = GEMMA_TEXT_MODEL_ID,
 ) -> list[JudgeResult]:
     """Use the Nexus API text worker to judge prompt/response pairs."""
     api_base = _api_base_url()
     results: list[JudgeResult] = []
+    judge_model_id = validate_text_model_reference(judge_model_id)
 
     console.print(f"\n[bold]Judging with API model:[/bold] {judge_model_id}")
     with httpx.Client(base_url=api_base, timeout=None) as client:

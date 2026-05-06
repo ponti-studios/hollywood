@@ -33,6 +33,7 @@ from peft import PeftModel, TaskType, get_peft_model
 from transformers import AutoModelForCausalLM, PreTrainedTokenizer
 
 from nexus.config import LoraConfig
+from nexus.models.policy import GEMMA_TEXT_MODEL_ID, write_model_manifest
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +171,7 @@ def merge_and_save(
     logger.info(f"Saving merged model to {output_dir}")
     merged.save_pretrained(output_dir, safe_serialization=True)
     tokenizer.save_pretrained(output_dir)
+    write_model_manifest(output_dir, base_model_id=GEMMA_TEXT_MODEL_ID, checkpoint_kind="merged")
 
     logger.info(f"Done. Load with: AutoModelForCausalLM.from_pretrained('{output_dir}')")
 
@@ -177,16 +179,18 @@ def merge_and_save(
 def save_adapter_only(model: PeftModel, output_dir: str | Path) -> None:
     """Save only the LoRA adapter weights (much smaller than full model).
 
-    Adapter-only saves are useful during training checkpoints because they're
-    tiny (~50 MB). You still need the original base model to use them.
+    Adapter-only saves are useful for inspection during training checkpoints
+    because they're tiny (~50 MB). The Nexus loader policy will not accept
+    them as runnable checkpoints until they are merged back into the base model.
 
-    To load:
-        model = AutoModelForCausalLM.from_pretrained("google/gemma-4-e2b", ...)
+    To load manually:
+        model = AutoModelForCausalLM.from_pretrained("google/gemma-4-E2B-it", ...)
         model = PeftModel.from_pretrained(model, output_dir)
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(output_dir)
+    write_model_manifest(output_dir, base_model_id=GEMMA_TEXT_MODEL_ID, checkpoint_kind="adapter")
     logger.info(f"Adapter saved to {output_dir}")
 
 

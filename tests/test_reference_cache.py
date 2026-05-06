@@ -164,14 +164,14 @@ def test_cache_cli_json_output(monkeypatch, tmp_path: Path) -> None:
         tmp_path
         / "cache"
         / "exp_01_baseline"
-        / "Qwen__Qwen2.5-7B-Instruct"
+        / "google__gemma-4-E2B-it"
         / "triviaqa_abc123.json"
     )
     save_reference_cache(
         cache_path,
         experiment_name="exp_01_baseline",
         score_version="phase1_v1",
-        model_id="Qwen/Qwen3.5-4B",
+        model_id="google/gemma-4-E2B-it",
         role="large",
         benchmark="triviaqa",
         benchmark_signature="abc123",
@@ -182,7 +182,7 @@ def test_cache_cli_json_output(monkeypatch, tmp_path: Path) -> None:
                 expected="Paris",
                 predicted="Paris",
                 correct=True,
-                model_id="Qwen/Qwen3.5-4B",
+                model_id="google/gemma-4-E2B-it",
                 benchmark="triviaqa",
             )
         ],
@@ -203,7 +203,7 @@ def test_cache_cli_json_output(monkeypatch, tmp_path: Path) -> None:
         )
 
     rendered = capture_console.export_text()
-    assert '"model_id": "Qwen/Qwen3.5-4B"' in rendered
+    assert '"model_id": "google/gemma-4-E2B-it"' in rendered
 
     capture_console = Console(record=True, width=140)
     monkeypatch.setattr(experiment_module, "console", capture_console)

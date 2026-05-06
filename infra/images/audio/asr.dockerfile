@@ -10,7 +10,7 @@ COPY pyproject.toml .
 COPY README.md .
 COPY src/ src/
 
-RUN uv pip install --system -e ".[api]" torch qwen-asr
+RUN uv pip install --system -e ".[api-text]" torch
 
 ENV NEXUS_AUDIO_ROLE=asr
 

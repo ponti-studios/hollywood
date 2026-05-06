@@ -15,6 +15,7 @@ from rich.console import Console
 
 from nexus.api.backends import DEFAULT_API_BASE_URL, ApiBackends
 from nexus.api.models import ChatCompletionRequest, ChatMessage
+from nexus.models.policy import GEMMA_TEXT_MODEL_ID, validate_text_model_reference
 from nexus.runtime import ensure_apple_runtime
 
 eval_app = typer.Typer(no_args_is_help=True)
@@ -98,9 +99,9 @@ def eval_judge(
         help="Text file with one prompt per line. Defaults to built-in test prompts.",
     ),
     judge_model: str = typer.Option(
-        "HuggingFaceTB/SmolLM2-135M-Instruct",
+        GEMMA_TEXT_MODEL_ID,
         "--judge",
-        help="Model served by the Nexus API to use as judge.",
+        help="Approved Gemma model or Nexus checkpoint to use as judge.",
     ),
     num_prompts: int = typer.Option(
         20,
@@ -147,6 +148,7 @@ def eval_judge(
             examples.append({"prompt": prompt, "response": text})
 
     # Judge responses
+    judge_model = validate_text_model_reference(judge_model)
     results = judge_responses(examples, judge_model_id=judge_model)
     print_judge_summary(results)
 

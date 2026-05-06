@@ -2,8 +2,9 @@
 exp_02_open_book.py — Phase 2: Open-book benchmark with lightweight tool use.
 
 This experiment keeps the existing knowledge-heavy benchmarks but allows the
-small model to decide when to call a search tool before answering.
-The reference model, when configured, remains a closed-book comparator.
+Gemma 4 E2B-it model to decide when to call a search tool before answering.
+Any configured reference checkpoint remains a closed-book comparator and must
+still satisfy the Nexus Gemma policy.
 """
 
 from __future__ import annotations
