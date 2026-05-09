@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -11,17 +13,30 @@ from nexus.api.models import (
     ApiHealthResponse,
     ChatMessage,
     ImageAnalyzeResponse,
+    TextAnalyzeItem,
+    TextAnalyzeRequest,
+    TextAnalyzeResponse,
     TextChatRequest,
     TextChatResponse,
     TextReplyRequest,
     TextReplyResponse,
     Usage,
 )
-from nexus.audio.models import AudioGenRequest, AudioHealthResponse, AudioSttResponse, AudioTtsResponse
+from nexus.audio.models import (
+    AudioGenRequest,
+    AudioHealthResponse,
+    AudioSttResponse,
+    AudioTtsResponse,
+)
 from nexus.audio.service import AudioService, AudioServiceError
 from nexus.providers.gemini import GeminiClient, GeminiError, get_gemini_client
 
 CAPABILITIES = ["text", "audio", "image", "evals"]
+TEXT_ANALYZE_SYSTEM_PROMPT = (
+    "You clean calendar-style text and extract people names. Return only valid JSON with keys "
+    "cleaned_text and people. cleaned_text should remove person names while preserving the main "
+    "activity. people should be a deduplicated list of person names mentioned in the text. No markdown."
+)
 AUDIO_DIR = Path(".data/audio")
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -43,6 +58,77 @@ app = FastAPI(
 )
 
 app.mount("/audio/files", StaticFiles(directory=AUDIO_DIR), name="audio-files")
+
+
+class TextAnalysisError(RuntimeError):
+    """Raised when batch text analysis output cannot be parsed."""
+
+
+async def _analyze_text_item(
+    *,
+    gemini: GeminiClient,
+    text: str,
+    model: str | None,
+) -> tuple[TextAnalyzeItem, int | None, int | None]:
+    result = await gemini.reply(
+        prompt=text,
+        model=model,
+        temperature=0.0,
+        top_p=0.1,
+        max_tokens=256,
+        system=TEXT_ANALYZE_SYSTEM_PROMPT,
+    )
+    cleaned_text, people = _parse_text_analysis_payload(result.text)
+    return (
+        TextAnalyzeItem(input=text, cleaned_text=cleaned_text, people=people),
+        result.prompt_tokens,
+        result.completion_tokens,
+    )
+
+
+def _parse_text_analysis_payload(raw_text: str) -> tuple[str, list[str]]:
+    candidate = raw_text.strip()
+    if candidate.startswith("```"):
+        candidate = candidate.strip("`")
+    start = candidate.find("{")
+    end = candidate.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        raise TextAnalysisError("Gemini did not return a JSON object for text analysis.")
+
+    try:
+        payload = json.loads(candidate[start : end + 1])
+    except json.JSONDecodeError as exc:
+        raise TextAnalysisError(f"Could not parse text analysis JSON: {exc}") from exc
+
+    if not isinstance(payload, dict):
+        raise TextAnalysisError("Text analysis response must be a JSON object.")
+
+    cleaned_text = payload.get("cleaned_text")
+    people = payload.get("people")
+    if not isinstance(cleaned_text, str) or not cleaned_text.strip():
+        raise TextAnalysisError("Text analysis response is missing cleaned_text.")
+    if not isinstance(people, list):
+        raise TextAnalysisError("Text analysis response is missing people.")
+
+    normalized_people: list[str] = []
+    seen: set[str] = set()
+    for person in people:
+        if not isinstance(person, str):
+            continue
+        normalized = person.strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        normalized_people.append(normalized)
+
+    return cleaned_text.strip(), normalized_people
+
+
+def _sum_optional(values: object) -> int | None:
+    collected = [value for value in values if isinstance(value, int)]
+    if not collected:
+        return None
+    return sum(collected)
 
 
 @app.get("/health", response_model=ApiHealthResponse)
@@ -111,6 +197,27 @@ async def text_chat(body: TextChatRequest, request: Request) -> TextChatResponse
         message=ChatMessage(role="assistant", content=result.text),
         model=result.model,
         usage=Usage(prompt_tokens=result.prompt_tokens, completion_tokens=result.completion_tokens),
+    )
+
+
+@app.post("/text/analyze", response_model=TextAnalyzeResponse)
+async def text_analyze(body: TextAnalyzeRequest, request: Request) -> TextAnalyzeResponse:
+    gemini: GeminiClient = request.app.state.gemini
+    try:
+        analyses = await asyncio.gather(
+            *[_analyze_text_item(gemini=gemini, text=text, model=body.model) for text in body.texts]
+        )
+    except (GeminiError, TextAnalysisError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    prompt_tokens = _sum_optional(value[1] for value in analyses)
+    completion_tokens = _sum_optional(value[2] for value in analyses)
+    results = [value[0] for value in analyses]
+    model = body.model or gemini.text_model
+    return TextAnalyzeResponse(
+        results=results,
+        model=model,
+        usage=Usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens),
     )
 
 

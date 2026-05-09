@@ -100,7 +100,11 @@ def _score_exact(text: str, expected: str) -> tuple[float, str]:
 def _score_label(text: str, expected: str) -> tuple[float, str]:
     normalized = text.strip().lower()
     target = expected.strip().lower()
-    if normalized == target or normalized.startswith(f"{target} ") or normalized.startswith(f"{target}."):
+    if (
+        normalized == target
+        or normalized.startswith(f"{target} ")
+        or normalized.startswith(f"{target}.")
+    ):
         return 1.0, f"matched label '{expected}'"
     return 0.0, f"expected label '{expected}' but got '{text}'"
 

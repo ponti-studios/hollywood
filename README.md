@@ -7,13 +7,17 @@ It does **not** host models.
 - **Text** requests go to **Gemini**
 - **Audio** requests go to **Gemini**
 - **Image** requests go to **Gemini**
+- **NLP**
+  - performs natural language processsing on arrays of texts to provide clean summaries and extract people
 - **Evals** run as a small demo suite to show model comparison workflows
 
 ## What ships
 
 ### API
+
 - `POST /text/reply`
 - `POST /text/chat`
+- `POST /text/analyze`
 - `POST /image/analyze`
 - `POST /audio/tts`
 - `POST /audio/stt`
@@ -24,9 +28,11 @@ It does **not** host models.
 Copy `.env.example` to `.env` and fill in your Gemini key.
 
 ### Required
+
 - `GEMINI_API_KEY`
 
 ### Optional
+
 - `GEMINI_BASE_URL`
 - `GEMINI_TEXT_MODEL`
 - `GEMINI_AUDIO_MODEL`

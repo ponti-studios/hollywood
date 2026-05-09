@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -80,8 +80,39 @@ class TextChatResponse(BaseModel):
     usage: Usage = Field(default_factory=Usage)
 
 
+TextInput = Annotated[str, Field(min_length=1)]
+
+
 class ImageAnalyzeResponse(BaseModel):
     text: str
+    model: str
+    provider: str = "gemini"
+    usage: Usage = Field(default_factory=Usage)
+
+
+class TextAnalyzeRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "texts": ["Lunch with Alex", "Project sync with Taylor"],
+                }
+            ]
+        }
+    )
+
+    texts: list[TextInput] = Field(min_length=1)
+    model: str | None = None
+
+
+class TextAnalyzeItem(BaseModel):
+    input: str
+    cleaned_text: str
+    people: list[str] = Field(default_factory=list)
+
+
+class TextAnalyzeResponse(BaseModel):
+    results: list[TextAnalyzeItem]
     model: str
     provider: str = "gemini"
     usage: Usage = Field(default_factory=Usage)

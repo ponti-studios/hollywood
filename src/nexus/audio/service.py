@@ -26,7 +26,9 @@ class AudioTtsArtifact:
 
 
 class AudioService:
-    def __init__(self, *, audio_dir: Path | None = None, client: GeminiClient | None = None) -> None:
+    def __init__(
+        self, *, audio_dir: Path | None = None, client: GeminiClient | None = None
+    ) -> None:
         self.audio_dir = audio_dir or DEFAULT_AUDIO_DIR
         self.audio_dir.mkdir(parents=True, exist_ok=True)
         self.client = client or get_gemini_client()
@@ -61,7 +63,9 @@ class AudioService:
             filename=filename,
             model=result.model,
             voice=request.voice,
-            duration_seconds=_duration_from_wav(result.audio_bytes) if request.format == "wav" else None,
+            duration_seconds=_duration_from_wav(result.audio_bytes)
+            if request.format == "wav"
+            else None,
         )
 
     async def stt(

@@ -50,11 +50,19 @@ class GeminiClient:
         timeout: float = 120.0,
     ) -> None:
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.base_url = (base_url or os.getenv("GEMINI_BASE_URL") or DEFAULT_GEMINI_BASE_URL).rstrip("/")
+        self.base_url = (
+            base_url or os.getenv("GEMINI_BASE_URL") or DEFAULT_GEMINI_BASE_URL
+        ).rstrip("/")
         self.text_model = text_model or os.getenv("GEMINI_TEXT_MODEL") or DEFAULT_GEMINI_TEXT_MODEL
-        self.audio_model = audio_model or os.getenv("GEMINI_AUDIO_MODEL") or DEFAULT_GEMINI_AUDIO_MODEL
-        self.image_model = image_model or os.getenv("GEMINI_IMAGE_MODEL") or DEFAULT_GEMINI_IMAGE_MODEL
-        self.speech_voice = speech_voice or os.getenv("GEMINI_SPEECH_VOICE") or DEFAULT_GEMINI_SPEECH_VOICE
+        self.audio_model = (
+            audio_model or os.getenv("GEMINI_AUDIO_MODEL") or DEFAULT_GEMINI_AUDIO_MODEL
+        )
+        self.image_model = (
+            image_model or os.getenv("GEMINI_IMAGE_MODEL") or DEFAULT_GEMINI_IMAGE_MODEL
+        )
+        self.speech_voice = (
+            speech_voice or os.getenv("GEMINI_SPEECH_VOICE") or DEFAULT_GEMINI_SPEECH_VOICE
+        )
         params = {"key": self.api_key} if self.api_key else None
         self._client = httpx.AsyncClient(base_url=self.base_url, timeout=timeout, params=params)
 
@@ -250,7 +258,9 @@ class GeminiClient:
         )
         audio_bytes = _extract_audio_bytes(data)
         if audio_bytes is None:
-            raise GeminiError("Gemini did not return audio bytes. Check the configured audio model and speech settings.")
+            raise GeminiError(
+                "Gemini did not return audio bytes. Check the configured audio model and speech settings."
+            )
         usage = data.get("usageMetadata") or {}
         return GeminiAudioResult(
             audio_bytes=audio_bytes,
