@@ -1,0 +1,29 @@
+id: implement-batch-nlp-route-for-text-arrays
+title: Implement batch NLP route for text arrays
+status: archived
+goalId: rebuild-engine
+tags:
+  - api
+  - nlp
+  - batch
+linkedKnowledgeIds:
+  - nexus-hardening-surface-audit
+createdAt: 2026-05-08T00:00:00Z
+updatedAt: 2026-05-08T00:00:00Z
+doneAt: 2026-05-08T00:00:00Z
+checklist:
+  - id: define-batch-schema
+    title: Define the batch request and response schema
+    done: true
+  - id: wire-route
+    title: Add the route and wire it through the FastAPI app
+    done: true
+  - id: preserve-order
+    title: Return one result per input in stable order
+    done: true
+  - id: test-validation
+    title: Cover success and schema validation behavior with tests
+    done: true
+  - id: document-surface
+    title: Document the new batch NLP endpoint in the API surface docs
+    done: true

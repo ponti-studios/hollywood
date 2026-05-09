@@ -32,3 +32,5 @@ The repo has already been stripped down from its training-era architecture. The 
 - 2026-05-05: Training/data schemas, experiment presets, and runtime defaults were hardened to remove hidden customization paths.
 - 2026-05-05: Rebuilt Nexus into a Gemini-first API adapter and then removed the CLI and legacy compatibility shims to leave only live product surfaces.
 - 2026-05-06: Renamed the goal to `rebuild-engine` and expanded the plan to include versioned eval history, raw output retention, smoke/regression gating, replay, review, and alerting.
+- 2026-05-08: Planned a batch text NLP route for array inputs so the name-drop use case can live as a standalone Nexus service surface.
+- 2026-05-08: Archived the batch NLP task after migration and removed the standalone `nlp_benchmark` repo.
