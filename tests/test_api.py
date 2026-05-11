@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from nexus.api.app import app
 from nexus.audio.service import AudioTtsArtifact
-from nexus.providers.gemini import GeminiAudioResult, GeminiTextResult
+from nexus.providers.openai import OpenAIAudioResult, OpenAITextResult
 
 
 async def _fake_health(self):
@@ -17,24 +17,24 @@ async def _fake_reply(self, **kwargs):
     prompt = kwargs.get("prompt") or ""
     model = kwargs.get("model") or self.text_model
     if "Lunch with Alex" in prompt:
-        return GeminiTextResult(
+        return OpenAITextResult(
             text='{"cleaned_text": "Lunch", "people": ["Alex"]}',
             model=model,
             prompt_tokens=2,
             completion_tokens=1,
         )
     if "Dinner (w/ Jamie)" in prompt:
-        return GeminiTextResult(
+        return OpenAITextResult(
             text='{"cleaned_text": "Dinner", "people": ["Jamie"]}',
             model=model,
             prompt_tokens=2,
             completion_tokens=1,
         )
-    return GeminiTextResult(text="4", model=model, prompt_tokens=3, completion_tokens=1)
+    return OpenAITextResult(text="4", model=model, prompt_tokens=3, completion_tokens=1)
 
 
 async def _fake_chat(self, **kwargs):
-    return GeminiTextResult(
+    return OpenAITextResult(
         text="support",
         model=kwargs.get("model") or self.text_model,
         prompt_tokens=4,
@@ -43,7 +43,7 @@ async def _fake_chat(self, **kwargs):
 
 
 async def _fake_image(self, **kwargs):
-    return GeminiTextResult(
+    return OpenAITextResult(
         text="a red square",
         model=kwargs.get("model") or self.image_model,
         prompt_tokens=2,
@@ -57,7 +57,7 @@ async def _fake_tts(self, request):
     return AudioTtsArtifact(
         path=path,
         filename=path.name,
-        model="gemini-2.5-flash",
+        model="gpt-4o-mini-tts",
         voice=request.voice,
         duration_seconds=1.0,
     )
@@ -70,33 +70,33 @@ async def _fake_stt(self, **kwargs):
         text="hello world",
         raw_text="hello world",
         enhanced=kwargs.get("enhance", False),
-        model=self.client.audio_model,
+        model=self.client.stt_model,
         language="en",
     )
 
 
 async def _fake_speech(self, **kwargs):
-    return GeminiAudioResult(
+    return OpenAIAudioResult(
         audio_bytes=b"RIFF0000WAVEfmt ",
         mime_type="audio/wav",
-        model=kwargs.get("model") or self.audio_model,
+        model=kwargs.get("model") or self.tts_model,
         prompt_tokens=1,
         completion_tokens=1,
     )
 
 
 def test_api_routes(monkeypatch):
-    monkeypatch.setattr("nexus.providers.gemini.GeminiClient.health", _fake_health)
-    monkeypatch.setattr("nexus.providers.gemini.GeminiClient.reply", _fake_reply)
-    monkeypatch.setattr("nexus.providers.gemini.GeminiClient.chat", _fake_chat)
-    monkeypatch.setattr("nexus.providers.gemini.GeminiClient.analyze_image", _fake_image)
-    monkeypatch.setattr("nexus.providers.gemini.GeminiClient.synthesize_speech", _fake_speech)
+    monkeypatch.setattr("nexus.providers.openai.OpenAIClient.health", _fake_health)
+    monkeypatch.setattr("nexus.providers.openai.OpenAIClient.reply", _fake_reply)
+    monkeypatch.setattr("nexus.providers.openai.OpenAIClient.chat", _fake_chat)
+    monkeypatch.setattr("nexus.providers.openai.OpenAIClient.analyze_image", _fake_image)
+    monkeypatch.setattr("nexus.providers.openai.OpenAIClient.synthesize_speech", _fake_speech)
     monkeypatch.setattr(
         "nexus.audio.service.AudioService.health",
         lambda self: {
             "ok": True,
-            "providers": {"gemini": True},
-            "models": {"tts": "gemini-2.5-flash", "stt": "gemini-2.5-flash"},
+            "providers": {"openai": True},
+            "models": {"tts": "gpt-4o-mini-tts", "stt": "gpt-4o-mini-transcribe"},
         },
     )
     monkeypatch.setattr("nexus.audio.service.AudioService.tts", _fake_tts)
@@ -106,7 +106,7 @@ def test_api_routes(monkeypatch):
         health = client.get("/health")
         assert health.status_code == 200
         assert health.json()["ok"] is True
-        assert health.json()["providers"]["gemini"] is True
+        assert health.json()["providers"]["openai"] is True
 
         reply = client.post("/text/reply", json={"prompt": "What is 2+2?"})
         assert reply.status_code == 200
@@ -124,7 +124,7 @@ def test_api_routes(monkeypatch):
         )
         assert batch.status_code == 200
         payload = batch.json()
-        assert payload["model"] == "gemini-2.5-flash"
+        assert payload["model"] == "gpt-4.1-mini"
         assert payload["results"][0]["cleaned_text"] == "Lunch"
         assert payload["results"][0]["people"] == ["Alex"]
         assert payload["results"][1]["cleaned_text"] == "Dinner"

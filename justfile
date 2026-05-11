@@ -22,20 +22,21 @@ nexus-logs:
 nexus-health:
     curl -sS http://127.0.0.1:8787/health
 
-api-chat prompt="Hello from Nexus." model="HuggingFaceTB/SmolLM2-135M-Instruct":
-    curl -sS -X POST http://127.0.0.1:8787/v1/chat/completions \
+api-chat prompt="Hello from Nexus." model="gpt-4.1-mini":
+    curl -sS -X POST http://127.0.0.1:8787/text/reply \
       -H "Content-Type: application/json" \
-      -d "{\"model\":\"{{ model }}\",\"messages\":[{\"role\":\"user\",\"content\":\"{{ prompt }}\"}]}"
+      -d "{\"prompt\":\"{{ prompt }}\",\"model\":\"{{ model }}\"}"
 
 api-tts text="Hello from Nexus." speaker="serena":
-    curl -sS -X POST http://127.0.0.1:8787/v1/audio/tts \
+    response=$(curl -sSf -X POST http://127.0.0.1:8787/audio/tts \
       -H "Content-Type: application/json" \
-      -d "{\"text\":\"{{ text }}\",\"speaker\":\"{{ speaker }}\"}" \
-      --output /private/tmp/nexus-tts.wav
+      -d "{\"text\":\"{{ text }}\",\"voice\":\"{{ speaker }}\"}")
+    audio_url=$(python -c 'import json,sys; print(json.loads(sys.stdin.read())["audio_url"])' <<<"$response")
+    curl -sSf "http://127.0.0.1:8787${audio_url}" --output /private/tmp/nexus-tts.wav
     ls -lh /private/tmp/nexus-tts.wav
 
 api-stt file="/private/tmp/nexus-tts.wav":
-    curl -sS -X POST http://127.0.0.1:8787/v1/audio/transcribe -F "audio=@{{ file }}"
+    curl -sS -X POST http://127.0.0.1:8787/audio/stt -F "file=@{{ file }}"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Setup

@@ -2,6 +2,7 @@
 .env
 .data
 .build
+google-service-account-nexus-dev.json
 
 # Python
 .venv

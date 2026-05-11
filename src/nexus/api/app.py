@@ -29,7 +29,7 @@ from nexus.audio.models import (
     AudioTtsResponse,
 )
 from nexus.audio.service import AudioService, AudioServiceError
-from nexus.providers.gemini import GeminiClient, GeminiError, get_gemini_client
+from nexus.providers.openai import OpenAIClient, OpenAIError, get_openai_client
 
 CAPABILITIES = ["text", "audio", "image", "evals"]
 TEXT_ANALYZE_SYSTEM_PROMPT = (
@@ -43,17 +43,17 @@ AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.gemini = get_gemini_client()
-    app.state.audio_service = AudioService(client=app.state.gemini)
+    app.state.openai = get_openai_client()
+    app.state.audio_service = AudioService(client=app.state.openai)
     yield
-    await app.state.gemini.aclose()
+    await app.state.openai.aclose()
 
 
 app = FastAPI(
     title="Nexus API",
     version="0.1.0",
-    summary="Gemini-first multimodal API adapter and eval layer.",
-    description="Nexus routes text, audio, and image workloads through Gemini and keeps evals separate.",
+    summary="OpenAI-first multimodal API adapter and eval layer.",
+    description="Nexus routes text, audio, and image workloads through OpenAI and keeps evals separate.",
     lifespan=lifespan,
 )
 
@@ -66,11 +66,11 @@ class TextAnalysisError(RuntimeError):
 
 async def _analyze_text_item(
     *,
-    gemini: GeminiClient,
+    openai: OpenAIClient,
     text: str,
     model: str | None,
 ) -> tuple[TextAnalyzeItem, int | None, int | None]:
-    result = await gemini.reply(
+    result = await openai.reply(
         prompt=text,
         model=model,
         temperature=0.0,
@@ -93,7 +93,7 @@ def _parse_text_analysis_payload(raw_text: str) -> tuple[str, list[str]]:
     start = candidate.find("{")
     end = candidate.rfind("}")
     if start == -1 or end == -1 or end <= start:
-        raise TextAnalysisError("Gemini did not return a JSON object for text analysis.")
+        raise TextAnalysisError("OpenAI did not return a JSON object for text analysis.")
 
     try:
         payload = json.loads(candidate[start : end + 1])
@@ -133,18 +133,19 @@ def _sum_optional(values: object) -> int | None:
 
 @app.get("/health", response_model=ApiHealthResponse)
 async def health(request: Request) -> ApiHealthResponse:
-    gemini: GeminiClient = request.app.state.gemini
+    openai: OpenAIClient = request.app.state.openai
     audio_service: AudioService = request.app.state.audio_service
-    text_ok = await gemini.health()
+    text_ok = await openai.health()
     audio_health = audio_service.health()
     return ApiHealthResponse(
         ok=text_ok and bool(audio_health["ok"]),
         capabilities=CAPABILITIES,
-        providers={"gemini": text_ok, **audio_health["providers"]},
+        providers={"openai": text_ok, **audio_health["providers"]},
         models={
-            "text": gemini.text_model,
-            "audio": gemini.audio_model,
-            "image": gemini.image_model,
+            "text": openai.text_model,
+            "audio_tts": openai.tts_model,
+            "audio_stt": openai.stt_model,
+            "image": openai.image_model,
         },
     )
 
@@ -157,9 +158,9 @@ async def audio_health(request: Request) -> AudioHealthResponse:
 
 @app.post("/text/reply", response_model=TextReplyResponse)
 async def text_reply(body: TextReplyRequest, request: Request) -> TextReplyResponse:
-    gemini: GeminiClient = request.app.state.gemini
+    openai: OpenAIClient = request.app.state.openai
     try:
-        result = await gemini.reply(
+        result = await openai.reply(
             prompt=body.prompt,
             model=body.model,
             max_tokens=body.max_tokens,
@@ -167,7 +168,7 @@ async def text_reply(body: TextReplyRequest, request: Request) -> TextReplyRespo
             top_p=body.top_p,
             stop=body.stop,
         )
-    except GeminiError as exc:
+    except OpenAIError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return TextReplyResponse(
@@ -179,10 +180,10 @@ async def text_reply(body: TextReplyRequest, request: Request) -> TextReplyRespo
 
 @app.post("/text/chat", response_model=TextChatResponse)
 async def text_chat(body: TextChatRequest, request: Request) -> TextChatResponse:
-    gemini: GeminiClient = request.app.state.gemini
+    openai: OpenAIClient = request.app.state.openai
     messages = [message.model_dump() for message in body.messages]
     try:
-        result = await gemini.chat(
+        result = await openai.chat(
             messages=messages,
             model=body.model,
             max_tokens=body.max_tokens,
@@ -190,7 +191,7 @@ async def text_chat(body: TextChatRequest, request: Request) -> TextChatResponse
             top_p=body.top_p,
             stop=body.stop,
         )
-    except GeminiError as exc:
+    except OpenAIError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return TextChatResponse(
@@ -202,18 +203,18 @@ async def text_chat(body: TextChatRequest, request: Request) -> TextChatResponse
 
 @app.post("/text/analyze", response_model=TextAnalyzeResponse)
 async def text_analyze(body: TextAnalyzeRequest, request: Request) -> TextAnalyzeResponse:
-    gemini: GeminiClient = request.app.state.gemini
+    openai: OpenAIClient = request.app.state.openai
     try:
         analyses = await asyncio.gather(
-            *[_analyze_text_item(gemini=gemini, text=text, model=body.model) for text in body.texts]
+            *[_analyze_text_item(openai=openai, text=text, model=body.model) for text in body.texts]
         )
-    except (GeminiError, TextAnalysisError) as exc:
+    except (OpenAIError, TextAnalysisError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     prompt_tokens = _sum_optional(value[1] for value in analyses)
     completion_tokens = _sum_optional(value[2] for value in analyses)
     results = [value[0] for value in analyses]
-    model = body.model or gemini.text_model
+    model = body.model or openai.text_model
     return TextAnalyzeResponse(
         results=results,
         model=model,
@@ -228,16 +229,16 @@ async def image_analyze(
     prompt: str = Form("Describe this image."),
     model: str | None = Form(None),
 ) -> ImageAnalyzeResponse:
-    gemini: GeminiClient = request.app.state.gemini
+    openai: OpenAIClient = request.app.state.openai
     try:
         data = await image.read()
-        result = await gemini.analyze_image(
+        result = await openai.analyze_image(
             image_bytes=data,
             mime_type=image.content_type or "image/png",
             prompt=prompt,
             model=model,
         )
-    except GeminiError as exc:
+    except OpenAIError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return ImageAnalyzeResponse(

@@ -1,16 +1,18 @@
 [project]
 name = "nexus"
 version = "0.1.0"
-description = "Gemini-first multimodal API adapter and eval layer"
+description = "OpenAI-first multimodal API adapter and eval layer"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 authors = [{ name = "Charles Ponti" }]
 dependencies = [
     "fastapi>=0.115.0",
+    "google-auth>=2.0",
     "httpx>=0.28.0",
     "pydantic>=2.0",
     "python-multipart>=0.0.9",
     "rich>=13.0",
+    "requests>=2.32.0",
     "uvicorn[standard]>=0.30.0",
 ]
 

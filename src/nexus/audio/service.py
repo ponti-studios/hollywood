@@ -7,13 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from nexus.audio.models import AudioGenRequest, AudioSttResponse
-from nexus.providers.gemini import GeminiClient, GeminiError, get_gemini_client
+from nexus.providers.openai import OpenAIClient, OpenAIError, get_openai_client
 
 DEFAULT_AUDIO_DIR = Path(os.getenv("NEXUS_AUDIO_DIR", ".data/audio"))
 
 
 class AudioServiceError(RuntimeError):
-    """Raised when Gemini audio handling fails."""
+    """Raised when OpenAI audio handling fails."""
 
 
 @dataclass(slots=True)
@@ -27,31 +27,32 @@ class AudioTtsArtifact:
 
 class AudioService:
     def __init__(
-        self, *, audio_dir: Path | None = None, client: GeminiClient | None = None
+        self, *, audio_dir: Path | None = None, client: OpenAIClient | None = None
     ) -> None:
         self.audio_dir = audio_dir or DEFAULT_AUDIO_DIR
         self.audio_dir.mkdir(parents=True, exist_ok=True)
-        self.client = client or get_gemini_client()
+        self.client = client or get_openai_client()
 
     def health(self) -> dict[str, object]:
+        ok = self.client.is_configured
         return {
-            "ok": bool(self.client.api_key),
-            "providers": {"gemini": bool(self.client.api_key)},
-            "models": {"tts": self.client.audio_model, "stt": self.client.audio_model},
+            "ok": ok,
+            "providers": {"openai": ok},
+            "models": {"tts": self.client.tts_model, "stt": self.client.stt_model},
         }
 
     async def tts(self, request: AudioGenRequest) -> AudioTtsArtifact:
-        if not self.client.api_key:
-            raise AudioServiceError("GEMINI_API_KEY is required for text-to-speech.")
+        if not self.client.is_configured:
+            raise AudioServiceError("OpenAI credentials are required for text-to-speech.")
 
         try:
             result = await self.client.synthesize_speech(
                 text=request.text,
-                model=request.model or self.client.audio_model,
+                model=request.model or self.client.tts_model,
                 voice=request.voice,
                 mime_type=_mime_type_for_format(request.format),
             )
-        except GeminiError as exc:
+        except OpenAIError as exc:
             raise AudioServiceError(str(exc)) from exc
 
         suffix = _suffix_for_format(request.format)
@@ -76,8 +77,8 @@ class AudioService:
         language: str = "auto",
         enhance: bool = False,
     ) -> AudioSttResponse:
-        if not self.client.api_key:
-            raise AudioServiceError("GEMINI_API_KEY is required for transcription.")
+        if not self.client.is_configured:
+            raise AudioServiceError("OpenAI credentials are required for transcription.")
 
         try:
             result = await self.client.transcribe_audio(
@@ -85,9 +86,9 @@ class AudioService:
                 mime_type=content_type,
                 language=language,
                 enhance=enhance,
-                model=self.client.audio_model,
+                model=self.client.stt_model,
             )
-        except GeminiError as exc:
+        except OpenAIError as exc:
             raise AudioServiceError(str(exc)) from exc
 
         return AudioSttResponse(

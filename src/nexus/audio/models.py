@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 class AudioGenRequest(BaseModel):
@@ -9,7 +9,7 @@ class AudioGenRequest(BaseModel):
             "examples": [
                 {
                     "text": "Hello from Nexus",
-                    "voice": "Kore",
+                    "voice": "alloy",
                     "format": "wav",
                 }
             ]
@@ -18,7 +18,12 @@ class AudioGenRequest(BaseModel):
 
     text: str = Field(min_length=1, max_length=8000, description="Text to synthesize.")
     model: str | None = Field(default=None, description="Optional TTS model override.")
-    voice: str = Field(default="Kore", description="Voice preset to use.")
+    voice: str = Field(
+        default="alloy",
+        validation_alias=AliasChoices("voice", "speaker"),
+        serialization_alias="voice",
+        description="Voice preset to use.",
+    )
     format: str = Field(default="wav", description="Requested audio output format.")
 
 

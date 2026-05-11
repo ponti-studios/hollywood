@@ -1,14 +1,14 @@
 # Nexus
 
-Nexus is a Gemini-first multimodal API adapter and eval layer.
+Nexus is an OpenAI-first multimodal API adapter and eval layer.
 
 It does **not** host models.
 
-- **Text** requests go to **Gemini**
-- **Audio** requests go to **Gemini**
-- **Image** requests go to **Gemini**
+- **Text** requests go to **OpenAI**
+- **Audio** requests go to **OpenAI**
+- **Image** requests go to **OpenAI**
 - **NLP**
-  - performs natural language processsing on arrays of texts to provide clean summaries and extract people
+  - performs natural language processing on arrays of texts to provide clean summaries and extract people
 - **Evals** run as a small demo suite to show model comparison workflows
 
 ## What ships
@@ -25,19 +25,20 @@ It does **not** host models.
 
 ## Environment
 
-Copy `.env.example` to `.env` and fill in your Gemini key.
+Copy `.env.example` to `.env` and set your OpenAI API key.
 
 ### Required
 
-- `GEMINI_API_KEY`
+- `OPENAI_API_KEY`
 
 ### Optional
 
-- `GEMINI_BASE_URL`
-- `GEMINI_TEXT_MODEL`
-- `GEMINI_AUDIO_MODEL`
-- `GEMINI_IMAGE_MODEL`
-- `GEMINI_SPEECH_VOICE`
+- `OPENAI_BASE_URL`
+- `OPENAI_TEXT_MODEL`
+- `OPENAI_IMAGE_MODEL`
+- `OPENAI_TTS_MODEL`
+- `OPENAI_STT_MODEL`
+- `OPENAI_SPEECH_VOICE`
 
 ## Run locally
 
@@ -51,4 +52,4 @@ python -m uvicorn nexus.api.app:app --reload
 
 - No training code.
 - No local model hosting.
-- All model calls are delegated to Gemini.
+- All model calls are delegated to OpenAI.

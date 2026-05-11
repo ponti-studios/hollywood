@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from nexus.providers.gemini import GeminiClient
+from nexus.providers.openai import OpenAIClient
 
 
 @dataclass(slots=True)
@@ -49,7 +49,7 @@ DEMO_CASES: list[DemoCase] = [
 
 
 async def run_demo_evals(model: str | None = None) -> list[DemoResult]:
-    client = GeminiClient(text_model=model or None)
+    client = OpenAIClient(text_model=model or None)
     try:
         results: list[DemoResult] = []
         for case in DEMO_CASES:
