@@ -2,7 +2,6 @@
 .env
 .data
 .build
-google-service-account-nexus-dev.json
 
 # Python
 .venv
@@ -39,6 +38,5 @@ build/
 **/runtime/
 **/transcripts/
 
-# Local project OS state and experiment artifacts
+# Local project OS state
 .kernel/state/
-wandb/

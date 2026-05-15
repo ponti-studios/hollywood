@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import base64
-import os
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
-DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
-DEFAULT_OPENAI_TEXT_MODEL = "gpt-4.1-mini"
-DEFAULT_OPENAI_IMAGE_MODEL = "gpt-4.1-mini"
-DEFAULT_OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
-DEFAULT_OPENAI_STT_MODEL = "gpt-4o-mini-transcribe"
-DEFAULT_OPENAI_TTS_VOICE = "alloy"
+from nexus.env import (
+    DEFAULT_OPENAI_BASE_URL,
+    DEFAULT_OPENAI_IMAGE_MODEL,
+    DEFAULT_OPENAI_STT_MODEL,
+    DEFAULT_OPENAI_TEXT_MODEL,
+    DEFAULT_OPENAI_TTS_MODEL,
+    DEFAULT_OPENAI_TTS_VOICE,
+    get_settings,
+)
 
 
 class OpenAIError(RuntimeError):
@@ -49,27 +51,24 @@ class OpenAIClient:
         speech_voice: str | None = None,
         timeout: float = 120.0,
     ) -> None:
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        self.text_model = text_model or os.getenv("OPENAI_TEXT_MODEL") or DEFAULT_OPENAI_TEXT_MODEL
-        self.image_model = (
-            image_model or os.getenv("OPENAI_IMAGE_MODEL") or DEFAULT_OPENAI_IMAGE_MODEL
-        )
+        settings = get_settings()
+        self.api_key = settings.openai_api_key
+        self.text_model = text_model or settings.openai_text_model or DEFAULT_OPENAI_TEXT_MODEL
+        self.image_model = image_model or settings.openai_image_model or DEFAULT_OPENAI_IMAGE_MODEL
         self.tts_model = (
-            os.getenv("OPENAI_TTS_MODEL")
+            settings.openai_tts_model
             or audio_model
-            or os.getenv("OPENAI_AUDIO_MODEL")
+            or settings.openai_audio_model
             or DEFAULT_OPENAI_TTS_MODEL
         )
         self.stt_model = (
-            os.getenv("OPENAI_STT_MODEL")
+            settings.openai_stt_model
             or audio_model
-            or os.getenv("OPENAI_AUDIO_MODEL")
+            or settings.openai_audio_model
             or DEFAULT_OPENAI_STT_MODEL
         )
-        self.speech_voice = (
-            speech_voice or os.getenv("OPENAI_SPEECH_VOICE") or DEFAULT_OPENAI_TTS_VOICE
-        )
-        self.base_url = (base_url or os.getenv("OPENAI_BASE_URL") or DEFAULT_OPENAI_BASE_URL).rstrip(
+        self.speech_voice = speech_voice or settings.openai_speech_voice or DEFAULT_OPENAI_TTS_VOICE
+        self.base_url = (base_url or settings.openai_base_url or DEFAULT_OPENAI_BASE_URL).rstrip(
             "/"
         )
         headers: dict[str, str] = {}
@@ -304,7 +303,9 @@ def get_openai_client() -> OpenAIClient:
     return _client
 
 
-def _build_chat_messages(messages: list[dict[str, str]], system: str | None) -> list[dict[str, str]]:
+def _build_chat_messages(
+    messages: list[dict[str, str]], system: str | None
+) -> list[dict[str, str]]:
     payload_messages: list[dict[str, str]] = []
     if system:
         payload_messages.append({"role": "system", "content": system})

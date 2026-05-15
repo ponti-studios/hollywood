@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Iterable
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
@@ -29,6 +29,7 @@ from nexus.audio.models import (
     AudioTtsResponse,
 )
 from nexus.audio.service import AudioService, AudioServiceError
+from nexus.env import get_settings
 from nexus.providers.openai import OpenAIClient, OpenAIError, get_openai_client
 
 CAPABILITIES = ["text", "audio", "image", "evals"]
@@ -37,7 +38,7 @@ TEXT_ANALYZE_SYSTEM_PROMPT = (
     "cleaned_text and people. cleaned_text should remove person names while preserving the main "
     "activity. people should be a deduplicated list of person names mentioned in the text. No markdown."
 )
-AUDIO_DIR = Path(".data/audio")
+AUDIO_DIR = get_settings().nexus_audio_dir
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -124,7 +125,7 @@ def _parse_text_analysis_payload(raw_text: str) -> tuple[str, list[str]]:
     return cleaned_text.strip(), normalized_people
 
 
-def _sum_optional(values: object) -> int | None:
+def _sum_optional(values: Iterable[int | None]) -> int | None:
     collected = [value for value in values if isinstance(value, int)]
     if not collected:
         return None

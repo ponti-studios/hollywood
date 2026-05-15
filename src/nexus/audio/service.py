@@ -1,19 +1,26 @@
 from __future__ import annotations
 
 import io
-import os
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypedDict
 
 from nexus.audio.models import AudioGenRequest, AudioSttResponse
+from nexus.env import get_settings
 from nexus.providers.openai import OpenAIClient, OpenAIError, get_openai_client
 
-DEFAULT_AUDIO_DIR = Path(os.getenv("NEXUS_AUDIO_DIR", ".data/audio"))
+DEFAULT_AUDIO_DIR = get_settings().nexus_audio_dir
 
 
 class AudioServiceError(RuntimeError):
     """Raised when OpenAI audio handling fails."""
+
+
+class AudioServiceHealth(TypedDict):
+    ok: bool
+    providers: dict[str, bool]
+    models: dict[str, str]
 
 
 @dataclass(slots=True)
@@ -33,7 +40,7 @@ class AudioService:
         self.audio_dir.mkdir(parents=True, exist_ok=True)
         self.client = client or get_openai_client()
 
-    def health(self) -> dict[str, object]:
+    def health(self) -> AudioServiceHealth:
         ok = self.client.is_configured
         return {
             "ok": ok,
