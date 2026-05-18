@@ -1,57 +1,41 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
 from functools import lru_cache
-from pathlib import Path
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from dotenv import find_dotenv, load_dotenv
+from pydantic import BaseModel, ConfigDict, field_validator
 
-DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
-DEFAULT_OPENAI_TEXT_MODEL = "gpt-4.1-mini"
-DEFAULT_OPENAI_IMAGE_MODEL = "gpt-4.1-mini"
-DEFAULT_OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
-DEFAULT_OPENAI_STT_MODEL = "gpt-4o-mini-transcribe"
-DEFAULT_OPENAI_TTS_VOICE = "alloy"
-DEFAULT_NEXUS_AUDIO_DIR = Path(".data/audio")
+DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_OPENROUTER_TEXT_MODEL = "anthropic/claude-sonnet-4.6"
+DEFAULT_OPENROUTER_IMAGE_MODEL = "anthropic/claude-sonnet-4.6"
 
 
 class Settings(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    openai_api_key: str | None = None
-    openai_base_url: str = DEFAULT_OPENAI_BASE_URL
-    openai_text_model: str = DEFAULT_OPENAI_TEXT_MODEL
-    openai_image_model: str = DEFAULT_OPENAI_IMAGE_MODEL
-    openai_audio_model: str | None = None
-    openai_tts_model: str | None = None
-    openai_stt_model: str | None = None
-    openai_speech_voice: str = DEFAULT_OPENAI_TTS_VOICE
-    nexus_audio_dir: Path = Field(default=DEFAULT_NEXUS_AUDIO_DIR)
+    openrouter_api_key: str | None = None
+    openrouter_base_url: str = DEFAULT_OPENROUTER_BASE_URL
+    openrouter_text_model: str = DEFAULT_OPENROUTER_TEXT_MODEL
+    openrouter_image_model: str = DEFAULT_OPENROUTER_IMAGE_MODEL
 
     @classmethod
-    def from_env(cls, environ: Mapping[str, str] | None = None) -> Settings:
+    def from_env(cls, environ: dict[str, str] | None = None) -> Settings:
         env = os.environ if environ is None else environ
-        return cls.model_validate(
-            {
-                "openai_api_key": env.get("OPENAI_API_KEY"),
-                "openai_base_url": env.get("OPENAI_BASE_URL", DEFAULT_OPENAI_BASE_URL),
-                "openai_text_model": env.get("OPENAI_TEXT_MODEL", DEFAULT_OPENAI_TEXT_MODEL),
-                "openai_image_model": env.get("OPENAI_IMAGE_MODEL", DEFAULT_OPENAI_IMAGE_MODEL),
-                "openai_audio_model": env.get("OPENAI_AUDIO_MODEL"),
-                "openai_tts_model": env.get("OPENAI_TTS_MODEL"),
-                "openai_stt_model": env.get("OPENAI_STT_MODEL"),
-                "openai_speech_voice": env.get("OPENAI_SPEECH_VOICE", DEFAULT_OPENAI_TTS_VOICE),
-                "nexus_audio_dir": env.get("NEXUS_AUDIO_DIR", str(DEFAULT_NEXUS_AUDIO_DIR)),
-            }
-        )
+        return cls.model_validate({
+            "openrouter_api_key": env.get("OPENROUTER_API_KEY"),
+            "openrouter_base_url": env.get("OPENROUTER_BASE_URL", DEFAULT_OPENROUTER_BASE_URL),
+            "openrouter_text_model": env.get(
+                "OPENROUTER_TEXT_MODEL", DEFAULT_OPENROUTER_TEXT_MODEL
+            ),
+            "openrouter_image_model": env.get(
+                "OPENROUTER_IMAGE_MODEL", DEFAULT_OPENROUTER_IMAGE_MODEL
+            ),
+        })
 
     @field_validator(
-        "openai_api_key",
-        "openai_audio_model",
-        "openai_tts_model",
-        "openai_stt_model",
+        "openrouter_api_key",
         mode="before",
     )
     @classmethod
@@ -64,10 +48,9 @@ class Settings(BaseModel):
         return normalized or None
 
     @field_validator(
-        "openai_base_url",
-        "openai_text_model",
-        "openai_image_model",
-        "openai_speech_voice",
+        "openrouter_base_url",
+        "openrouter_text_model",
+        "openrouter_image_model",
         mode="before",
     )
     @classmethod
@@ -79,41 +62,29 @@ class Settings(BaseModel):
             raise ValueError("Environment values cannot be blank.")
         return normalized
 
-    @field_validator("openai_base_url")
+    @field_validator("openrouter_base_url")
     @classmethod
     def _validate_base_url(cls, value: str) -> str:
         normalized = value.rstrip("/")
         parsed = urlparse(normalized)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValueError("OPENAI_BASE_URL must be a valid http(s) URL.")
+            raise ValueError("Environment base URLs must be valid http(s) URLs.")
         return normalized
 
-    @field_validator("nexus_audio_dir", mode="before")
-    @classmethod
-    def _validate_audio_dir(cls, value: object) -> Path:
-        if isinstance(value, Path):
-            return value.expanduser()
-        if not isinstance(value, str):
-            raise ValueError("NEXUS_AUDIO_DIR must be a filesystem path string.")
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("NEXUS_AUDIO_DIR cannot be blank.")
-        return Path(normalized).expanduser()
 
-    @property
-    def resolved_openai_tts_model(self) -> str:
-        return self.openai_tts_model or self.openai_audio_model or DEFAULT_OPENAI_TTS_MODEL
-
-    @property
-    def resolved_openai_stt_model(self) -> str:
-        return self.openai_stt_model or self.openai_audio_model or DEFAULT_OPENAI_STT_MODEL
+def _load_env_file() -> None:
+    dotenv_path = find_dotenv(usecwd=True)
+    if dotenv_path:
+        load_dotenv(dotenv_path, override=False)
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    _load_env_file()
     return Settings.from_env()
 
 
 def reload_settings() -> Settings:
     get_settings.cache_clear()
+    _load_env_file()
     return get_settings()

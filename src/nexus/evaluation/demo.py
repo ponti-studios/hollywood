@@ -5,7 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from nexus.providers.openai import OpenAIClient
+from nexus.providers.openrouter import OpenRouterClient
 
 
 @dataclass(slots=True)
@@ -49,7 +49,7 @@ DEMO_CASES: list[DemoCase] = [
 
 
 async def run_demo_evals(model: str | None = None) -> list[DemoResult]:
-    client = OpenAIClient(text_model=model or None)
+    client = OpenRouterClient()
     try:
         results: list[DemoResult] = []
         for case in DEMO_CASES:

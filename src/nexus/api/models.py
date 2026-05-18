@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class ApiHealthResponse(BaseModel):
     ok: bool
     service: str = "nexus"
-    api: str = "openai-first"
+    api: str = "openrouter-first"
     capabilities: list[str]
     providers: dict[str, bool]
     models: dict[str, str]
@@ -48,7 +48,7 @@ class TextReplyRequest(BaseModel):
 class TextReplyResponse(BaseModel):
     text: str
     model: str
-    provider: str = "openai"
+    provider: str = "openrouter"
     usage: Usage = Field(default_factory=Usage)
 
 
@@ -76,7 +76,7 @@ class TextChatRequest(BaseModel):
 class TextChatResponse(BaseModel):
     message: ChatMessage
     model: str
-    provider: str = "openai"
+    provider: str = "openrouter"
     usage: Usage = Field(default_factory=Usage)
 
 
@@ -86,7 +86,7 @@ TextInput = Annotated[str, Field(min_length=1)]
 class ImageAnalyzeResponse(BaseModel):
     text: str
     model: str
-    provider: str = "openai"
+    provider: str = "openrouter"
     usage: Usage = Field(default_factory=Usage)
 
 
@@ -114,5 +114,5 @@ class TextAnalyzeItem(BaseModel):
 class TextAnalyzeResponse(BaseModel):
     results: list[TextAnalyzeItem]
     model: str
-    provider: str = "openai"
+    provider: str = "openrouter"
     usage: Usage = Field(default_factory=Usage)

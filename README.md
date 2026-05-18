@@ -1,12 +1,11 @@
 # Nexus
 
-Nexus is an OpenAI-first multimodal API adapter and eval layer.
+Nexus is an OpenRouter-first multimodal API adapter and eval layer.
 
 It does **not** host models.
 
-- **Text** requests go to **OpenAI**
-- **Audio** requests go to **OpenAI**
-- **Image** requests go to **OpenAI**
+- **Text** requests go to **OpenRouter**
+- **Image** requests go to **OpenRouter**
 - **NLP**
   - performs natural language processing on arrays of texts to provide clean summaries and extract people
 - **Evals** run as a small demo suite for basic smoke testing
@@ -19,28 +18,22 @@ It does **not** host models.
 - `POST /text/chat`
 - `POST /text/analyze`
 - `POST /image/analyze`
-- `POST /audio/tts`
-- `POST /audio/stt`
 - `GET /health`
 
 ## Environment
 
-Copy `.env.example` to `.env` and set your OpenAI API key.
+Copy `.env.example` to `.env` and set your OpenRouter API key.
 This project runs as a normal Python app; Docker is not required.
 
 ### Required
 
-- `OPENAI_API_KEY`
+- `OPENROUTER_API_KEY`
 
 ### Optional
 
-- `OPENAI_BASE_URL`
-- `OPENAI_TEXT_MODEL`
-- `OPENAI_IMAGE_MODEL`
-- `OPENAI_TTS_MODEL`
-- `OPENAI_STT_MODEL`
-- `OPENAI_SPEECH_VOICE`
-- `NEXUS_AUDIO_DIR`
+- `OPENROUTER_BASE_URL`
+- `OPENROUTER_TEXT_MODEL`
+- `OPENROUTER_IMAGE_MODEL`
 
 ## Run locally
 
@@ -68,4 +61,4 @@ just start
 - No dataset download pipeline.
 - No experiment runner or model fine-tuning workflow.
 - No local model hosting.
-- All model calls are delegated to OpenAI.
+- All model calls are delegated to OpenRouter.

@@ -23,7 +23,7 @@ class FakeClient:
 def test_demo_evals(monkeypatch):
     import asyncio
 
-    monkeypatch.setattr("nexus.evaluation.demo.OpenAIClient", FakeClient)
+    monkeypatch.setattr("nexus.evaluation.demo.OpenRouterClient", FakeClient)
     results = asyncio.run(run_demo_evals(model="gpt-4.1-mini"))
     assert all(isinstance(result, DemoResult) for result in results)
     assert len(results) >= 3

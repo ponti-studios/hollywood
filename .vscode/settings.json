@@ -8,8 +8,7 @@
         "editor.wordBasedSuggestions": "off"
     },
     "cSpell.ignoreWords": [
-        "langchain",
-        "openai"
+        "langchain"
     ],
     "cSpell.words": [
         "boto",

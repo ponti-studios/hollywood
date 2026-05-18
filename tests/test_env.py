@@ -1,40 +1,43 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
 from nexus.env import (
-    DEFAULT_NEXUS_AUDIO_DIR,
-    DEFAULT_OPENAI_BASE_URL,
-    DEFAULT_OPENAI_IMAGE_MODEL,
-    DEFAULT_OPENAI_STT_MODEL,
-    DEFAULT_OPENAI_TEXT_MODEL,
-    DEFAULT_OPENAI_TTS_MODEL,
-    DEFAULT_OPENAI_TTS_VOICE,
+    DEFAULT_OPENROUTER_BASE_URL,
+    DEFAULT_OPENROUTER_IMAGE_MODEL,
+    DEFAULT_OPENROUTER_TEXT_MODEL,
     Settings,
+    reload_settings,
 )
 
 
 def test_settings_defaults():
     settings = Settings.from_env({})
 
-    assert settings.openai_api_key is None
-    assert settings.openai_base_url == DEFAULT_OPENAI_BASE_URL
-    assert settings.openai_text_model == DEFAULT_OPENAI_TEXT_MODEL
-    assert settings.openai_image_model == DEFAULT_OPENAI_IMAGE_MODEL
-    assert settings.resolved_openai_tts_model == DEFAULT_OPENAI_TTS_MODEL
-    assert settings.resolved_openai_stt_model == DEFAULT_OPENAI_STT_MODEL
-    assert settings.openai_speech_voice == DEFAULT_OPENAI_TTS_VOICE
-    assert settings.nexus_audio_dir == DEFAULT_NEXUS_AUDIO_DIR
-
-
-def test_settings_support_legacy_audio_model_fallback():
-    settings = Settings.from_env({"OPENAI_AUDIO_MODEL": "gpt-4o-audio-preview"})
-
-    assert settings.resolved_openai_tts_model == "gpt-4o-audio-preview"
-    assert settings.resolved_openai_stt_model == "gpt-4o-audio-preview"
+    assert settings.openrouter_api_key is None
+    assert settings.openrouter_base_url == DEFAULT_OPENROUTER_BASE_URL
+    assert settings.openrouter_text_model == DEFAULT_OPENROUTER_TEXT_MODEL
+    assert settings.openrouter_image_model == DEFAULT_OPENROUTER_IMAGE_MODEL
 
 
 def test_settings_reject_invalid_base_url():
     with pytest.raises(ValidationError):
-        Settings.from_env({"OPENAI_BASE_URL": "ftp://example.com"})
+        Settings.from_env({"OPENROUTER_BASE_URL": "ftp://example.com"})
+
+
+def test_reload_settings_reads_dotenv(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path(tmp_path / ".env").write_text(
+        "OPENROUTER_API_KEY=from-file\nOPENROUTER_TEXT_MODEL=anthropic/claude-3.5-sonnet\n"
+    )
+
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_TEXT_MODEL", raising=False)
+
+    settings = reload_settings()
+
+    assert settings.openrouter_api_key == "from-file"
+    assert settings.openrouter_text_model == "anthropic/claude-3.5-sonnet"

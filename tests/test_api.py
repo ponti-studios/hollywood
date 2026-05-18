@@ -5,8 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from nexus.api.app import app
-from nexus.audio.service import AudioTtsArtifact
-from nexus.providers.openai import OpenAIAudioResult, OpenAITextResult
+from nexus.providers.openrouter import OpenRouterTextResult
 
 
 async def _fake_health(self):
@@ -17,24 +16,24 @@ async def _fake_reply(self, **kwargs):
     prompt = kwargs.get("prompt") or ""
     model = kwargs.get("model") or self.text_model
     if "Lunch with Alex" in prompt:
-        return OpenAITextResult(
+        return OpenRouterTextResult(
             text='{"cleaned_text": "Lunch", "people": ["Alex"]}',
             model=model,
             prompt_tokens=2,
             completion_tokens=1,
         )
     if "Dinner (w/ Jamie)" in prompt:
-        return OpenAITextResult(
+        return OpenRouterTextResult(
             text='{"cleaned_text": "Dinner", "people": ["Jamie"]}',
             model=model,
             prompt_tokens=2,
             completion_tokens=1,
         )
-    return OpenAITextResult(text="4", model=model, prompt_tokens=3, completion_tokens=1)
+    return OpenRouterTextResult(text="4", model=model, prompt_tokens=3, completion_tokens=1)
 
 
 async def _fake_chat(self, **kwargs):
-    return OpenAITextResult(
+    return OpenRouterTextResult(
         text="support",
         model=kwargs.get("model") or self.text_model,
         prompt_tokens=4,
@@ -43,7 +42,7 @@ async def _fake_chat(self, **kwargs):
 
 
 async def _fake_image(self, **kwargs):
-    return OpenAITextResult(
+    return OpenRouterTextResult(
         text="a red square",
         model=kwargs.get("model") or self.image_model,
         prompt_tokens=2,
@@ -51,62 +50,17 @@ async def _fake_image(self, **kwargs):
     )
 
 
-async def _fake_tts(self, request):
-    path = Path(self.audio_dir) / "tts-test.wav"
-    path.write_bytes(b"RIFF0000WAVEfmt ")
-    return AudioTtsArtifact(
-        path=path,
-        filename=path.name,
-        model="gpt-4o-mini-tts",
-        voice=request.voice,
-        duration_seconds=1.0,
-    )
-
-
-async def _fake_stt(self, **kwargs):
-    from nexus.audio.models import AudioSttResponse
-
-    return AudioSttResponse(
-        text="hello world",
-        raw_text="hello world",
-        enhanced=kwargs.get("enhance", False),
-        model=self.client.stt_model,
-        language="en",
-    )
-
-
-async def _fake_speech(self, **kwargs):
-    return OpenAIAudioResult(
-        audio_bytes=b"RIFF0000WAVEfmt ",
-        mime_type="audio/wav",
-        model=kwargs.get("model") or self.tts_model,
-        prompt_tokens=1,
-        completion_tokens=1,
-    )
-
-
 def test_api_routes(monkeypatch):
-    monkeypatch.setattr("nexus.providers.openai.OpenAIClient.health", _fake_health)
-    monkeypatch.setattr("nexus.providers.openai.OpenAIClient.reply", _fake_reply)
-    monkeypatch.setattr("nexus.providers.openai.OpenAIClient.chat", _fake_chat)
-    monkeypatch.setattr("nexus.providers.openai.OpenAIClient.analyze_image", _fake_image)
-    monkeypatch.setattr("nexus.providers.openai.OpenAIClient.synthesize_speech", _fake_speech)
-    monkeypatch.setattr(
-        "nexus.audio.service.AudioService.health",
-        lambda self: {
-            "ok": True,
-            "providers": {"openai": True},
-            "models": {"tts": "gpt-4o-mini-tts", "stt": "gpt-4o-mini-transcribe"},
-        },
-    )
-    monkeypatch.setattr("nexus.audio.service.AudioService.tts", _fake_tts)
-    monkeypatch.setattr("nexus.audio.service.AudioService.stt", _fake_stt)
+    monkeypatch.setattr("nexus.providers.openrouter.OpenRouterClient.health", _fake_health)
+    monkeypatch.setattr("nexus.providers.openrouter.OpenRouterClient.reply", _fake_reply)
+    monkeypatch.setattr("nexus.providers.openrouter.OpenRouterClient.chat", _fake_chat)
+    monkeypatch.setattr("nexus.providers.openrouter.OpenRouterClient.analyze_image", _fake_image)
 
     with TestClient(app) as client:
         health = client.get("/health")
         assert health.status_code == 200
         assert health.json()["ok"] is True
-        assert health.json()["providers"]["openai"] is True
+        assert health.json()["providers"]["openrouter"] is True
 
         reply = client.post("/text/reply", json={"prompt": "What is 2+2?"})
         assert reply.status_code == 200
@@ -124,7 +78,8 @@ def test_api_routes(monkeypatch):
         )
         assert batch.status_code == 200
         payload = batch.json()
-        assert payload["model"] == "gpt-4.1-mini"
+        assert payload["model"] == "anthropic/claude-sonnet-4.6"
+        assert payload["provider"] == "openrouter"
         assert payload["results"][0]["cleaned_text"] == "Lunch"
         assert payload["results"][0]["people"] == ["Alex"]
         assert payload["results"][1]["cleaned_text"] == "Dinner"
@@ -138,16 +93,8 @@ def test_api_routes(monkeypatch):
 
         image = client.post(
             "/image/analyze",
-            data={"prompt": "Describe this image."},
             files={"image": ("image.png", b"fake", "image/png")},
         )
         assert image.status_code == 200
         assert image.json()["text"] == "a red square"
-
-        tts = client.post("/audio/tts", json={"text": "Hello there"})
-        assert tts.status_code == 200
-        assert tts.json()["filename"].endswith(".wav")
-
-        stt = client.post("/audio/stt", files={"file": ("clip.wav", b"fake", "audio/wav")})
-        assert stt.status_code == 200
-        assert stt.json()["text"] == "hello world"
+        assert image.json()["provider"] == "openrouter"
