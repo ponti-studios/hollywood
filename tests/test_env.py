@@ -30,7 +30,8 @@ def test_settings_reject_invalid_base_url():
 
 def test_reload_settings_reads_dotenv(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    Path(tmp_path / ".env").write_text(
+    dotenv_path = Path(tmp_path / ".env")
+    dotenv_path.write_text(
         "OPENROUTER_API_KEY=from-file\nOPENROUTER_TEXT_MODEL=anthropic/claude-3.5-sonnet\n"
     )
 
@@ -41,3 +42,8 @@ def test_reload_settings_reads_dotenv(tmp_path, monkeypatch):
 
     assert settings.openrouter_api_key == "from-file"
     assert settings.openrouter_text_model == "anthropic/claude-3.5-sonnet"
+
+    dotenv_path.unlink()
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_TEXT_MODEL", raising=False)
+    reload_settings()
