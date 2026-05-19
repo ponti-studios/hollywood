@@ -9,7 +9,9 @@ import httpx
 from nexus.env import (
     DEFAULT_OPENROUTER_BASE_URL,
     DEFAULT_OPENROUTER_IMAGE_MODEL,
+    DEFAULT_OPENROUTER_STT_MODEL,
     DEFAULT_OPENROUTER_TEXT_MODEL,
+    DEFAULT_OPENROUTER_TTS_MODEL,
     get_settings,
 )
 
@@ -27,12 +29,23 @@ class OpenRouterTextResult:
     raw: dict[str, Any] | None = None
 
 
+@dataclass(slots=True)
+class AudioTranscriptionResult:
+    text: str
+    model: str
+    seconds: float | None = None
+    total_tokens: int | None = None
+    cost: float | None = None
+
+
 class OpenRouterClient:
     def __init__(self, *, timeout: float = 120.0) -> None:
         settings = get_settings()
         self.api_key = settings.openrouter_api_key
         self.text_model = settings.openrouter_text_model or DEFAULT_OPENROUTER_TEXT_MODEL
         self.image_model = settings.openrouter_image_model or DEFAULT_OPENROUTER_IMAGE_MODEL
+        self.tts_model = settings.openrouter_tts_model or DEFAULT_OPENROUTER_TTS_MODEL
+        self.stt_model = settings.openrouter_stt_model or DEFAULT_OPENROUTER_STT_MODEL
         self.base_url = (settings.openrouter_base_url or DEFAULT_OPENROUTER_BASE_URL).rstrip("/")
         headers: dict[str, str] = {
             "HTTP-Referer": "https://github.com/ponti-studios/nexus",
@@ -177,6 +190,56 @@ class OpenRouterClient:
             prompt_tokens=_as_int(usage.get("prompt_tokens")),
             completion_tokens=_as_int(usage.get("completion_tokens")),
             raw=data,
+        )
+
+    async def tts(
+        self,
+        *,
+        text: str,
+        voice: str,
+        model: str | None = None,
+        response_format: str = "mp3",
+        speed: float = 1.0,
+    ) -> bytes:
+        payload: dict[str, Any] = {
+            "model": model or self.tts_model,
+            "input": text,
+            "voice": voice,
+            "response_format": response_format,
+            "speed": speed,
+        }
+        response = await self._request("POST", "/audio/speech", json=payload)
+        return response.content
+
+    async def stt(
+        self,
+        *,
+        audio_bytes: bytes,
+        audio_format: str,
+        model: str | None = None,
+        language: str | None = None,
+        temperature: float | None = None,
+    ) -> AudioTranscriptionResult:
+        resolved_model = model or self.stt_model
+        payload: dict[str, Any] = {
+            "model": resolved_model,
+            "input_audio": {
+                "data": base64.b64encode(audio_bytes).decode("utf-8"),
+                "format": audio_format,
+            },
+        }
+        if language:
+            payload["language"] = language
+        if temperature is not None:
+            payload["temperature"] = temperature
+        data = await self._request_json("POST", "/audio/transcriptions", json=payload)
+        usage = data.get("usage") or {}
+        return AudioTranscriptionResult(
+            text=str(data.get("text", "")),
+            model=resolved_model,
+            seconds=usage.get("seconds"),
+            total_tokens=_as_int(usage.get("total_tokens")),
+            cost=usage.get("cost"),
         )
 
 

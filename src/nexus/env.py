@@ -10,6 +10,8 @@ from pydantic import BaseModel, ConfigDict, field_validator
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_OPENROUTER_TEXT_MODEL = "anthropic/claude-sonnet-4.6"
 DEFAULT_OPENROUTER_IMAGE_MODEL = "anthropic/claude-sonnet-4.6"
+DEFAULT_OPENROUTER_TTS_MODEL = "openai/gpt-4o-mini-tts-2025-12-15"
+DEFAULT_OPENROUTER_STT_MODEL = "openai/whisper-1"
 
 
 class Settings(BaseModel):
@@ -19,6 +21,8 @@ class Settings(BaseModel):
     openrouter_base_url: str = DEFAULT_OPENROUTER_BASE_URL
     openrouter_text_model: str = DEFAULT_OPENROUTER_TEXT_MODEL
     openrouter_image_model: str = DEFAULT_OPENROUTER_IMAGE_MODEL
+    openrouter_tts_model: str = DEFAULT_OPENROUTER_TTS_MODEL
+    openrouter_stt_model: str = DEFAULT_OPENROUTER_STT_MODEL
 
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> Settings:
@@ -32,6 +36,8 @@ class Settings(BaseModel):
             "openrouter_image_model": env.get(
                 "OPENROUTER_IMAGE_MODEL", DEFAULT_OPENROUTER_IMAGE_MODEL
             ),
+            "openrouter_tts_model": env.get("OPENROUTER_TTS_MODEL", DEFAULT_OPENROUTER_TTS_MODEL),
+            "openrouter_stt_model": env.get("OPENROUTER_STT_MODEL", DEFAULT_OPENROUTER_STT_MODEL),
         })
 
     @field_validator(
@@ -51,6 +57,8 @@ class Settings(BaseModel):
         "openrouter_base_url",
         "openrouter_text_model",
         "openrouter_image_model",
+        "openrouter_tts_model",
+        "openrouter_stt_model",
         mode="before",
     )
     @classmethod

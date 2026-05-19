@@ -116,3 +116,51 @@ class TextAnalyzeResponse(BaseModel):
     model: str
     provider: str = "openrouter"
     usage: Usage = Field(default_factory=Usage)
+
+
+class EvalResultItem(BaseModel):
+    name: str
+    score: float
+    passed: bool
+    response: str
+    details: str
+
+
+class EvalsRunResponse(BaseModel):
+    results: list[EvalResultItem]
+    passed: int
+    total: int
+    model: str | None = None
+
+
+class AudioUsage(BaseModel):
+    seconds: float | None = None
+    total_tokens: int | None = None
+    cost: float | None = None
+
+
+class AudioSpeechRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "text": "Hello from Nexus.",
+                    "voice": "alloy",
+                    "response_format": "mp3",
+                }
+            ]
+        }
+    )
+
+    text: str = Field(min_length=1)
+    voice: str = "alloy"
+    model: str | None = None
+    response_format: Literal["mp3", "pcm"] = "mp3"
+    speed: float = Field(default=1.0, ge=0.25, le=4.0)
+
+
+class AudioTranscribeResponse(BaseModel):
+    text: str
+    model: str
+    provider: str = "openrouter"
+    usage: AudioUsage = Field(default_factory=AudioUsage)

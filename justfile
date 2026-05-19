@@ -20,21 +20,29 @@ health:
 # API Helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
-api-chat prompt="Hello from Nexus." model="gpt-4.1-mini":
+api-chat prompt="Hello from Nexus." model="anthropic/claude-sonnet-4.6":
     curl -sS -X POST http://127.0.0.1:8787/text/reply \
       -H "Content-Type: application/json" \
       -d "{\"prompt\":\"{{ prompt }}\",\"model\":\"{{ model }}\"}"
 
-api-tts text="Hello from Nexus." speaker="alloy":
-    response=$(curl -sSf -X POST http://127.0.0.1:8787/audio/tts \
+api-analyze texts='["Lunch with Alice", "Call with Bob"]':
+    curl -sS -X POST http://127.0.0.1:8787/text/analyze \
       -H "Content-Type: application/json" \
-      -d "{\"text\":\"{{ text }}\",\"voice\":\"{{ speaker }}\"}")
-    audio_url=$(python -c 'import json,sys; print(json.loads(sys.stdin.read())["audio_url"])' <<<"$response")
-    curl -sSf "http://127.0.0.1:8787${audio_url}" --output /private/tmp/nexus-tts.wav
-    ls -lh /private/tmp/nexus-tts.wav
+      -d "{\"texts\":{{ texts }}}"
 
-api-stt file="/private/tmp/nexus-tts.wav":
-    curl -sS -X POST http://127.0.0.1:8787/audio/stt -F "file=@{{ file }}"
+api-evals:
+    curl -sS -X POST http://127.0.0.1:8787/evals/run | python -m json.tool
+
+api-tts text="Hello from Nexus." voice="alloy" outfile="/tmp/nexus-tts.mp3":
+    curl -sS -X POST http://127.0.0.1:8787/audio/speech \
+      -H "Content-Type: application/json" \
+      -d "{\"text\":\"{{ text }}\",\"voice\":\"{{ voice }}\"}" \
+      --output {{ outfile }}
+    ls -lh {{ outfile }}
+
+api-stt file="/tmp/nexus-tts.mp3":
+    curl -sS -X POST http://127.0.0.1:8787/audio/transcribe \
+      -F "audio=@{{ file }}" | python -m json.tool
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Development
@@ -44,10 +52,13 @@ setup:
     uv pip install -e ".[dev]"
 
 test:
-    uv run pytest
+    uv run pytest tests/ --ignore=tests/test_integration.py
 
 test-cov:
-    uv run pytest --cov=nexus --cov-report=term-missing
+    uv run pytest tests/ --ignore=tests/test_integration.py --cov=nexus --cov-report=term-missing
+
+integration-test:
+    uv run pytest tests/test_integration.py -v
 
 lint:
     uv run ruff check src/ tests/

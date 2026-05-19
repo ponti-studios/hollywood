@@ -3,8 +3,31 @@ name = "nexus"
 version = "0.1.0"
 description = "OpenRouter-first multimodal API adapter and eval layer"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.12,<3.13"
 authors = [{ name = "Charles Ponti" }]
+keywords = [
+    "fastapi",
+    "llm",
+    "openrouter",
+    "ai",
+    "multimodal",
+    "api",
+    "async",
+    "pydantic",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
 dependencies = [
     "fastapi>=0.115.0",
     "google-auth>=2.0",
@@ -16,6 +39,11 @@ dependencies = [
     "requests>=2.32.0",
     "uvicorn[standard]>=0.30.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/ponti-studios/nexus"
+Repository = "https://github.com/ponti-studios/nexus"
+"Bug Tracker" = "https://github.com/ponti-studios/nexus/issues"
 
 [project.optional-dependencies]
 dev = [
