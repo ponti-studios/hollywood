@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: [main, master]
   pull_request:
-    branches: ["main"]
+  workflow_dispatch:
 
 jobs:
   ci:
@@ -27,8 +27,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
-        run: uv pip install -e ".[dev]" --system
+      - name: Sync dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: Install Chromium
+        run: uv run python -m playwright install chromium
 
       - name: Lint
         run: uv run ruff check src/ tests/
@@ -36,5 +39,8 @@ jobs:
       - name: Type check
         run: uv run pyright src/
 
-      - name: Test
-        run: uv run pytest --cov=nexus --cov-report=term-missing
+      - name: Unit tests
+        run: uv run pytest tests/
+
+      - name: Live smoke
+        run: ./scripts/cli/integration/hollywood.sh

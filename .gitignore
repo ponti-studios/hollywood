@@ -29,6 +29,7 @@ htmlcov/
 # Build
 dist/
 build/
+wga_writers.jsonl
 
 **/.cache/
 **/.venv/
