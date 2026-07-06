@@ -68,6 +68,7 @@ class ImdbAdapter(BaseAdapter):
         raw_records: list[dict[str, object]],
     ) -> NormalizedBundle:
         bundle = NormalizedBundle()
+        seen_entities: set[str] = set()
         for record in raw_records:
             if str(record["payload_type"]) != "dataset_tsv":
                 continue
@@ -82,25 +83,27 @@ class ImdbAdapter(BaseAdapter):
                     if not name or not nconst or nconst == r"\N":
                         continue
                     entity_id = make_stable_id("imdb", str(nconst))
-                    bundle.entities.append(
-                        EntityRow(
-                            entity_id=entity_id,
-                            source_id=self.source.source_id,
-                            external_id=str(nconst),
-                            entity_type=EntityKind.PERSON.value,
-                            name=str(name),
-                            canonical_name=str(name).casefold(),
-                            license_class=self.source.license_class.value,
-                            metadata_json=json_dumps(
-                                {
-                                    "birthYear": row.get("birthYear"),
-                                    "deathYear": row.get("deathYear"),
-                                    "primaryProfession": row.get("primaryProfession"),
-                                    "knownForTitles": row.get("knownForTitles"),
-                                }
-                            ),
+                    if entity_id not in seen_entities:
+                        seen_entities.add(entity_id)
+                        bundle.entities.append(
+                            EntityRow(
+                                entity_id=entity_id,
+                                source_id=self.source.source_id,
+                                external_id=str(nconst),
+                                entity_type=EntityKind.PERSON.value,
+                                name=str(name),
+                                canonical_name=str(name).casefold(),
+                                license_class=self.source.license_class.value,
+                                metadata_json=json_dumps(
+                                    {
+                                        "birthYear": row.get("birthYear"),
+                                        "deathYear": row.get("deathYear"),
+                                        "primaryProfession": row.get("primaryProfession"),
+                                        "knownForTitles": row.get("knownForTitles"),
+                                    }
+                                ),
+                            )
                         )
-                    )
                     bundle.entity_aliases.append(
                         EntityAliasRow(
                             entity_alias_id=make_stable_id(entity_id, str(name)),
@@ -116,25 +119,27 @@ class ImdbAdapter(BaseAdapter):
                     if not title or not tconst or tconst == r"\N":
                         continue
                     entity_id = make_stable_id("imdb", str(tconst))
-                    bundle.entities.append(
-                        EntityRow(
-                            entity_id=entity_id,
-                            source_id=self.source.source_id,
-                            external_id=str(tconst),
-                            entity_type=EntityKind.TITLE.value,
-                            name=str(title),
-                            canonical_name=str(title).casefold(),
-                            license_class=self.source.license_class.value,
-                            metadata_json=json_dumps(
-                                {
-                                    "titleType": row.get("titleType"),
-                                    "originalTitle": row.get("originalTitle"),
-                                    "startYear": row.get("startYear"),
-                                    "genres": row.get("genres"),
-                                }
-                            ),
+                    if entity_id not in seen_entities:
+                        seen_entities.add(entity_id)
+                        bundle.entities.append(
+                            EntityRow(
+                                entity_id=entity_id,
+                                source_id=self.source.source_id,
+                                external_id=str(tconst),
+                                entity_type=EntityKind.TITLE.value,
+                                name=str(title),
+                                canonical_name=str(title).casefold(),
+                                license_class=self.source.license_class.value,
+                                metadata_json=json_dumps(
+                                    {
+                                        "titleType": row.get("titleType"),
+                                        "originalTitle": row.get("originalTitle"),
+                                        "startYear": row.get("startYear"),
+                                        "genres": row.get("genres"),
+                                    }
+                                ),
+                            )
                         )
-                    )
             elif dataset_name == "title.principals":
                 for row in frame_rows:
                     tconst = row.get("tconst")
@@ -143,6 +148,27 @@ class ImdbAdapter(BaseAdapter):
                     ordering = row.get("ordering")
                     if not tconst or not nconst or not role or tconst == r"\N" or nconst == r"\N":
                         continue
+                    person_eid = make_stable_id("imdb", str(nconst))
+                    title_eid = make_stable_id("imdb", str(tconst))
+                    # Create stub entities for FK references that don't exist yet
+                    for eid, ename, etype in [
+                        (person_eid, str(nconst), EntityKind.PERSON),
+                        (title_eid, str(tconst), EntityKind.TITLE),
+                    ]:
+                        if eid not in seen_entities:
+                            seen_entities.add(eid)
+                            bundle.entities.append(
+                                EntityRow(
+                                    entity_id=eid,
+                                    source_id=self.source.source_id,
+                                    external_id=ename,
+                                    entity_type=etype.value,
+                                    name=ename,
+                                    canonical_name=ename.casefold(),
+                                    license_class=self.source.license_class.value,
+                                    metadata_json=json_dumps({"stub": True}),
+                                )
+                            )
                     bundle.credits.append(
                         CreditRow(
                             credit_id=make_stable_id(
@@ -153,7 +179,8 @@ class ImdbAdapter(BaseAdapter):
                                 str(row.get("ordering")),
                             ),
                             source_id=self.source.source_id,
-                            person_entity_id=make_stable_id("imdb", str(nconst)),
+                            person_entity_id=person_eid,
+                            title_entity_id=title_eid,
                             person_name=None,
                             title_name=None,
                             title_external_id=str(tconst),

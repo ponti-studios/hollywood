@@ -308,18 +308,21 @@ class HollywoodStorage:
         if not rows:
             return
 
-        # Deduplicate on key columns
-        seen: set[tuple] = set()
-        deduped: list[dict[str, Any]] = []
-        for row in rows:
-            key = tuple(row.get(col) for col in key_cols)
-            if key not in seen:
-                seen.add(key)
-                deduped.append(row)
-
         # Map model field names → DB column names
         col_map = _COLUMN_MAP.get(table, {})
         has_col_map = bool(col_map)
+
+        # Deduplicate on model field names (before col mapping)
+        # key_cols use DB column names — convert to model field names for dedup
+        reverse_map = {v: k for k, v in col_map.items()}
+        dedup_key_cols = tuple(reverse_map.get(col, col) for col in key_cols)
+        seen: set[tuple] = set()
+        deduped: list[dict[str, Any]] = []
+        for row in rows:
+            key = tuple(row.get(col) for col in dedup_key_cols)
+            if key not in seen:
+                seen.add(key)
+                deduped.append(row)
 
         # Build DB rows with correct column names
         db_rows: list[dict[str, Any]] = []
@@ -360,4 +363,5 @@ class HollywoodStorage:
             conn.execute(
                 f"INSERT OR REPLACE INTO {table} ({col_list}) VALUES ({placeholders})", vals
             )
+        conn.commit()
         conn.commit()
