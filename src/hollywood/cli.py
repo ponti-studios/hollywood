@@ -200,6 +200,79 @@ def export(
 
 
 @app.command()
+def extract(
+    path: str = typer.Argument(..., help="Path to a text file, .eml, or directory of documents to extract."),
+    model: str | None = typer.Option(None, help="OpenRouter model name (default: deepseek/deepseek-chat-v4-flash)."),
+    prompt_version: str = typer.Option("v1", help="Prompt version to use (v1 or v2)."),
+    db_path: Path | None = typer.Option(None, help="Override the database path."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Extract without saving to DB."),
+) -> None:
+    """Extract candidate data from writer/talent submission documents via LLM."""
+    import glob as _glob
+
+    from .domain.llm import ExtractionError, _call_openrouter
+    from .domain.extraction import SubmissionPacket
+
+    settings = HollywoodSettings()
+    if db_path:
+        settings = settings.model_copy(update={"db_path": db_path})
+
+    source_path = Path(path).expanduser().resolve()
+    if not source_path.exists():
+        console.print(f"[red]Path not found:[/red] {source_path}")
+        raise typer.Exit(code=1)
+
+    # Collect files
+    if source_path.is_file():
+        files = [source_path]
+    else:
+        files = sorted(
+            p for p in source_path.glob("**/*") if p.suffix in (".txt", ".eml", ".md")
+        )
+    if not files:
+        console.print("[yellow]No .txt, .eml, or .md files found.[/yellow]")
+        raise typer.Exit(code=0)
+
+    console.print(f"Extracting from {len(files)} file(s) with model [bold]{model or 'default'}[/bold]...")
+
+    if not dry_run:
+        storage = HollywoodStorage(settings.resolved_db_path)
+        storage.initialize()
+
+    success, failed = 0, 0
+    for file in files:
+        console.print(f"  📄 {file.name}... ", end="")
+        try:
+            text = file.read_text(encoding="utf-8", errors="replace")
+            result = _call_openrouter(text, prompt_version, model=model)
+            packet = result.packet
+            candidate_count = len(packet.candidates)
+
+            if not dry_run and candidate_count:
+                # Persist extraction results
+                run_id = storage.start_run_raw("extraction", {})
+                for candidate in packet.candidates:
+                    storage.save_extraction_result(
+                        run_id=run_id,
+                        source_id="manual_extraction",
+                        candidate=candidate,
+                        model_name=result.model_name,
+                        prompt_version=prompt_version,
+                        raw_json=result.raw_json.decode("utf-8"),
+                    )
+            console.print(f"[green]✓ {candidate_count} candidate(s)[/green]")
+            success += 1
+        except ExtractionError as e:
+            console.print(f"[red]✗ {e}[/red]")
+            failed += 1
+        except Exception as e:
+            console.print(f"[red]✗ Unexpected: {e}[/red]")
+            failed += 1
+
+    console.print(f"\nDone: {success} succeeded, {failed} failed")
+
+
+@app.command()
 def doctor(
     data_dir: Path | None = typer.Option(None, help="Override the local data directory."),
     db_path: Path | None = typer.Option(None, help="Override the DuckDB path."),

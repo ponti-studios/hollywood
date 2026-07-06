@@ -196,6 +196,49 @@ class HollywoodStorage:
         )
         conn.commit()
 
+    def start_run_raw(self, run_kind: str, metadata: dict[str, Any]) -> str:
+        """Start a run without a SourceDefinition (for extraction, normalization)."""
+        run_id = make_stable_id(run_kind, json.dumps(metadata, sort_keys=True), _now())
+        conn = self.connect()
+        conn.execute(
+            """INSERT INTO runs (id, source_id, run_kind, status, started_at, options_json)
+               VALUES (?, 'hollywood', ?, ?, ?, ?)""",
+            (run_id, run_kind, RunStatus.RUNNING.value, _now(), json.dumps(metadata)),
+        )
+        conn.commit()
+        return run_id
+
+    def save_extraction_result(
+        self,
+        run_id: str,
+        source_id: str,
+        candidate: Any,
+        model_name: str,
+        prompt_version: str,
+        raw_json: str,
+    ) -> None:
+        """Persist a single extraction result from the LLM pipeline."""
+        result_id = make_stable_id("extraction", run_id, source_id, candidate.name)
+        conn = self.connect()
+        conn.execute(
+            """INSERT OR REPLACE INTO extraction_results
+               (id, document_id, job_id, schema_version, prompt_version, model_name,
+                status, raw_json, result_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, 'succeeded', ?, ?, ?)""",
+            (
+                result_id,
+                run_id,
+                run_id,
+                "v1_submission_packet",
+                prompt_version,
+                model_name,
+                raw_json,
+                json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False),
+                _now(),
+            ),
+        )
+        conn.commit()
+
     # ── raw records ───────────────────────────────────────────────
 
     def insert_raw_records(self, run_id: str, archived_payloads: Iterable[ArchivedPayload]) -> None:
