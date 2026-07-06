@@ -72,7 +72,7 @@ function toCandidate(row: EntityRow): Record<string, unknown> {
   };
 }
 
-function loadCredits(personId: string): Record<string, unknown>[] {
+export function loadCredits(personId: string): Record<string, unknown>[] {
   const db = getDb();
   const rows = db
     .prepare(

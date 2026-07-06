@@ -2,7 +2,7 @@ import { createYoga, createSchema } from "graphql-yoga";
 import { createServer } from "node:http";
 import * as crypto from "node:crypto";
 import { typeDefs } from "./schema.js";
-import { candidateResolvers } from "./resolvers/candidates.js";
+import { candidateResolvers, loadCredits } from "./resolvers/candidates.js";
 import { projectResolvers } from "./resolvers/projects.js";
 import { userResolvers } from "./resolvers/users.js";
 import { getDb, closeDb } from "./db/index.js";
@@ -33,7 +33,7 @@ const hollywoodQueryExtensions = {
         position: row.position ?? "",
         status: row.status ?? "active",
         projectId: "search",
-        credits: [],
+        credits: loadCredits(row.id),
         emails: [],
         phoneNumbers: [],
         notes: [],
