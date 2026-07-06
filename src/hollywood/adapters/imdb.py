@@ -75,7 +75,9 @@ class ImdbAdapter(BaseAdapter):
             path = Path(str(record["content_path"]))
             metadata = json.loads(str(record["metadata_json"]))
             dataset_name = metadata["dataset_name"]
-            frame_rows = list(csv.DictReader(path.read_text(encoding="utf-8").splitlines(), delimiter="\t"))
+            frame_rows = list(
+                csv.DictReader(path.read_text(encoding="utf-8").splitlines(), delimiter="\t")
+            )
             if dataset_name == "name.basics":
                 for row in frame_rows:
                     name = row.get("primaryName")

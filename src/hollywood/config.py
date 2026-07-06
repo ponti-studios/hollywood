@@ -30,6 +30,7 @@ class HollywoodSettings(BaseSettings):
         if not p.is_absolute():
             p = Path(__file__).resolve().parent.parent.parent / p
         return p
+
     log_level: str = "INFO"
     concurrency: int = Field(default=4, ge=1, le=16)
     retry_count: int = Field(default=2, ge=0, le=10)

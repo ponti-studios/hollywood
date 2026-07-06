@@ -25,7 +25,9 @@ app.add_typer(ingest_app, name="ingest")
 console = Console()
 
 
-def _run_ingest_source_direct(source_id: str, settings: HollywoodSettings, options: IngestOptions) -> RunSummary:
+def _run_ingest_source_direct(
+    source_id: str, settings: HollywoodSettings, options: IngestOptions
+) -> RunSummary:
     """Run ingest without Prefect orchestration (for CLI usage)."""
     from .flows import archive_payloads_task, fetch_payloads_task, normalize_payloads_task
     from .registry import get_source as _get_source
@@ -58,7 +60,9 @@ def _run_ingest_source_direct(source_id: str, settings: HollywoodSettings, optio
         storage.close()
 
 
-def _run_ingest_group_direct(group_name: str, settings: HollywoodSettings, options: IngestOptions) -> list[RunSummary]:
+def _run_ingest_group_direct(
+    group_name: str, settings: HollywoodSettings, options: IngestOptions
+) -> list[RunSummary]:
     """Run ingest group without Prefect."""
     summaries: list[RunSummary] = []
     for src in list_sources(group=group_name):
@@ -201,8 +205,12 @@ def export(
 
 @app.command()
 def extract(
-    path: str = typer.Argument(..., help="Path to a text file, .eml, or directory of documents to extract."),
-    model: str | None = typer.Option(None, help="OpenRouter model name (default: deepseek/deepseek-chat-v4-flash)."),
+    path: str = typer.Argument(
+        ..., help="Path to a text file, .eml, or directory of documents to extract."
+    ),
+    model: str | None = typer.Option(
+        None, help="OpenRouter model name (default: deepseek/deepseek-chat-v4-flash)."
+    ),
     prompt_version: str = typer.Option("v1", help="Prompt version to use (v1 or v2)."),
     db_path: Path | None = typer.Option(None, help="Override the database path."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Extract without saving to DB."),
@@ -226,14 +234,14 @@ def extract(
     if source_path.is_file():
         files = [source_path]
     else:
-        files = sorted(
-            p for p in source_path.glob("**/*") if p.suffix in (".txt", ".eml", ".md")
-        )
+        files = sorted(p for p in source_path.glob("**/*") if p.suffix in (".txt", ".eml", ".md"))
     if not files:
         console.print("[yellow]No .txt, .eml, or .md files found.[/yellow]")
         raise typer.Exit(code=0)
 
-    console.print(f"Extracting from {len(files)} file(s) with model [bold]{model or 'default'}[/bold]...")
+    console.print(
+        f"Extracting from {len(files)} file(s) with model [bold]{model or 'default'}[/bold]..."
+    )
 
     if not dry_run:
         storage = HollywoodStorage(settings.resolved_db_path)

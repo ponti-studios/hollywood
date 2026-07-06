@@ -177,7 +177,11 @@ class TmdbAdapter(BaseAdapter):
                                 canonical_name=str(person_name).casefold(),
                                 license_class=self.source.license_class.value,
                                 metadata_json=json_dumps(
-                                    {"known_for_department": cast_member.get("known_for_department")}
+                                    {
+                                        "known_for_department": cast_member.get(
+                                            "known_for_department"
+                                        )
+                                    }
                                 ),
                             )
                         )
@@ -219,7 +223,9 @@ class TmdbAdapter(BaseAdapter):
                                 name=str(person_name),
                                 canonical_name=str(person_name).casefold(),
                                 license_class=self.source.license_class.value,
-                                metadata_json=json_dumps({"department": crew_member.get("department")}),
+                                metadata_json=json_dumps(
+                                    {"department": crew_member.get("department")}
+                                ),
                             )
                         )
                     bundle.credits.append(

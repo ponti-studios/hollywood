@@ -24,7 +24,7 @@ from .models import (
 # Map model field names → unified schema column names.
 # Model fields use descriptive names (article_id, entity_id) but the
 # unified schema uses `id` as the primary key in every table.
-_COLUMN_MAP: dict[str, dict[str, str]] = {
+_COLUMN_MAP: dict[str, dict[str, str | None]] = {
     "runs": {
         "run_id": "id",
         "source_id": "source_id",
@@ -244,22 +244,24 @@ class HollywoodStorage:
     def insert_raw_records(self, run_id: str, archived_payloads: Iterable[ArchivedPayload]) -> None:
         rows: list[dict[str, Any]] = []
         for p in archived_payloads:
-            rows.append({
-                "id": p.raw_record_id,
-                "run_id": run_id,
-                "source_id": p.source_id,
-                "source_kind": p.source_kind,
-                "payload_type": p.payload_type,
-                "content_path": p.content_path,
-                "content_hash": p.content_hash,
-                "content_type": p.content_type,
-                "source_url": p.source_url,
-                "canonical_url": p.canonical_url,
-                "fetched_at": p.fetched_at.isoformat()
-                if hasattr(p.fetched_at, "isoformat")
-                else str(p.fetched_at),
-                "metadata_json": p.metadata_json,
-            })
+            rows.append(
+                {
+                    "id": p.raw_record_id,
+                    "run_id": run_id,
+                    "source_id": p.source_id,
+                    "source_kind": p.source_kind,
+                    "payload_type": p.payload_type,
+                    "content_path": p.content_path,
+                    "content_hash": p.content_hash,
+                    "content_type": p.content_type,
+                    "source_url": p.source_url,
+                    "canonical_url": p.canonical_url,
+                    "fetched_at": p.fetched_at.isoformat()
+                    if hasattr(p.fetched_at, "isoformat")
+                    else str(p.fetched_at),
+                    "metadata_json": p.metadata_json,
+                }
+            )
         self._upsert_dicts("raw_records", rows, ("id",))
 
     def load_raw_records(

@@ -38,3 +38,19 @@ clean:
 
 help:
     @just --list
+
+# ── API ──────────────────────────────────────────────────────────────────────
+api-setup:
+    cd api && npm install
+
+api-dev:
+    cd api && npx tsx src/index.ts
+
+api-typecheck:
+    cd api && npx tsc --noEmit
+
+api-build:
+    cd api && npx tsc
+
+api-start:
+    cd api && node dist/index.js

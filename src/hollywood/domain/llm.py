@@ -54,6 +54,7 @@ def _get_api_key() -> str | None:
 
 # ── System prompt ───────────────────────────────────────────────────────────
 
+
 def _system_prompt(prompt_version: str) -> str:
     return f"""You extract structured submission data from writer/talent submission emails.
 
@@ -91,6 +92,7 @@ Prompt version: {prompt_version}"""
 
 # ── JSON Schema ─────────────────────────────────────────────────────────────
 
+
 def _build_json_schema() -> dict[str, Any]:
     """Build the JSON schema for structured output — mirrors kuma's submissionPacketJSONSchema()."""
 
@@ -122,10 +124,22 @@ def _build_json_schema() -> dict[str, Any]:
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "role": {"type": "string", "description": "The candidate's role on the project. Use lowercase."},
-            "type": {"type": "string", "enum": ["tv", "movie", "novel", "magazine", "podcast"], "description": "The type of project. Use lowercase."},
-            "production": {"type": "string", "description": "The name of the production or project."},
-            "network": optional_string("The network, streamer, studio, platform, publisher, or company associated with the project."),
+            "role": {
+                "type": "string",
+                "description": "The candidate's role on the project. Use lowercase.",
+            },
+            "type": {
+                "type": "string",
+                "enum": ["tv", "movie", "novel", "magazine", "podcast"],
+                "description": "The type of project. Use lowercase.",
+            },
+            "production": {
+                "type": "string",
+                "description": "The name of the production or project.",
+            },
+            "network": optional_string(
+                "The network, streamer, studio, platform, publisher, or company associated with the project."
+            ),
         },
         "required": ["role", "type", "production", "network"],
     }
@@ -135,7 +149,10 @@ def _build_json_schema() -> dict[str, Any]:
         "additionalProperties": False,
         "properties": {
             "name": {"type": "string", "description": "The exact name of the organization."},
-            "type": {"type": "string", "description": "The organization type: network, studio, streamer, agency, etc."},
+            "type": {
+                "type": "string",
+                "description": "The organization type: network, studio, streamer, agency, etc.",
+            },
         },
         "required": ["name", "type"],
     }
@@ -145,7 +162,9 @@ def _build_json_schema() -> dict[str, Any]:
         "additionalProperties": False,
         "properties": {
             "name": {"type": "string", "description": "The name of the associate."},
-            "production": optional_string("The production the associate worked on with the candidate."),
+            "production": optional_string(
+                "The production the associate worked on with the candidate."
+            ),
         },
         "required": ["name", "production"],
     }
@@ -155,7 +174,11 @@ def _build_json_schema() -> dict[str, Any]:
         "additionalProperties": False,
         "properties": {
             "url": {"type": "string", "description": "The full URL of the link."},
-            "type": {"type": "string", "enum": ["IMDB", "Twitter", "Instagram", "Facebook", "LinkedIn", "Other"], "description": "The type of link."},
+            "type": {
+                "type": "string",
+                "enum": ["IMDB", "Twitter", "Instagram", "Facebook", "LinkedIn", "Other"],
+                "description": "The type of link.",
+            },
         },
         "required": ["url", "type"],
     }
@@ -165,8 +188,13 @@ def _build_json_schema() -> dict[str, Any]:
         "additionalProperties": False,
         "properties": {
             "name": {"type": "string", "description": "The full name of the representative."},
-            "title": {"type": "string", "description": "The representative's job title. Use lowercase."},
-            "organization": optional_string("The company or organization the representative is associated with."),
+            "title": {
+                "type": "string",
+                "description": "The representative's job title. Use lowercase.",
+            },
+            "organization": optional_string(
+                "The company or organization the representative is associated with."
+            ),
             "email": optional_email("The email address of the representative."),
             "phone_number": optional_phone("The phone number of the representative."),
         },
@@ -182,14 +210,50 @@ def _build_json_schema() -> dict[str, Any]:
             "email": optional_email("The candidate's email address."),
             "phone_number": optional_phone("The candidate's phone number."),
             "position": optional_string("The candidate's primary job title."),
-            "tags": {"type": "array", "items": {"type": "string"}, "description": "4-5 concise tags."},
-            "credits": {"type": "array", "items": credit_schema, "description": "Projects in the candidate's bio."},
-            "organizations": {"type": "array", "items": organization_schema, "description": "Organizations tied to the candidate."},
-            "associates": {"type": "array", "items": associate_schema, "description": "People who have worked with the candidate."},
-            "links": {"type": "array", "items": link_schema, "description": "URLs for the candidate."},
-            "representatives": {"type": "array", "items": rep_schema, "description": "Agents, managers, assistants, or publicists."},
+            "tags": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "4-5 concise tags.",
+            },
+            "credits": {
+                "type": "array",
+                "items": credit_schema,
+                "description": "Projects in the candidate's bio.",
+            },
+            "organizations": {
+                "type": "array",
+                "items": organization_schema,
+                "description": "Organizations tied to the candidate.",
+            },
+            "associates": {
+                "type": "array",
+                "items": associate_schema,
+                "description": "People who have worked with the candidate.",
+            },
+            "links": {
+                "type": "array",
+                "items": link_schema,
+                "description": "URLs for the candidate.",
+            },
+            "representatives": {
+                "type": "array",
+                "items": rep_schema,
+                "description": "Agents, managers, assistants, or publicists.",
+            },
         },
-        "required": ["name", "bio", "email", "phone_number", "position", "tags", "credits", "organizations", "associates", "links", "representatives"],
+        "required": [
+            "name",
+            "bio",
+            "email",
+            "phone_number",
+            "position",
+            "tags",
+            "credits",
+            "organizations",
+            "associates",
+            "links",
+            "representatives",
+        ],
     }
 
     return {
@@ -204,6 +268,7 @@ def _build_json_schema() -> dict[str, Any]:
 
 
 # ── OpenRouter client ───────────────────────────────────────────────────────
+
 
 def _call_openrouter(
     text: str,
@@ -257,7 +322,9 @@ def _call_openrouter(
         data = resp.json()
 
         if "error" in data:
-            raise ExtractionError(f"OpenRouter error: {data['error'].get('message', str(data['error']))}")
+            raise ExtractionError(
+                f"OpenRouter error: {data['error'].get('message', str(data['error']))}"
+            )
 
         choices = data.get("choices", [])
         if not choices:
@@ -279,6 +346,7 @@ def _call_openrouter(
 
 
 # ── Normalization ───────────────────────────────────────────────────────────
+
 
 def normalize_packet(packet: SubmissionPacket) -> SubmissionPacket:
     if not packet.schema_version.strip():
@@ -364,7 +432,13 @@ def _classify_org_type(name: str) -> str:
         return "studio"
     if "productions" in lower or "production" in lower:
         return "production company"
-    if "media" in lower or "entertainment" in lower or "pictures" in lower or "films" in lower or "film" in lower:
+    if (
+        "media" in lower
+        or "entertainment" in lower
+        or "pictures" in lower
+        or "films" in lower
+        or "film" in lower
+    ):
         return "production company"
     return "company"
 
@@ -394,6 +468,7 @@ def _synthesize_bio(c: Candidate) -> str:
 
 
 # ── Deduplication helpers ───────────────────────────────────────────────────
+
 
 def _dedupe_credits(values: list[Credit]) -> list[Credit]:
     seen: set[str] = set()

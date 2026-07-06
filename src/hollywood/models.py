@@ -37,13 +37,15 @@ def canonicalize_url(url: str) -> str:
         if key.lower() not in TRACKING_QUERY_KEYS
     ]
     path = split.path.rstrip("/") or "/"
-    return urlunsplit((
-        split.scheme.lower(),
-        split.netloc.lower(),
-        path,
-        "&".join(f"{k}={v}" for k, v in query_items),
-        "",
-    ))
+    return urlunsplit(
+        (
+            split.scheme.lower(),
+            split.netloc.lower(),
+            path,
+            "&".join(f"{k}={v}" for k, v in query_items),
+            "",
+        )
+    )
 
 
 def normalize_whitespace(text: str) -> str:
