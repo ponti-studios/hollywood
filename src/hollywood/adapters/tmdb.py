@@ -93,6 +93,7 @@ class TmdbAdapter(BaseAdapter):
         raw_records: list[dict[str, object]],
     ) -> NormalizedBundle:
         bundle = NormalizedBundle()
+        seen_entities: set[str] = set()
         for record in raw_records:
             if str(record["payload_type"]) != "api_json":
                 continue
@@ -105,23 +106,25 @@ class TmdbAdapter(BaseAdapter):
                 person_id = str(document["id"])
                 name = str(document.get("name") or person_id)
                 entity_id = make_stable_id("tmdb", "person", person_id)
-                bundle.entities.append(
-                    EntityRow(
-                        entity_id=entity_id,
-                        source_id=self.source.source_id,
-                        external_id=person_id,
-                        entity_type=EntityKind.PERSON.value,
-                        name=name,
-                        canonical_name=name.casefold(),
-                        license_class=self.source.license_class.value,
-                        metadata_json=json_dumps(
-                            {
-                                "known_for_department": document.get("known_for_department"),
-                                "external_ids": document.get("external_ids", {}),
-                            }
-                        ),
+                if entity_id not in seen_entities:
+                    seen_entities.add(entity_id)
+                    bundle.entities.append(
+                        EntityRow(
+                            entity_id=entity_id,
+                            source_id=self.source.source_id,
+                            external_id=person_id,
+                            entity_type=EntityKind.PERSON.value,
+                            name=name,
+                            canonical_name=name.casefold(),
+                            license_class=self.source.license_class.value,
+                            metadata_json=json_dumps(
+                                {
+                                    "known_for_department": document.get("known_for_department"),
+                                    "external_ids": document.get("external_ids", {}),
+                                }
+                            ),
+                        )
                     )
-                )
                 for alias in document.get("also_known_as", [])[:5]:
                     if alias:
                         bundle.entity_aliases.append(
@@ -136,23 +139,25 @@ class TmdbAdapter(BaseAdapter):
                 title_id = str(document["id"])
                 title_name = str(document.get("title") or document.get("name") or title_id)
                 title_entity_id = make_stable_id("tmdb", media_type, title_id)
-                bundle.entities.append(
-                    EntityRow(
-                        entity_id=title_entity_id,
-                        source_id=self.source.source_id,
-                        external_id=title_id,
-                        entity_type=EntityKind.TITLE.value,
-                        name=title_name,
-                        canonical_name=title_name.casefold(),
-                        license_class=self.source.license_class.value,
-                        metadata_json=json_dumps(
-                            {
-                                "media_type": media_type,
-                                "external_ids": document.get("external_ids", {}),
-                            }
-                        ),
+                if title_entity_id not in seen_entities:
+                    seen_entities.add(title_entity_id)
+                    bundle.entities.append(
+                        EntityRow(
+                            entity_id=title_entity_id,
+                            source_id=self.source.source_id,
+                            external_id=title_id,
+                            entity_type=EntityKind.TITLE.value,
+                            name=title_name,
+                            canonical_name=title_name.casefold(),
+                            license_class=self.source.license_class.value,
+                            metadata_json=json_dumps(
+                                {
+                                    "media_type": media_type,
+                                    "external_ids": document.get("external_ids", {}),
+                                }
+                            ),
+                        )
                     )
-                )
                 credits = document.get("credits", {})
                 for cast_member in credits.get("cast", [])[:20]:
                     person_name = cast_member.get("name")
@@ -160,20 +165,22 @@ class TmdbAdapter(BaseAdapter):
                     if not person_name or person_id is None:
                         continue
                     person_entity_id = make_stable_id("tmdb", "person", str(person_id))
-                    bundle.entities.append(
-                        EntityRow(
-                            entity_id=person_entity_id,
-                            source_id=self.source.source_id,
-                            external_id=str(person_id),
-                            entity_type=EntityKind.PERSON.value,
-                            name=str(person_name),
-                            canonical_name=str(person_name).casefold(),
-                            license_class=self.source.license_class.value,
-                            metadata_json=json_dumps(
-                                {"known_for_department": cast_member.get("known_for_department")}
-                            ),
+                    if person_entity_id not in seen_entities:
+                        seen_entities.add(person_entity_id)
+                        bundle.entities.append(
+                            EntityRow(
+                                entity_id=person_entity_id,
+                                source_id=self.source.source_id,
+                                external_id=str(person_id),
+                                entity_type=EntityKind.PERSON.value,
+                                name=str(person_name),
+                                canonical_name=str(person_name).casefold(),
+                                license_class=self.source.license_class.value,
+                                metadata_json=json_dumps(
+                                    {"known_for_department": cast_member.get("known_for_department")}
+                                ),
+                            )
                         )
-                    )
                     bundle.credits.append(
                         CreditRow(
                             credit_id=make_stable_id(
@@ -184,6 +191,7 @@ class TmdbAdapter(BaseAdapter):
                             ),
                             source_id=self.source.source_id,
                             person_entity_id=person_entity_id,
+                            title_entity_id=title_entity_id,
                             person_name=str(person_name),
                             title_name=title_name,
                             title_external_id=title_id,
@@ -200,18 +208,20 @@ class TmdbAdapter(BaseAdapter):
                     if not person_name or person_id is None:
                         continue
                     person_entity_id = make_stable_id("tmdb", "person", str(person_id))
-                    bundle.entities.append(
-                        EntityRow(
-                            entity_id=person_entity_id,
-                            source_id=self.source.source_id,
-                            external_id=str(person_id),
-                            entity_type=EntityKind.PERSON.value,
-                            name=str(person_name),
-                            canonical_name=str(person_name).casefold(),
-                            license_class=self.source.license_class.value,
-                            metadata_json=json_dumps({"department": crew_member.get("department")}),
+                    if person_entity_id not in seen_entities:
+                        seen_entities.add(person_entity_id)
+                        bundle.entities.append(
+                            EntityRow(
+                                entity_id=person_entity_id,
+                                source_id=self.source.source_id,
+                                external_id=str(person_id),
+                                entity_type=EntityKind.PERSON.value,
+                                name=str(person_name),
+                                canonical_name=str(person_name).casefold(),
+                                license_class=self.source.license_class.value,
+                                metadata_json=json_dumps({"department": crew_member.get("department")}),
+                            )
                         )
-                    )
                     bundle.credits.append(
                         CreditRow(
                             credit_id=make_stable_id(
@@ -222,6 +232,7 @@ class TmdbAdapter(BaseAdapter):
                             ),
                             source_id=self.source.source_id,
                             person_entity_id=person_entity_id,
+                            title_entity_id=title_entity_id,
                             person_name=str(person_name),
                             title_name=title_name,
                             title_external_id=title_id,

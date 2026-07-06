@@ -91,9 +91,10 @@ _COLUMN_MAP: dict[str, dict[str, str]] = {
         "credit_id": "id",
         "source_id": "source_id",
         "person_entity_id": "person_id",
-        "person_name": None,               # discarded — use entity lookup
-        "title_name": None,                # discarded — use entity lookup
-        "title_external_id": "external_id",  # stored differently in new schema
+        "title_entity_id": "title_id",
+        "person_name": None,  # discarded — use entity lookup
+        "title_name": None,  # discarded — use entity lookup
+        "title_external_id": None,  # discarded — use entity lookup
         "role": "role",
         "billing": "billing",
         "metadata_json": "metadata_json",
@@ -105,12 +106,14 @@ _DEFAULTS: dict[str, dict[str, Any]] = {
     "runs": {"run_kind": "ingest"},
     "entities": {
         "status": "active",
-        "created_at": None,     # filled at insert time
-        "updated_at": None,     # filled at insert time
+        "created_at": None,  # filled at insert time
+        "updated_at": None,  # filled at insert time
     },
+    "entity_aliases": {"created_at": None},
     "credits": {
         "credit_type": "cast",
         "trust_state": "machine_extracted",
+        "created_at": None,
     },
 }
 
@@ -195,9 +198,7 @@ class HollywoodStorage:
 
     # ── raw records ───────────────────────────────────────────────
 
-    def insert_raw_records(
-        self, run_id: str, archived_payloads: Iterable[ArchivedPayload]
-    ) -> None:
+    def insert_raw_records(self, run_id: str, archived_payloads: Iterable[ArchivedPayload]) -> None:
         rows: list[dict[str, Any]] = []
         for p in archived_payloads:
             rows.append({
@@ -211,7 +212,9 @@ class HollywoodStorage:
                 "content_type": p.content_type,
                 "source_url": p.source_url,
                 "canonical_url": p.canonical_url,
-                "fetched_at": p.fetched_at.isoformat() if hasattr(p.fetched_at, "isoformat") else str(p.fetched_at),
+                "fetched_at": p.fetched_at.isoformat()
+                if hasattr(p.fetched_at, "isoformat")
+                else str(p.fetched_at),
                 "metadata_json": p.metadata_json,
             })
         self._upsert_dicts("raw_records", rows, ("id",))
@@ -265,6 +268,7 @@ class HollywoodStorage:
         if file_format == "parquet":
             import pyarrow as pa
             import pyarrow.parquet as pq
+
             if records:
                 table_arrow = pa.Table.from_pylist(records)
                 pq.write_table(table_arrow, path)
@@ -279,18 +283,20 @@ class HollywoodStorage:
 
     def export_all(self, output_dir: Path, file_format: str) -> list[Path]:
         tables = (
-            "runs", "raw_records",
-            "articles", "article_content", "article_entities",
-            "entities", "entity_aliases",
+            "runs",
+            "raw_records",
+            "articles",
+            "article_content",
+            "article_entities",
+            "entities",
+            "entity_aliases",
             "credits",
         )
         return [self.export_table(table, output_dir, file_format) for table in tables]
 
     # ── internal upsert ──────────────────────────────────────────
 
-    def _upsert_models(
-        self, table: str, rows: Iterable[Any], key_cols: tuple[str, ...]
-    ) -> None:
+    def _upsert_models(self, table: str, rows: Iterable[Any], key_cols: tuple[str, ...]) -> None:
         payload: list[dict[str, Any]] = []
         for row in rows:
             payload.append(row.model_dump(mode="python"))
@@ -323,7 +329,8 @@ class HollywoodStorage:
                 mapped: dict[str, Any] = {}
                 for model_field, value in row.items():
                     db_col = col_map.get(model_field, model_field)
-                    mapped[db_col] = value
+                    if db_col is not None:
+                        mapped[db_col] = value
             else:
                 # Raw records: already DB column names, pass through
                 mapped = dict(row)
@@ -331,11 +338,13 @@ class HollywoodStorage:
             for col, default in _DEFAULTS.get(table, {}).items():
                 if col not in mapped:
                     mapped[col] = default() if callable(default) else default
-            # Fill timestamps
-            if "created_at" in mapped and mapped["created_at"] is None:
-                mapped["created_at"] = _now()
-            if "updated_at" in mapped and mapped["updated_at"] is None:
-                mapped["updated_at"] = _now()
+            # Fill timestamps only for rows that already have these columns
+            if "created_at" in mapped:
+                if mapped["created_at"] is None or mapped["created_at"] == "":
+                    mapped["created_at"] = _now()
+            if "updated_at" in mapped:
+                if mapped["updated_at"] is None or mapped["updated_at"] == "":
+                    mapped["updated_at"] = _now()
             db_rows.append(mapped)
 
         if not db_rows:
@@ -345,14 +354,10 @@ class HollywoodStorage:
         placeholders = ", ".join("?" for _ in columns)
         col_list = ", ".join(columns)
 
-        key_condition = " AND ".join(f"{col} = ?" for col in key_cols)
-
         conn = self.connect()
         for row in db_rows:
-            key_vals = [row[col] for col in key_cols]
-            conn.execute(f"DELETE FROM {table} WHERE {key_condition}", key_vals)
             vals = [row[col] for col in columns]
             conn.execute(
-                f"INSERT INTO {table} ({col_list}) VALUES ({placeholders})", vals
+                f"INSERT OR REPLACE INTO {table} ({col_list}) VALUES ({placeholders})", vals
             )
         conn.commit()

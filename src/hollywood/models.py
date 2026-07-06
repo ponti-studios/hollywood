@@ -37,15 +37,13 @@ def canonicalize_url(url: str) -> str:
         if key.lower() not in TRACKING_QUERY_KEYS
     ]
     path = split.path.rstrip("/") or "/"
-    return urlunsplit(
-        (
-            split.scheme.lower(),
-            split.netloc.lower(),
-            path,
-            "&".join(f"{k}={v}" for k, v in query_items),
-            "",
-        )
-    )
+    return urlunsplit((
+        split.scheme.lower(),
+        split.netloc.lower(),
+        path,
+        "&".join(f"{k}={v}" for k, v in query_items),
+        "",
+    ))
 
 
 def normalize_whitespace(text: str) -> str:
@@ -174,6 +172,7 @@ class EntityAliasRow(BaseModel):
     source_id: str
     alias: str
     metadata_json: str = "{}"
+    created_at: str = ""
 
 
 class ArticleEntityRow(BaseModel):
@@ -189,6 +188,7 @@ class CreditRow(BaseModel):
     credit_id: str
     source_id: str
     person_entity_id: str | None = None
+    title_entity_id: str | None = None
     person_name: str | None = None
     title_name: str | None = None
     title_external_id: str | None = None
