@@ -9,23 +9,31 @@ cd "$repo_root"
 
 uv run python -m playwright install chromium
 
-output_jsonl="$output_dir/wga_writers.jsonl"
-uv run hollywood --prefixes a --max-profiles 1 --output "$output_jsonl"
+data_dir="$output_dir/data"
+uv run hollywood sources list > /dev/null
+uv run hollywood ingest group news --limit 1 --data-dir "$data_dir"
+uv run hollywood ingest source wga --limit 1 --prefixes a --data-dir "$data_dir"
+uv run hollywood normalize --data-dir "$data_dir"
+uv run hollywood export --all --data-dir "$data_dir"
 
-python3 - "$output_jsonl" <<'PY'
-import json
+uv run python - "$data_dir" <<'PY'
+from pathlib import Path
+import duckdb
 import sys
 
-path = sys.argv[1]
-with open(path, "r", encoding="utf-8") as handle:
-    rows = [json.loads(line) for line in handle if line.strip()]
+data_dir = Path(sys.argv[1])
+db_path = data_dir / "hollywood.duckdb"
+assert db_path.exists(), db_path
 
-assert rows, "expected at least one writer row"
-assert len({row["profile_url"] for row in rows}) == len(rows), rows
+conn = duckdb.connect(str(db_path))
+article_count = conn.execute("select count(*) from articles").fetchone()[0]
+raw_count = conn.execute("select count(*) from raw_records").fetchone()[0]
+entity_count = conn.execute("select count(*) from entities").fetchone()[0]
+assert article_count >= 1, article_count
+assert raw_count >= 1, raw_count
+assert entity_count >= 1, entity_count
 
-for row in rows:
-    assert set(row) == {"writer_id", "profile_url", "raw_text_snapshot"}, row
-    assert row["writer_id"], row
-    assert row["profile_url"].startswith("https://directories.wga.org/member/"), row
-    assert row["raw_text_snapshot"].strip(), row
+parquet_dir = data_dir / "parquet"
+assert (parquet_dir / "articles.parquet").exists(), parquet_dir
+assert (parquet_dir / "entities.parquet").exists(), parquet_dir
 PY

@@ -1,21 +1,5 @@
-"""Hollywood WGA writer crawl CLI."""
+"""Hollywood data CLI."""
 
-from .crawler import (
-    BASE_URL,
-    DEFAULT_OUTPUT,
-    DEFAULT_PREFIXES,
-    DEFAULT_USER_AGENT,
-    build_row,
-    normalize_prefixes,
-    writer_key,
-)
+__all__ = ["__version__"]
 
-__all__ = [
-    "BASE_URL",
-    "DEFAULT_OUTPUT",
-    "DEFAULT_PREFIXES",
-    "DEFAULT_USER_AGENT",
-    "build_row",
-    "normalize_prefixes",
-    "writer_key",
-]
+__version__ = "0.1.0"

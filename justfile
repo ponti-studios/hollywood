@@ -7,7 +7,7 @@ setup:
     uv sync --extra dev
 
 test:
-    uv run pytest tests/
+    uv run python -m pytest tests/
 
 smoke:
     uv run hollywood --help
@@ -26,10 +26,13 @@ format:
     uv run ruff check --fix src/ tests/
 
 typecheck:
-    uv run pyright src/
+    uv run python -m pyright src/
+
+export:
+    uv run hollywood export --all
 
 clean:
-    rm -rf .pytest_cache dist/ .ruff_cache/ .build/ .venv
+    rm -rf .pytest_cache dist/ .ruff_cache/ .build/ .venv data/
     find . -name "*.pyc" -delete
     find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 

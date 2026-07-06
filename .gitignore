@@ -2,6 +2,7 @@
 .env
 .data
 .build
+data/
 
 # Python
 .venv
