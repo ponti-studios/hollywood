@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+import csv
 import io
 import json
 import urllib.request
 from pathlib import Path
-
-import polars as pl
 
 from ..config import HollywoodSettings
 from ..models import (
@@ -75,18 +74,12 @@ class ImdbAdapter(BaseAdapter):
             path = Path(str(record["content_path"]))
             metadata = json.loads(str(record["metadata_json"]))
             dataset_name = metadata["dataset_name"]
-            frame = pl.read_csv(
-                path,
-                separator="\t",
-                null_values="\\N",
-                infer_schema_length=100,
-                truncate_ragged_lines=True,
-            )
+            frame_rows = list(csv.DictReader(path.read_text(encoding="utf-8").splitlines(), delimiter="\t"))
             if dataset_name == "name.basics":
-                for row in frame.iter_rows(named=True):
+                for row in frame_rows:
                     name = row.get("primaryName")
                     nconst = row.get("nconst")
-                    if not name or not nconst:
+                    if not name or not nconst or nconst == r"\N":
                         continue
                     entity_id = make_stable_id("imdb", str(nconst))
                     bundle.entities.append(
@@ -117,10 +110,10 @@ class ImdbAdapter(BaseAdapter):
                         )
                     )
             elif dataset_name == "title.basics":
-                for row in frame.iter_rows(named=True):
+                for row in frame_rows:
                     title = row.get("primaryTitle")
                     tconst = row.get("tconst")
-                    if not title or not tconst:
+                    if not title or not tconst or tconst == r"\N":
                         continue
                     entity_id = make_stable_id("imdb", str(tconst))
                     bundle.entities.append(
@@ -143,12 +136,12 @@ class ImdbAdapter(BaseAdapter):
                         )
                     )
             elif dataset_name == "title.principals":
-                for row in frame.iter_rows(named=True):
+                for row in frame_rows:
                     tconst = row.get("tconst")
                     nconst = row.get("nconst")
                     role = row.get("category")
                     ordering = row.get("ordering")
-                    if not tconst or not nconst or not role:
+                    if not tconst or not nconst or not role or tconst == r"\N" or nconst == r"\N":
                         continue
                     bundle.credits.append(
                         CreditRow(

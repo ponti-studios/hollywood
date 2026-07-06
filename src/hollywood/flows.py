@@ -29,10 +29,10 @@ def archive_payloads_task(source: SourceDefinition, settings: HollywoodSettings,
 def normalize_payloads_task(
     source: SourceDefinition,
     settings: HollywoodSettings,
-    storage: HollywoodStorage,
     run_id: str,
     raw_records: list[dict[str, object]],
 ):
+    storage = HollywoodStorage(settings.resolved_db_path)
     adapter = get_adapter(source)
     return adapter.normalize_raw_records(settings, storage, run_id, raw_records)
 
@@ -50,7 +50,7 @@ def ingest_source_flow(
         archived_payloads = archive_payloads_task(source, settings, payloads)
         storage.insert_raw_records(run_id, archived_payloads)
         raw_records = storage.load_raw_records(run_id=run_id)
-        bundle = normalize_payloads_task(source, settings, storage, run_id, raw_records)
+        bundle = normalize_payloads_task(source, settings, run_id, raw_records)
         storage.apply_bundle(bundle)
         summary = RunSummary(
             run_id=run_id,

@@ -257,7 +257,7 @@ class WgaAdapter(BaseAdapter):
                     metadata_json=json_dumps(
                         {
                             "profile_url": metadata.get("profile_url"),
-                            "raw_record_id": record["raw_record_id"],
+                            "raw_record_id": record["id"],
                         }
                     ),
                 )

@@ -145,11 +145,11 @@ class ArticleRow(BaseModel):
     metadata_json: str = "{}"
 
 
-class ArticleBodyRow(BaseModel):
-    body_id: str
+class ArticleContentRow(BaseModel):
+    content_id: str
     article_id: str
     source_id: str
-    body_kind: str
+    content_kind: str
     text: str
     raw_record_id: str
     content_hash: str
@@ -199,7 +199,7 @@ class CreditRow(BaseModel):
 
 class NormalizedBundle(BaseModel):
     articles: list[ArticleRow] = Field(default_factory=list)
-    article_bodies: list[ArticleBodyRow] = Field(default_factory=list)
+    article_content: list[ArticleContentRow] = Field(default_factory=list)
     entities: list[EntityRow] = Field(default_factory=list)
     entity_aliases: list[EntityAliasRow] = Field(default_factory=list)
     article_entities: list[ArticleEntityRow] = Field(default_factory=list)
@@ -207,7 +207,7 @@ class NormalizedBundle(BaseModel):
 
     def extend(self, other: NormalizedBundle) -> None:
         self.articles.extend(other.articles)
-        self.article_bodies.extend(other.article_bodies)
+        self.article_content.extend(other.article_content)
         self.entities.extend(other.entities)
         self.entity_aliases.extend(other.entity_aliases)
         self.article_entities.extend(other.article_entities)
@@ -216,7 +216,7 @@ class NormalizedBundle(BaseModel):
     def counts(self) -> dict[str, int]:
         return {
             "articles": len(self.articles),
-            "article_bodies": len(self.article_bodies),
+            "article_content": len(self.article_content),
             "entities": len(self.entities),
             "entity_aliases": len(self.entity_aliases),
             "article_entities": len(self.article_entities),

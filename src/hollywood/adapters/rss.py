@@ -11,7 +11,7 @@ from dateutil import parser as date_parser
 from ..config import HollywoodSettings
 from ..extractors import extract_text_from_html, strip_html_fragment
 from ..models import (
-    ArticleBodyRow,
+    ArticleContentRow,
     ArticleEntityRow,
     ArticleRow,
     EntityAliasRow,
@@ -174,14 +174,14 @@ class RssAdapter(BaseAdapter):
 
                     description_text = strip_html_fragment(_entry_value(entry, "summary"))
                     if description_text:
-                        bundle.article_bodies.append(
-                            ArticleBodyRow(
-                                body_id=make_stable_id(article_id, "feed_description"),
+                        bundle.article_content.append(
+                            ArticleContentRow(
+                                content_id=make_stable_id(article_id, "feed_description"),
                                 article_id=article_id,
                                 source_id=self.source.source_id,
-                                body_kind="feed_description",
+                                content_kind="feed_description",
                                 text=description_text,
-                                raw_record_id=str(record["raw_record_id"]),
+                                raw_record_id=str(record["id"]),
                                 content_hash=str(record["content_hash"]),
                                 license_class=self.source.license_class.value,
                             )
@@ -191,14 +191,14 @@ class RssAdapter(BaseAdapter):
                     if content_items:
                         encoded_text = strip_html_fragment(str(content_items[0].get("value", "")))
                         if encoded_text:
-                            bundle.article_bodies.append(
-                                ArticleBodyRow(
-                                    body_id=make_stable_id(article_id, "feed_content"),
+                            bundle.article_content.append(
+                                ArticleContentRow(
+                                    content_id=make_stable_id(article_id, "feed_content"),
                                     article_id=article_id,
                                     source_id=self.source.source_id,
-                                    body_kind="feed_content",
+                                    content_kind="feed_content",
                                     text=encoded_text,
-                                    raw_record_id=str(record["raw_record_id"]),
+                                    raw_record_id=str(record["id"]),
                                     content_hash=str(record["content_hash"]),
                                     license_class=self.source.license_class.value,
                                 )
@@ -244,14 +244,14 @@ class RssAdapter(BaseAdapter):
                     path.read_text(encoding="utf-8", errors="replace")
                 )
                 if extracted:
-                    bundle.article_bodies.append(
-                        ArticleBodyRow(
-                            body_id=make_stable_id(article_id, "page_extract"),
+                    bundle.article_content.append(
+                        ArticleContentRow(
+                            content_id=make_stable_id(article_id, "page_extract"),
                             article_id=article_id,
                             source_id=self.source.source_id,
-                            body_kind="page_extract",
+                            content_kind="page_extract",
                             text=extracted,
-                            raw_record_id=str(record["raw_record_id"]),
+                            raw_record_id=str(record["id"]),
                             content_hash=str(record["content_hash"]),
                             license_class=self.source.license_class.value,
                             metadata_json=json_dumps({"source_url": record["source_url"]}),

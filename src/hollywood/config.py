@@ -19,15 +19,14 @@ class HollywoodSettings(BaseSettings):
     @property
     def resolved_data_dir(self) -> Path:
         """Resolve data_dir to an absolute path so Prefect temp CWDs don't break."""
-        p = self.data_dir
+        p = self.data_dir.expanduser()
         if not p.is_absolute():
-            # Resolve relative to the project root (where .env lives), not CWD
             p = Path(__file__).resolve().parent.parent.parent / p
         return p
 
     @property
     def resolved_db_path(self) -> Path:
-        p = self.db_path
+        p = self.db_path.expanduser()
         if not p.is_absolute():
             p = Path(__file__).resolve().parent.parent.parent / p
         return p

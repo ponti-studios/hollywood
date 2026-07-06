@@ -12,9 +12,10 @@ from . import __version__
 from .adapters import get_adapter
 from .config import HollywoodSettings
 from .flows import export_flow, ingest_group_flow, ingest_source_flow, normalize_flow
-from .models import DoctorCheck, IngestOptions
+from .models import DoctorCheck, IngestOptions, RunStatus, RunSummary
 from .registry import get_source, list_sources
 from .storage import HollywoodStorage
+
 
 app = typer.Typer(help="Hollywood data CLI for feeds, datasets, and directories.")
 sources_app = typer.Typer(help="List built-in sources.")
@@ -22,6 +23,47 @@ ingest_app = typer.Typer(help="Run source and source-group ingests.")
 app.add_typer(sources_app, name="sources")
 app.add_typer(ingest_app, name="ingest")
 console = Console()
+
+
+def _run_ingest_source_direct(source_id: str, settings: HollywoodSettings, options: IngestOptions) -> RunSummary:
+    """Run ingest without Prefect orchestration (for CLI usage)."""
+    from .flows import archive_payloads_task, fetch_payloads_task, normalize_payloads_task
+    from .registry import get_source as _get_source
+
+    source = _get_source(source_id)
+    storage = HollywoodStorage(settings.resolved_db_path)
+    storage.initialize()
+    run_id = storage.start_run(source, options.model_dump_json())
+    try:
+        payloads = fetch_payloads_task.fn(source, settings, options)
+        archived_payloads = archive_payloads_task.fn(source, settings, payloads)
+        storage.insert_raw_records(run_id, archived_payloads)
+        raw_records = storage.load_raw_records(run_id=run_id)
+        bundle = normalize_payloads_task.fn(source, settings, run_id, raw_records)
+        storage.apply_bundle(bundle)
+        summary = RunSummary(
+            run_id=run_id,
+            source_id=source.source_id,
+            status=RunStatus.SUCCEEDED,
+            raw_records=len(archived_payloads),
+            normalized=bundle.counts(),
+        )
+        storage.finish_run(run_id, RunStatus.SUCCEEDED, summary.model_dump(mode="json"))
+        return summary
+    except Exception as exc:
+        failure_summary = {"source_id": source.source_id, "error": str(exc)}
+        storage.finish_run(run_id, RunStatus.FAILED, failure_summary, error_text=str(exc))
+        raise
+    finally:
+        storage.close()
+
+
+def _run_ingest_group_direct(group_name: str, settings: HollywoodSettings, options: IngestOptions) -> list[RunSummary]:
+    """Run ingest group without Prefect."""
+    summaries: list[RunSummary] = []
+    for src in list_sources(group=group_name):
+        summaries.append(_run_ingest_source_direct(src.source_id, settings, options))
+    return summaries
 
 
 def _parse_since(value: str | None) -> datetime | None:
@@ -105,7 +147,7 @@ def ingest_source(
     options = IngestOptions(
         limit=limit, since=_parse_since(since), full_text=full_text, prefixes=parsed_prefixes
     )
-    summary = ingest_source_flow(source.source_id, settings, options)
+    summary = _run_ingest_source_direct(source.source_id, settings, options)
     console.print_json(data=summary.model_dump(mode="json"))
 
 
@@ -123,7 +165,7 @@ def ingest_group(
 ) -> None:
     settings = _build_settings(data_dir, db_path, log_level)
     options = IngestOptions(limit=limit, since=_parse_since(since), full_text=full_text)
-    summaries = ingest_group_flow(group_name, settings, options)
+    summaries = _run_ingest_group_direct(group_name, settings, options)
     console.print_json(data=[summary.model_dump(mode="json") for summary in summaries])
 
 
