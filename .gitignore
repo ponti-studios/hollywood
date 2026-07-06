@@ -42,3 +42,4 @@ wga_writers.jsonl
 
 # Local project OS state
 .kernel/state/
+.env
