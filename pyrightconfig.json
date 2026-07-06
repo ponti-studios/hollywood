@@ -2,5 +2,12 @@
   "venvPath": ".",
   "venv": ".venv",
   "typeCheckingMode": "standard",
-  "exclude": ["**/__pycache__", ".venv", ".data/**", "research/**/notebooks/*.ipynb"]
+  "exclude": [
+    "**/__pycache__",
+    "**/.*",
+    "**/node_modules",
+    ".venv",
+    ".data/**",
+    "research/**/notebooks/*.ipynb"
+  ]
 }
