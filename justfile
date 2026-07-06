@@ -54,3 +54,7 @@ api-build:
 
 api-start:
     cd api && node dist/index.js
+
+api-docs:
+    @echo "OpenAPI spec available at http://localhost:4000/openapi"
+    @echo "Start the server with: just api-dev"

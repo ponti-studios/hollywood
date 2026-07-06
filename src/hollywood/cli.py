@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -225,22 +226,29 @@ def extract(
     if db_path:
         settings = settings.model_copy(update={"db_path": db_path})
 
-    source_path = Path(path).expanduser().resolve()
-    if not source_path.exists():
+    source_path = Path(path).expanduser().resolve() if path != "-" else None
+    if path == "-":
+        # Read from stdin
+        raw_text = sys.stdin.read()
+        if not raw_text.strip():
+            console.print("[yellow]No input received on stdin.[/yellow]")
+            raise typer.Exit(code=0)
+        files = []  # We'll handle it inline below
+    elif not source_path.exists():
         console.print(f"[red]Path not found:[/red] {source_path}")
         raise typer.Exit(code=1)
-
-    # Collect files
-    if source_path.is_file():
-        files = [source_path]
     else:
-        files = sorted(p for p in source_path.glob("**/*") if p.suffix in (".txt", ".eml", ".md"))
-    if not files:
-        console.print("[yellow]No .txt, .eml, or .md files found.[/yellow]")
-        raise typer.Exit(code=0)
+        # Collect files
+        if source_path.is_file():
+            files = [source_path]
+        else:
+            files = sorted(p for p in source_path.glob("**/*") if p.suffix in (".txt", ".eml", ".md"))
+        if not files:
+            console.print("[yellow]No .txt, .eml, or .md files found.[/yellow]")
+            raise typer.Exit(code=0)
 
     console.print(
-        f"Extracting from {len(files)} file(s) with model [bold]{model or 'default'}[/bold]..."
+        f"Extracting from {'stdin' if path == '-' else f'{len(files)} file(s)'} with model [bold]{model or 'default'}[/bold]..."
     )
 
     if not dry_run:
@@ -248,16 +256,15 @@ def extract(
         storage.initialize()
 
     success, failed = 0, 0
-    for file in files:
-        console.print(f"  📄 {file.name}... ", end="")
+
+    if path == "-":
+        # Single extraction from stdin
+        console.print(f"  📄 stdin... ", end="")
         try:
-            text = file.read_text(encoding="utf-8", errors="replace")
-            result = _call_openrouter(text, prompt_version, model=model)
+            result = _call_openrouter(raw_text, prompt_version, model=model)
             packet = result.packet
             candidate_count = len(packet.candidates)
-
             if not dry_run and candidate_count:
-                # Persist extraction results
                 run_id = storage.start_run_raw("extraction", {})
                 for candidate in packet.candidates:
                     storage.save_extraction_result(
@@ -276,6 +283,35 @@ def extract(
         except Exception as e:
             console.print(f"[red]✗ Unexpected: {e}[/red]")
             failed += 1
+    else:
+        for file in files:
+            console.print(f"  📄 {file.name}... ", end="")
+            try:
+                text = file.read_text(encoding="utf-8", errors="replace")
+                result = _call_openrouter(text, prompt_version, model=model)
+                packet = result.packet
+                candidate_count = len(packet.candidates)
+
+                if not dry_run and candidate_count:
+                    # Persist extraction results
+                    run_id = storage.start_run_raw("extraction", {})
+                    for candidate in packet.candidates:
+                        storage.save_extraction_result(
+                            run_id=run_id,
+                            source_id="manual_extraction",
+                            candidate=candidate,
+                            model_name=result.model_name,
+                            prompt_version=prompt_version,
+                            raw_json=result.raw_json.decode("utf-8"),
+                        )
+                console.print(f"[green]✓ {candidate_count} candidate(s)[/green]")
+                success += 1
+            except ExtractionError as e:
+                console.print(f"[red]✗ {e}[/red]")
+                failed += 1
+            except Exception as e:
+                console.print(f"[red]✗ Unexpected: {e}[/red]")
+                failed += 1
 
     console.print(f"\nDone: {success} succeeded, {failed} failed")
 

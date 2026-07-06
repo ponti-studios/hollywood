@@ -30,8 +30,6 @@ htmlcov/
 # Build
 dist/
 build/
-wga_writers.jsonl
-api/dist/
 
 # Node
 node_modules/
