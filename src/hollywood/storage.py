@@ -208,6 +208,26 @@ class HollywoodStorage:
         conn.commit()
         return run_id
 
+    def insert_extraction_raw_record(
+        self,
+        run_id: str,
+        source_id: str,
+        content_path: str,
+        content_hash: int,
+    ) -> str:
+        """Insert a raw_records entry for a manual extraction (so document_id FK works)."""
+        raw_id = make_stable_id("extraction_raw", run_id, source_id, str(content_hash))
+        conn = self.connect()
+        conn.execute(
+            """INSERT OR IGNORE INTO raw_records
+               (id, run_id, source_id, source_kind, payload_type, content_path,
+                content_hash, content_type, fetched_at)
+               VALUES (?, ?, ?, 'upload', 'text/plain', ?, ?, 'text/plain', ?)""",
+            (raw_id, run_id, source_id, content_path, str(content_hash), _now()),
+        )
+        conn.commit()
+        return raw_id
+
     def save_extraction_result(
         self,
         run_id: str,
@@ -216,9 +236,11 @@ class HollywoodStorage:
         model_name: str,
         prompt_version: str,
         raw_json: str,
+        raw_record_id: str | None = None,
     ) -> None:
         """Persist a single extraction result from the LLM pipeline."""
-        result_id = make_stable_id("extraction", run_id, source_id, candidate.name)
+        doc_id = raw_record_id or run_id
+        result_id = make_stable_id("extraction", doc_id, source_id, candidate.name)
         conn = self.connect()
         conn.execute(
             """INSERT OR REPLACE INTO extraction_results
@@ -227,7 +249,7 @@ class HollywoodStorage:
                VALUES (?, ?, ?, ?, ?, ?, 'succeeded', ?, ?, ?)""",
             (
                 result_id,
-                run_id,
+                doc_id,
                 run_id,
                 "v1_submission_packet",
                 prompt_version,
@@ -238,6 +260,177 @@ class HollywoodStorage:
             ),
         )
         conn.commit()
+
+    def materialize_candidate(
+        self,
+        candidate: Any,
+        source_id: str = "llm_extraction",
+        raw_record_id: str | None = None,
+    ) -> str:
+        """Save a Candidate (from LLM extraction) as entities, credits, tags, etc.
+
+        Returns the entity ID of the created person.
+        """
+        now = _now()
+        conn = self.connect()
+        entity_id = make_stable_id("entity", source_id, candidate.name)
+
+        # 1. Create person entity
+        conn.execute(
+            """INSERT OR IGNORE INTO entities
+               (id, source_id, entity_type, name, canonical_name, bio, position,
+                status, license_class, created_at, updated_at)
+               VALUES (?, ?, 'person', ?, ?, ?, ?, 'active', 'public', ?, ?)""",
+            (
+                entity_id,
+                source_id,
+                candidate.name,
+                candidate.name.lower(),
+                candidate.bio,
+                candidate.position or "",
+                now,
+                now,
+            ),
+        )
+
+        # 2. Create alias for the name
+        alias_id = make_stable_id("alias", entity_id, candidate.name)
+        conn.execute(
+            """INSERT OR IGNORE INTO entity_aliases
+               (id, entity_id, source_id, alias, created_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (alias_id, entity_id, source_id, candidate.name, now),
+        )
+
+        # 3. Email as contact
+        if candidate.email:
+            email_id = make_stable_id("contact", entity_id, candidate.email)
+            conn.execute(
+                """INSERT OR IGNORE INTO entity_contacts
+                   (id, entity_id, source_id, contact_type, contact_value, created_at)
+                   VALUES (?, ?, ?, 'email', ?, ?)""",
+                (email_id, entity_id, source_id, candidate.email, now),
+            )
+
+        # 4. Phone as contact
+        if candidate.phone_number:
+            phone_id = make_stable_id("contact", entity_id, candidate.phone_number)
+            conn.execute(
+                """INSERT OR IGNORE INTO entity_contacts
+                   (id, entity_id, source_id, contact_type, contact_value, created_at)
+                   VALUES (?, ?, ?, 'phone', ?, ?)""",
+                (phone_id, entity_id, source_id, candidate.phone_number, now),
+            )
+
+        # 5. Credits (find or create title entities)
+        for c in candidate.credits:
+            # Find or create title entity
+            title_id = make_stable_id("entity", source_id, c.production)
+            conn.execute(
+                """INSERT OR IGNORE INTO entities
+                   (id, source_id, entity_type, name, canonical_name, title_type,
+                    status, license_class, created_at, updated_at)
+                   VALUES (?, ?, 'title', ?, ?, 'tv', 'active', 'public', ?, ?)""",
+                (
+                    title_id,
+                    source_id,
+                    c.production,
+                    c.production.lower(),
+                    now,
+                    now,
+                ),
+            )
+            # Insert credit
+            credit_id = make_stable_id("credit", entity_id, title_id, c.role)
+            conn.execute(
+                """INSERT OR IGNORE INTO credits
+                   (id, person_id, title_id, source_id, role, credit_type, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (credit_id, entity_id, title_id, source_id, c.role, c.type or "crew", now),
+            )
+
+        # 6. Organizations as company entities
+        for org in candidate.organizations:
+            org_id = make_stable_id("entity", source_id, org.name)
+            conn.execute(
+                """INSERT OR IGNORE INTO entities
+                   (id, source_id, entity_type, name, canonical_name, company_type,
+                    status, license_class, created_at, updated_at)
+                   VALUES (?, ?, 'company', ?, ?, ?, 'active', 'public', ?, ?)""",
+                (
+                    org_id,
+                    source_id,
+                    org.name,
+                    org.name.lower(),
+                    org.type or "organization",
+                    now,
+                    now,
+                ),
+            )
+
+        # 7. Tags + taggings
+        for tag_text in candidate.tags:
+            norm = tag_text.lower().replace(" ", "_")
+            tag_id = make_stable_id("tag", tag_text)
+            conn.execute(
+                """INSERT OR IGNORE INTO tags (id, tag, normalized_tag, created_at)
+                   VALUES (?, ?, ?, ?)""",
+                (tag_id, tag_text, norm, now),
+            )
+            # Always resolve the actual tag_id (INSERT OR IGNORE may have skipped if tag exists)
+            existing_tag = conn.execute(
+                "SELECT id FROM tags WHERE normalized_tag = ?", (norm,)
+            ).fetchone()
+            actual_tag_id = existing_tag[0] if existing_tag else tag_id
+            tagging_id = make_stable_id("tagging", entity_id, tag_text)
+            conn.execute(
+                """INSERT OR IGNORE INTO entity_taggings
+                   (id, tag_id, entity_id, source_id, created_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (tagging_id, actual_tag_id, entity_id, source_id, now),
+            )
+
+        # 8. Links
+        for link in candidate.links:
+            link_id = make_stable_id("link", entity_id, link.url)
+            conn.execute(
+                """INSERT OR IGNORE INTO entity_links
+                   (id, entity_id, source_id, url, link_type, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (link_id, entity_id, source_id, link.url, link.type, now),
+            )
+
+        # 9. Representatives
+        for rep in candidate.representatives:
+            rep_entity_id = make_stable_id("entity", source_id, rep.name)
+            conn.execute(
+                """INSERT OR IGNORE INTO entities
+                   (id, source_id, entity_type, name, canonical_name, company_type,
+                    status, license_class, created_at, updated_at)
+                   VALUES (?, ?, 'person', ?, ?, 'agent', 'active', 'public', ?, ?)""",
+                (rep_entity_id, source_id, rep.name, rep.name.lower(), now, now),
+            )
+            rep_rel_id = make_stable_id("rep", entity_id, rep_entity_id)
+            conn.execute(
+                """INSERT OR IGNORE INTO representation
+                   (id, client_id, rep_id, rep_type, title, email, phone,
+                    source_id, trust_state, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'machine_extracted', ?)""",
+                (
+                    rep_rel_id,
+                    entity_id,
+                    rep_entity_id,
+                    rep.title,
+                    rep.title,
+                    rep.email or "",
+                    rep.phone_number or "",
+                    source_id,
+                    now,
+                ),
+            )
+
+        conn.commit()
+        return entity_id
 
     # ── raw records ───────────────────────────────────────────────
 

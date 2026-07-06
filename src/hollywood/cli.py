@@ -265,16 +265,19 @@ def extract(
             packet = result.packet
             candidate_count = len(packet.candidates)
             if not dry_run and candidate_count:
-                run_id = storage.start_run_raw("extraction", {})
+                run_id = storage.start_run_raw("extraction", {"source": "stdin"})
+                raw_id = storage.insert_extraction_raw_record(
+                    run_id=run_id, source_id="manual_extraction",
+                    content_path="stdin", content_hash=hash(raw_text),
+                )
                 for candidate in packet.candidates:
                     storage.save_extraction_result(
-                        run_id=run_id,
-                        source_id="manual_extraction",
-                        candidate=candidate,
-                        model_name=result.model_name,
-                        prompt_version=prompt_version,
+                        run_id=run_id, raw_record_id=raw_id,
+                        source_id="manual_extraction", candidate=candidate,
+                        model_name=result.model_name, prompt_version=prompt_version,
                         raw_json=result.raw_json.decode("utf-8"),
                     )
+                    storage.materialize_candidate(candidate, source_id="llm_extraction", raw_record_id=raw_id)
             console.print(f"[green]✓ {candidate_count} candidate(s)[/green]")
             success += 1
         except ExtractionError as e:
@@ -293,17 +296,19 @@ def extract(
                 candidate_count = len(packet.candidates)
 
                 if not dry_run and candidate_count:
-                    # Persist extraction results
-                    run_id = storage.start_run_raw("extraction", {})
+                    run_id = storage.start_run_raw("extraction", {"source": str(file)})
+                    raw_id = storage.insert_extraction_raw_record(
+                        run_id=run_id, source_id="manual_extraction",
+                        content_path=str(file), content_hash=hash(text),
+                    )
                     for candidate in packet.candidates:
                         storage.save_extraction_result(
-                            run_id=run_id,
-                            source_id="manual_extraction",
-                            candidate=candidate,
-                            model_name=result.model_name,
-                            prompt_version=prompt_version,
+                            run_id=run_id, raw_record_id=raw_id,
+                            source_id="manual_extraction", candidate=candidate,
+                            model_name=result.model_name, prompt_version=prompt_version,
                             raw_json=result.raw_json.decode("utf-8"),
                         )
+                        storage.materialize_candidate(candidate, source_id="llm_extraction", raw_record_id=raw_id)
                 console.print(f"[green]✓ {candidate_count} candidate(s)[/green]")
                 success += 1
             except ExtractionError as e:
