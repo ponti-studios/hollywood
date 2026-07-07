@@ -3,12 +3,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { PROMPT_VERSION_V1 } from "../ingest/extraction.js";
 import { parseEml } from "../ingest/eml.js";
 import { ExtractionError, callOpenRouter } from "../ingest/llm.js";
-import {
-  insertExtractionRawRecord,
-  materializeCandidate,
-  saveExtractionResult,
-  startRunRaw,
-} from "../ingest/storage.js";
+import { IngestService } from "../db/services/IngestService.js";
 import type { Candidate } from "../ingest/extraction.js";
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
@@ -69,6 +64,7 @@ const ingestRoute = createRoute({
 // ── Router ──────────────────────────────────────────────────────────────────
 
 const router = new OpenAPIHono();
+const ingestService = new IngestService();
 
 function summarize(entityId: string, candidate: Candidate) {
   return {
@@ -105,7 +101,7 @@ router.openapi(ingestRoute, async (c) => {
     return c.json({ error: "Provide either 'text', 'documents', or 'file'" } as any, 400);
   }
 
-  const runId = startRunRaw("extraction", { source: "api_ingest" });
+  const runId = ingestService.startRunRaw("extraction", { source: "api_ingest" });
   const candidatesOut: ReturnType<typeof summarize>[] = [];
   let modelName = model ?? "";
 
@@ -114,11 +110,11 @@ router.openapi(ingestRoute, async (c) => {
       const result = await callOpenRouter(doc, promptVersion, model);
       modelName = result.modelName;
 
-      const rawId = insertExtractionRawRecord(runId, "api_ingest", "api_ingest", String(hashText(doc)));
+      const rawId = ingestService.insertExtractionRawRecord(runId, "api_ingest", "api_ingest", String(hashText(doc)));
 
       for (const candidate of result.packet.candidates) {
-        saveExtractionResult(runId, "api_ingest", candidate, result.modelName, promptVersion, result.rawJson, rawId);
-        const entityId = materializeCandidate(candidate, "api_ingest");
+        ingestService.saveExtractionResult(runId, "api_ingest", candidate, result.modelName, promptVersion, result.rawJson, rawId);
+        const entityId = ingestService.materializeCandidate(candidate, "api_ingest");
         candidatesOut.push(summarize(entityId, candidate));
       }
     }

@@ -1,10 +1,17 @@
 import BetterSqlite3 from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 import { env } from "../env.js";
+import * as schema from "./schema.js";
 
 let _db: BetterSqlite3.Database | null = null;
+let _drizzle: ReturnType<typeof createDrizzle> | null = null;
 
 export interface DbRow {
   [key: string]: unknown;
+}
+
+function createDrizzle(sqlite: BetterSqlite3.Database) {
+  return drizzle(sqlite, { schema });
 }
 
 export function getDb(dbPath?: string): BetterSqlite3.Database {
@@ -16,7 +23,14 @@ export function getDb(dbPath?: string): BetterSqlite3.Database {
   return _db;
 }
 
+export function getDrizzle(dbPath?: string) {
+  if (_drizzle) return _drizzle;
+  const sqlite = getDb(dbPath);
+  return _drizzle = createDrizzle(sqlite);
+}
+
 export function closeDb(): void {
+  _drizzle = null;
   if (_db) {
     _db.close();
     _db = null;

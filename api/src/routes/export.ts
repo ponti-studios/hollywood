@@ -2,7 +2,7 @@ import { createRoute, z } from "@hono/zod-openapi";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { resolve } from "node:path";
 import { env } from "../env.js";
-import { exportFlow } from "../ingest/flows.js";
+import { ExportService } from "../db/services/ExportService.js";
 
 const ExportQuerySchema = z.object({
   table: z.string().optional().openapi({ example: "entities" }),
@@ -22,6 +22,7 @@ const exportRoute = createRoute({
 });
 
 const router = new OpenAPIHono();
+const exportService = new ExportService();
 
 router.openapi(exportRoute, (c) => {
   const { table, all, format } = c.req.valid("query");
@@ -30,7 +31,9 @@ router.openapi(exportRoute, (c) => {
   }
   const outputDir = resolve(env.HOLLYWOOD_DATA_DIR, "parquet");
   try {
-    const files = exportFlow(format, outputDir, all ? undefined : table);
+    const files = all
+      ? exportService.exportAll(outputDir, format)
+      : [exportService.exportTable(table!, outputDir, format)];
     return c.json({ files }, 200);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

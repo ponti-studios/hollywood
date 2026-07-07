@@ -2,25 +2,14 @@ import { archivePayload } from "./archive.js";
 import { bundleCounts } from "./models.js";
 import type { DoctorCheck, IngestOptions, RunSummary } from "./models.js";
 import { getSource, listSources } from "./registry.js";
-import {
-  applyBundle,
-  exportAll,
-  exportTable,
-  finishRun,
-  insertRawRecords,
-  loadRawRecords,
-  startRun,
-  startRunRaw,
-} from "./storage.js";
+import { IngestService } from "../db/services/IngestService.js";
+import { ExportService } from "../db/services/ExportService.js";
 import type { Adapter } from "./adapters/base.js";
 import type { DbRow } from "../db/index.js";
 
-/**
- * Adapters are registered here as they're ported (RSS/TMDB/Wikidata in Phase 2,
- * WGA/IMDb in Phase 3). Until a source's adapter is registered, normalizing or
- * re-ingesting that source throws a clear "not yet ported" error.
- */
 const ADAPTERS = new Map<string, Adapter>();
+
+const ingestService = new IngestService();
 
 export function registerAdapter(sourceId: string, adapter: Adapter): void {
   ADAPTERS.set(sourceId, adapter);
@@ -35,7 +24,7 @@ function getAdapter(sourceId: string): Adapter {
 }
 
 export async function normalizeFlow(sourceId?: string): Promise<Record<string, number>> {
-  const rawRecords = loadRawRecords(sourceId ? { sourceId } : {});
+  const rawRecords = ingestService.loadRawRecords(sourceId ? { sourceId } : {});
   const grouped = new Map<string, DbRow[]>();
   for (const record of rawRecords) {
     const key = String(record["source_id"]);
@@ -45,13 +34,13 @@ export async function normalizeFlow(sourceId?: string): Promise<Record<string, n
 
   const combinedCounts: Record<string, number> = {};
   for (const [groupedSourceId, records] of grouped) {
-    getSource(groupedSourceId); // validates the source exists
+    getSource(groupedSourceId);
     const adapter = getAdapter(groupedSourceId);
-    const runId = startRunRaw("normalize", { source_id: groupedSourceId });
+    const runId = ingestService.startRunRaw("normalize", { source_id: groupedSourceId });
     const bundle = await adapter.normalizeRawRecords(runId, records);
-    applyBundle(bundle);
+    ingestService.applyBundle(bundle);
     const counts = bundleCounts(bundle);
-    finishRun(runId, "succeeded", counts);
+    ingestService.finishRun(runId, "succeeded", counts);
     for (const [key, value] of Object.entries(counts)) {
       combinedCounts[key] = (combinedCounts[key] ?? 0) + value;
     }
@@ -60,8 +49,9 @@ export async function normalizeFlow(sourceId?: string): Promise<Record<string, n
 }
 
 export function exportFlow(fileFormat: "jsonl" | "parquet", outputDir: string, table?: string): string[] {
-  if (table) return [exportTable(table, outputDir, fileFormat)];
-  return exportAll(outputDir, fileFormat);
+  const exportService = new ExportService();
+  if (table) return [exportService.exportTable(table, outputDir, fileFormat)];
+  return exportService.exportAll(outputDir, fileFormat);
 }
 
 export function sourceDoctorChecks(): DoctorCheck[] {
@@ -79,22 +69,20 @@ export function sourceDoctorChecks(): DoctorCheck[] {
   return checks;
 }
 
-// ── Direct (non-orchestrated) ingest, mirrors Python's direct_flows.py ──────
-
 export async function runIngestSource(
   sourceId: string,
   options: IngestOptions,
 ): Promise<RunSummary> {
   const source = getSource(sourceId);
   const adapter = getAdapter(sourceId);
-  const runId = startRun(source.sourceId, JSON.stringify(options));
+  const runId = ingestService.startRun(source.sourceId, JSON.stringify(options));
   try {
     const payloads = await adapter.fetchRawPayloads(options);
     const archivedPayloads = payloads.map((p) => archivePayload(source, p));
-    insertRawRecords(runId, archivedPayloads);
-    const rawRecords = loadRawRecords({ runId });
+    ingestService.insertRawRecords(runId, archivedPayloads);
+    const rawRecords = ingestService.loadRawRecords({ runId });
     const bundle = await adapter.normalizeRawRecords(runId, rawRecords);
-    applyBundle(bundle);
+    ingestService.applyBundle(bundle);
     const summary: RunSummary = {
       runId,
       sourceId: source.sourceId,
@@ -102,11 +90,11 @@ export async function runIngestSource(
       rawRecords: archivedPayloads.length,
       normalized: bundleCounts(bundle),
     };
-    finishRun(runId, "succeeded", summary as unknown as Record<string, unknown>);
+    ingestService.finishRun(runId, "succeeded", summary as unknown as Record<string, unknown>);
     return summary;
   } catch (exc) {
     const error = exc instanceof Error ? exc.message : String(exc);
-    finishRun(runId, "failed", { source_id: source.sourceId, error }, error);
+    ingestService.finishRun(runId, "failed", { source_id: source.sourceId, error }, error);
     throw exc;
   }
 }

@@ -14,7 +14,6 @@ import searchRouter from "./routes/search.js";
 import sourcesRouter from "./routes/sources.js";
 import submissionsRouter from "./routes/submissions.js";
 import tagsRouter from "./routes/tags.js";
-import usersRouter from "./routes/users.js";
 
 registerAllAdapters();
 
@@ -42,7 +41,6 @@ app.get("/health", (c) => c.json({ status: "ok" }, 200));
 // Mount route modules
 app.route("/", candidatesRouter);
 app.route("/", projectsRouter);
-app.route("/", usersRouter);
 app.route("/", submissionsRouter);
 app.route("/", searchRouter);
 app.route("/", tagsRouter);

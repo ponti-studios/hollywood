@@ -1,9 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { getDb } from "../db/index.js";
-import type { DbRow } from "../db/index.js";
-import { parseSubmissionJson, enrichCandidate } from "../db/helpers.js";
-import * as crypto from "node:crypto";
+import { SubmissionService } from "../db/services/SubmissionService.js";
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -90,62 +87,27 @@ const createCandidateRoute = createRoute({
 // ── Router ──────────────────────────────────────────────────────────────────
 
 const router = new OpenAPIHono();
+const submissionService = new SubmissionService();
 
 router.openapi(listRoute, (c) => {
-  const projectId = c.req.query("projectId") ?? "default";
-  const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT s.id, s.document_id, s.extraction_id, s.created_at, e.result_json
-       FROM submissions s
-       LEFT JOIN extraction_results e ON e.id = s.extraction_id
-       ORDER BY s.created_at DESC`
-    )
-    .all() as DbRow[];
-  const result = rows.map((r) => ({
-    id: r.id,
-    projectId,
-    candidateId: null,
-    created: r.created_at,
-    submissionJson: parseSubmissionJson((r.result_json as string) ?? "{}"),
-    samples: [],
-    rawSamples: [],
-  }));
+  const projectId = c.req.query("projectId") ?? undefined;
+  const result = submissionService.list(projectId);
   return c.json(result as any, 200);
 });
 
 router.openapi(deleteRoute, (c) => {
   const { id } = c.req.valid("param");
-  const db = getDb();
-  const existing = db.prepare("SELECT id FROM submissions WHERE id = ?").get(id);
-  if (!existing) return c.json({ error: "Submission not found" }, 404);
-  const result = db.prepare("DELETE FROM submissions WHERE id = ?").run(id);
-  return c.json({ deleted: result.changes > 0 }, 200);
+  const result = submissionService.delete(id);
+  if (!result.deleted) return c.json({ error: "Submission not found" }, 404 as const);
+  return c.json(result, 200);
 });
 
 router.openapi(createCandidateRoute, (c) => {
   const { id } = c.req.valid("param");
   const { position } = c.req.valid("json");
-  const db = getDb();
-  const sub = db.prepare(
-    `SELECT s.id, s.document_id, e.result_json
-     FROM submissions s
-     LEFT JOIN extraction_results e ON e.id = s.extraction_id
-     WHERE s.id = ?`
-  ).get(id) as DbRow | undefined;
-  if (!sub) return c.json({ error: "Submission not found" }, 404);
-
-  const entityId = crypto.randomUUID();
-  const now = new Date().toISOString();
-  const sj = parseSubmissionJson((sub.result_json as string) ?? "{}");
-  const name = (sj.name as string) ?? "Unknown";
-
-  db.prepare(
-    `INSERT INTO entities (id, source_id, entity_type, name, canonical_name, bio, position, status, license_class, created_at, updated_at)
-     VALUES (?, 'hollywood-api', 'person', ?, ?, ?, ?, 'active', 'public', ?, ?)`
-  ).run(entityId, name, name.toLowerCase(), (sj.bio as string) ?? "", position, now, now);
-
-  return c.json({ id: entityId, name, position, status: "active" }, 201);
+  const result = submissionService.createCandidate(id, position);
+  if (!result) return c.json({ error: "Submission not found" }, 404 as const);
+  return c.json(result, 201);
 });
 
 export default router;
