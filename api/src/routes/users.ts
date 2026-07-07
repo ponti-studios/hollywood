@@ -66,6 +66,7 @@ const meRoute = createRoute({
 const createRoute_ = createRoute({
   method: "post",
   path: "/users",
+  tags: ["mutating"],
   request: { body: { content: { "application/json": { schema: CreateUserSchema } } } },
   responses: {
     201: { content: { "application/json": { schema: UserSchema } }, description: "Created user" },
@@ -75,6 +76,7 @@ const createRoute_ = createRoute({
 const updateRoute = createRoute({
   method: "patch",
   path: "/users/{id}",
+  tags: ["mutating"],
   request: {
     params: z.object({ id: z.string().uuid() }),
     body: { content: { "application/json": { schema: UpdateUserSchema } } },
@@ -87,6 +89,7 @@ const updateRoute = createRoute({
 const createUserAndProjectRoute = createRoute({
   method: "post",
   path: "/users/with-project",
+  tags: ["mutating"],
   request: { body: { content: { "application/json": { schema: CreateUserAndProjectSchema } } } },
   responses: {
     201: { content: { "application/json": { schema: UserAndProjectSchema } }, description: "Created user and project" },

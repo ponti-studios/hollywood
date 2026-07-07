@@ -1,51 +1,53 @@
 # hollywood
 
-Local-first Hollywood data CLI for research corpus building. It can ingest entertainment RSS
-feeds, browser-only directories like WGA, and structured metadata sources into a raw archive,
-DuckDB database, and Parquet exports.
+Local-first entertainment data platform for research corpus building. A Hono REST API
+ingests entertainment RSS feeds, browser-only directories like WGA, and structured
+metadata sources (TMDB, Wikidata, IMDb) into a unified SQLite database, with raw-payload
+archiving and JSONL exports.
 
 ## Run
 
 ```bash
-uv run hollywood --help
-uv run hollywood sources list
-uv run python -m playwright install chromium
-uv run hollywood ingest group news --limit 2
-uv run hollywood ingest source wga --limit 1 --prefixes a
-uv run hollywood normalize
-uv run hollywood export --all
+just api-setup
+just api-dev
 ```
 
-## Commands
+The API starts at `http://localhost:4000`. OpenAPI docs are at `/openapi`.
 
-- `hollywood sources list`
-- `hollywood ingest source <source-id>`
-- `hollywood ingest group <group-name>`
-- `hollywood normalize`
-- `hollywood export`
-- `hollywood doctor`
+## Endpoints
+
+- `GET /sources` — list built-in ingest sources
+- `POST /ingest` — LLM extraction from raw submission text (single doc or batch)
+- `POST /ingest/source` — ingest a single source (`variety`, `deadline`, `hollywood_reporter`, `the_wrap`, `tmdb`, `wikidata`, `wga`, `imdb`)
+- `POST /ingest/group` — ingest all sources in a named group (`news`, `entities`, `directories`, `all`)
+- `POST /normalize` — re-derive normalized tables from already-archived raw records
+- `GET /export` — export normalized tables as JSONL
+- `GET /doctor` — health checks (data dir, DB, API keys, per-source config)
+- `GET /candidates`, `/projects`, `/submissions`, `/search`, `/tags`, `/users` — entity graph CRUD/search
 
 ## Environment
 
 ```bash
 HOLLYWOOD_DATA_DIR=data
-HOLLYWOOD_DB_PATH=data/hollywood.duckdb
+HOLLYWOOD_DB_PATH=~/.hominem/hollywood.db
+HOLLYWOOD_USER_AGENT=...
+HOLLYWOOD_REQUEST_TIMEOUT_SECONDS=30
 TMDB_API_KEY=...
+OPENROUTER_API_KEY=...
 ```
 
 The default storage layout is:
 
 - `data/raw/` for archived payloads
-- `data/hollywood.duckdb` for normalized tables
-- `data/parquet/` for exported datasets
+- `~/.hominem/hollywood.db` for the unified SQLite database
+- `data/parquet/` for JSONL exports (despite the directory name — parquet export is not yet implemented)
 
 ## Development
 
 ```bash
-just setup
-just test
-just lint
-just typecheck
-just smoke
-just integration
+just api-setup
+just api-dev        # dev server with hot reload
+just api-typecheck
+just api-build
+just api-start       # run the compiled build
 ```

@@ -56,6 +56,7 @@ const getRoute = createRoute({
 const createRoute_ = createRoute({
   method: "post",
   path: "/projects",
+  tags: ["mutating"],
   request: { body: { content: { "application/json": { schema: CreateProjectSchema } } } },
   responses: {
     201: { content: { "application/json": { schema: ProjectSchema } }, description: "Created project" },
@@ -65,6 +66,7 @@ const createRoute_ = createRoute({
 const updateRoute = createRoute({
   method: "patch",
   path: "/projects/{id}",
+  tags: ["mutating"],
   request: {
     params: z.object({ id: z.string().uuid() }),
     body: { content: { "application/json": { schema: UpdateProjectSchema } } },

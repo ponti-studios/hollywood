@@ -62,6 +62,7 @@ const listRoute = createRoute({
 const deleteRoute = createRoute({
   method: "delete",
   path: "/submissions/{id}",
+  tags: ["mutating"],
   request: { params: z.object({ id: z.string().min(1) }) },
   responses: {
     200: { content: { "application/json": { schema: z.object({ deleted: z.boolean() }) } }, description: "Deleted submission" },
@@ -72,6 +73,7 @@ const deleteRoute = createRoute({
 const createCandidateRoute = createRoute({
   method: "post",
   path: "/submissions/{id}/candidate",
+  tags: ["mutating"],
   request: {
     params: z.object({ id: z.string().min(1) }),
     body: { content: { "application/json": { schema: z.object({ position: z.string() }) } } },

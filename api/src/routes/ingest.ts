@@ -1,17 +1,17 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { execSync } from "node:child_process";
-import { resolve } from "node:path";
-import * as crypto from "node:crypto";
+import { PROMPT_VERSION_V1 } from "../ingest/extraction.js";
+import { parseEml } from "../ingest/eml.js";
+import { ExtractionError, callOpenRouter } from "../ingest/llm.js";
+import {
+  insertExtractionRawRecord,
+  materializeCandidate,
+  saveExtractionResult,
+  startRunRaw,
+} from "../ingest/storage.js";
+import type { Candidate } from "../ingest/extraction.js";
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
-
-const CreditSchema = z.object({
-  role: z.string(),
-  type: z.string().nullable(),
-  production: z.string(),
-  network: z.string().nullable(),
-});
 
 const CandidateSummarySchema = z.object({
   id: z.string(),
@@ -30,7 +30,16 @@ const IngestResultSchema = z.object({
 });
 
 const IngestInputSchema = z.object({
-  text: z.string().min(1).openapi({ example: "Jane Doe is a writer on THE SHOW..." }),
+  text: z.string().min(1).optional(),
+  documents: z.array(z.string().min(1)).optional(),
+  model: z.string().optional().openapi({ example: "openai/gpt-4o-mini" }),
+  prompt_version: z.string().optional().openapi({ example: "v1" }),
+});
+
+const IngestUploadSchema = z.object({
+  file: z.instanceof(File).openapi({ type: "string", format: "binary" }),
+  model: z.string().optional(),
+  prompt_version: z.string().optional(),
 });
 
 // ── Routes ──────────────────────────────────────────────────────────────────
@@ -38,14 +47,21 @@ const IngestInputSchema = z.object({
 const ingestRoute = createRoute({
   method: "post",
   path: "/ingest",
+  tags: ["mutating"],
   request: {
-    body: { content: { "application/json": { schema: IngestInputSchema } } },
+    body: {
+      content: {
+        "application/json": { schema: IngestInputSchema },
+        "multipart/form-data": { schema: IngestUploadSchema },
+      },
+    },
   },
   responses: {
     200: {
       content: { "application/json": { schema: IngestResultSchema } },
       description: "Ingestion result with materialized candidates",
     },
+    400: { description: "Missing text, documents, or file" },
     500: { description: "Extraction failed" },
   },
 });
@@ -54,34 +70,73 @@ const ingestRoute = createRoute({
 
 const router = new OpenAPIHono();
 
-router.openapi(ingestRoute, async (c) => {
-  const { text } = c.req.valid("json");
-  const hollywoodRoot = resolve(process.cwd(), "..");
+function summarize(entityId: string, candidate: Candidate) {
+  return {
+    id: entityId,
+    name: candidate.name,
+    bio: candidate.bio,
+    position: candidate.position ?? "",
+    num_credits: candidate.credits.length,
+    num_tags: candidate.tags.length,
+    num_orgs: candidate.organizations.length,
+  };
+}
 
-  let raw: string;
+router.openapi(ingestRoute, async (c) => {
+  const contentType = c.req.header("content-type") ?? "";
+  let texts: string[];
+  let model: string | undefined;
+  let promptVersion: string;
+
+  if (contentType.startsWith("multipart/form-data")) {
+    const { file, model: uploadModel, prompt_version } = c.req.valid("form") as z.infer<typeof IngestUploadSchema>;
+    const cleaned = await parseEml(Buffer.from(await file.arrayBuffer()));
+    texts = cleaned ? [cleaned] : [];
+    model = uploadModel;
+    promptVersion = prompt_version ?? PROMPT_VERSION_V1;
+  } else {
+    const { text, documents, model: jsonModel, prompt_version } = c.req.valid("json") as z.infer<typeof IngestInputSchema>;
+    texts = documents && documents.length ? documents : text ? [text] : [];
+    model = jsonModel;
+    promptVersion = prompt_version ?? PROMPT_VERSION_V1;
+  }
+
+  if (!texts.length) {
+    return c.json({ error: "Provide either 'text', 'documents', or 'file'" } as any, 400);
+  }
+
+  const runId = startRunRaw("extraction", { source: "api_ingest" });
+  const candidatesOut: ReturnType<typeof summarize>[] = [];
+  let modelName = model ?? "";
+
   try {
-    raw = execSync(
-      `uv run python -m hollywood.ingest_doc`,
-      {
-        input: text,
-        encoding: "utf-8",
-        timeout: 120000,
-        cwd: hollywoodRoot,
-        maxBuffer: 10 * 1024 * 1024,
-      },
-    );
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
+    for (const doc of texts) {
+      const result = await callOpenRouter(doc, promptVersion, model);
+      modelName = result.modelName;
+
+      const rawId = insertExtractionRawRecord(runId, "api_ingest", "api_ingest", String(hashText(doc)));
+
+      for (const candidate of result.packet.candidates) {
+        saveExtractionResult(runId, "api_ingest", candidate, result.modelName, promptVersion, result.rawJson, rawId);
+        const entityId = materializeCandidate(candidate, "api_ingest");
+        candidatesOut.push(summarize(entityId, candidate));
+      }
+    }
+  } catch (e) {
+    const msg = e instanceof ExtractionError || e instanceof Error ? e.message : String(e);
     console.error("Ingest failed:", msg);
     return c.json({ error: "Extraction failed", detail: msg } as any, 500);
   }
 
-  try {
-    const parsed = JSON.parse(raw);
-    return c.json(parsed, 200);
-  } catch {
-    return c.json({ error: "Failed to parse extraction result", raw } as any, 500);
-  }
+  return c.json({ run_id: runId, model_name: modelName, candidates: candidatesOut }, 200);
 });
+
+function hashText(text: string): number {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = (Math.imul(31, hash) + text.charCodeAt(i)) | 0;
+  }
+  return hash;
+}
 
 export default router;

@@ -3,38 +3,9 @@ set shell := ["zsh", "-cu"]
 default:
     @just --list
 
-setup:
-    uv sync --extra dev
-
-test:
-    uv run python -m pytest tests/
-
-smoke:
-    uv run hollywood --help
-
-integration:
-    ./scripts/cli/integration/hollywood.sh
-
-run ARGS="--help":
-    uv run hollywood {{ARGS}}
-
-lint:
-    uv run ruff check src/ tests/
-
-format:
-    uv run ruff format src/ tests/
-    uv run ruff check --fix src/ tests/
-
-typecheck:
-    uv run python -m pyright src/
-
-export:
-    uv run hollywood export --all
-
 clean:
-    rm -rf .pytest_cache dist/ .ruff_cache/ .build/ .venv data/
+    rm -rf dist/ data/
     find . -name "*.pyc" -delete
-    find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
 help:
     @just --list
@@ -44,7 +15,7 @@ api-setup:
     cd api && npm install
 
 api-dev:
-    cd api && npx tsx src/index.ts
+    cd api && npx tsx watch src/index.ts
 
 api-typecheck:
     cd api && npx tsc --noEmit
@@ -58,3 +29,13 @@ api-start:
 api-docs:
     @echo "OpenAPI spec available at http://localhost:4000/openapi"
     @echo "Start the server with: just api-dev"
+
+# ── Bruno ────────────────────────────────────────────────────────────────────
+bruno-import:
+    npx --yes @usebruno/cli import openapi --source http://localhost:4000/openapi --output bruno/hollywood-api --collection-name "Hollywood API" --group-by tags
+
+bruno-run:
+    cd bruno/hollywood-api && npx --yes @usebruno/cli run -r --env "Local development" --exclude-tags mutating
+
+bruno-run-all:
+    cd bruno/hollywood-api && npx --yes @usebruno/cli run -r --env "Local development"

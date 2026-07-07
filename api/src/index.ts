@@ -1,17 +1,24 @@
-import { OpenAPIHono } from "@hono/zod-openapi";
 import { serve } from "@hono/node-server";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { closeDb } from "./db/index.js";
+import { HOST, PORT, env } from "./env.js";
+import { registerAllAdapters } from "./ingest/adapters/index.js";
 import candidatesRouter from "./routes/candidates.js";
-import projectsRouter from "./routes/projects.js";
-import usersRouter from "./routes/users.js";
-import submissionsRouter from "./routes/submissions.js";
-import searchRouter from "./routes/search.js";
-import tagsRouter from "./routes/tags.js";
+import doctorRouter from "./routes/doctor.js";
+import exportRouter from "./routes/export.js";
 import ingestRouter from "./routes/ingest.js";
+import ingestSourceRouter from "./routes/ingest_source.js";
+import normalizeRouter from "./routes/normalize.js";
+import projectsRouter from "./routes/projects.js";
+import searchRouter from "./routes/search.js";
+import sourcesRouter from "./routes/sources.js";
+import submissionsRouter from "./routes/submissions.js";
+import tagsRouter from "./routes/tags.js";
+import usersRouter from "./routes/users.js";
 
-const PORT = parseInt(process.env["PORT"] ?? process.env["HOLLYWOOD_API_PORT"] ?? "4000", 10);
-const HOST = process.env["HOST"] ?? "0.0.0.0";
-const DB_PATH = process.env["HOLLYWOOD_DB_PATH"] ?? "~/.hominem/hollywood.db";
+registerAllAdapters();
+
+const DB_PATH = env.HOLLYWOOD_DB_PATH;
 
 // ── App ─────────────────────────────────────────────────────────────────────
 
@@ -40,6 +47,11 @@ app.route("/", submissionsRouter);
 app.route("/", searchRouter);
 app.route("/", tagsRouter);
 app.route("/", ingestRouter);
+app.route("/", ingestSourceRouter);
+app.route("/", sourcesRouter);
+app.route("/", normalizeRouter);
+app.route("/", exportRouter);
+app.route("/", doctorRouter);
 
 // ── Server ──────────────────────────────────────────────────────────────────
 

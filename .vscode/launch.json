@@ -5,29 +5,14 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Python: Get File Sections",
-			"type": "debugpy",
+			"name": "Node: Debug API",
+			"type": "node",
 			"request": "launch",
-			"module": "uv",
-			"args": ["run", "${workspaceFolder}/cli/main.py", "notes", "get_file_sections", ".data/_ideas.md"],
+			"runtimeExecutable": "npx",
+			"runtimeArgs": ["tsx", "watch", "src/index.ts"],
+			"cwd": "${workspaceFolder}/api",
 			"console": "integratedTerminal",
-			"justMyCode": true
-		},
-
-		{
-			"name": "Python: Remote Attach",
-			"type": "debugpy",
-			"request": "attach",
-			"connect": {
-				"host": "localhost",
-				"port": 5678
-			},
-			"pathMappings": [
-				{
-					"localRoot": "${workspaceFolder}",
-					"remoteRoot": "/app"
-				}
-			]
+			"skipFiles": ["<node_internals>/**"]
 		}
 	]
 }

@@ -1,0 +1,81 @@
+info:
+  name: post /ingest/source
+  type: http
+  seq: 12
+  tags:
+    - mutating
+
+http:
+  method: POST
+  url: "{{baseUrl}}/ingest/source"
+  body:
+    type: json
+    data: |-
+      {
+        "source_id": "variety",
+        "limit": 1,
+        "since": "2024-01-01",
+        "full_text": false,
+        "prefixes": "a,b,c"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Ingest run summary
+    request:
+      url: "{{baseUrl}}/ingest/source"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "source_id": "variety",
+            "limit": 1,
+            "since": "2024-01-01",
+            "full_text": false,
+            "prefixes": "a,b,c"
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "run_id": "",
+            "source_id": "",
+            "status": "",
+            "raw_records": 0,
+            "normalized": {}
+          }
+  - name: 500 Response
+    description: Ingest failed
+    request:
+      url: "{{baseUrl}}/ingest/source"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "source_id": "variety",
+            "limit": 1,
+            "since": "2024-01-01",
+            "full_text": false,
+            "prefixes": "a,b,c"
+          }
+    response:
+      status: 500
+      statusText: Internal Server Error
+      body:
+        type: text
+        data: ""

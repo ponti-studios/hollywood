@@ -9,9 +9,10 @@
 | Kuma data migration → unified schema | ✅ Done |
 | Extraction pipeline (LLM → entities) | ✅ Done |
 | API ingest endpoint (POST /ingest) | ✅ Done |
-| EML email parsing | ❌ Not yet |
-| CLI deprecation | ❌ Planned below |
-| Ingest sources (RSS, TMDB, WGA, IMDb) via API | ❌ Not yet |
+| CLI deprecation / Python package deleted | ✅ Done |
+| Ingest sources (RSS, TMDB, Wikidata, WGA, IMDb) ported to TS, via API | ✅ Done |
+| EML email parsing (POST /ingest multipart upload) | ✅ Done |
+| Parquet export (jsonl only for now) | ❌ Not yet |
 | Async job queue | ❌ Not yet |
 
 ---

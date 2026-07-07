@@ -145,6 +145,7 @@ const getRoute = createRoute({
 const createRoute_ = createRoute({
   method: "post",
   path: "/candidates",
+  tags: ["mutating"],
   request: {
     body: { content: { "application/json": { schema: z.array(CreateCandidateInputSchema) } } },
   },
@@ -156,6 +157,7 @@ const createRoute_ = createRoute({
 const updateRoute = createRoute({
   method: "patch",
   path: "/candidates/{id}",
+  tags: ["mutating"],
   request: {
     params: z.object({ id: z.string().uuid() }),
     body: { content: { "application/json": { schema: UpdateCandidateInputSchema } } },
@@ -169,6 +171,7 @@ const updateRoute = createRoute({
 const deleteRoute = createRoute({
   method: "delete",
   path: "/candidates/{id}",
+  tags: ["mutating"],
   request: {
     params: z.object({ id: z.string().uuid() }),
   },
