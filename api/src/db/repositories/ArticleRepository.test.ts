@@ -3,11 +3,15 @@ import { setupTestDb } from "../test-utils.js";
 import { ArticleRepository, type ArticleFields } from "./ArticleRepository.js";
 import { RunRepository } from "./RunRepository.js";
 import { EntityRepository } from "./EntityRepository.js";
+import { RawRecordRepository } from "./RawRecordRepository.js";
+import { ExtractionRepository } from "./ExtractionRepository.js";
 
 describe("ArticleRepository", () => {
   let repo: ArticleRepository;
   let runRepo: RunRepository;
   let entityRepo: EntityRepository;
+  let rawRecordRepo: RawRecordRepository;
+  let extractionRepo: ExtractionRepository;
   let cleanup: () => void;
   let runId: string;
 
@@ -22,11 +26,27 @@ describe("ArticleRepository", () => {
     };
   }
 
+  function makeRawRecord(id: string): void {
+    rawRecordRepo.insertOne({
+      id,
+      runId,
+      sourceId: "variety",
+      sourceKind: "feed",
+      payloadType: "feed_xml",
+      contentPath: `/data/${id}.xml`,
+      contentHash: id,
+      fetchedAt: new Date().toISOString(),
+      metadataJson: "{}",
+    });
+  }
+
   beforeEach(() => {
     const test = setupTestDb();
     repo = new ArticleRepository(test.db);
     runRepo = new RunRepository(test.db);
     entityRepo = new EntityRepository(test.db);
+    rawRecordRepo = new RawRecordRepository(test.db);
+    extractionRepo = new ExtractionRepository(test.db);
     cleanup = test.cleanup;
     runId = runRepo.start("variety", "{}");
   });
@@ -111,5 +131,121 @@ describe("ArticleRepository", () => {
 
   it("returns null for missing article", () => {
     expect(repo.findArticleById("nonexistent")).toBeNull();
+  });
+
+  describe("findUnextractedContent", () => {
+    it("returns an article that only has feed_description", () => {
+      makeRawRecord("raw-1");
+      repo.upsertArticle(makeArticle({ articleId: "a-001" }));
+      repo.upsertContent({
+        contentId: "c-desc", articleId: "a-001", sourceId: "variety",
+        contentKind: "feed_description", text: "A short summary.",
+        rawRecordId: "raw-1", contentHash: "h1", licenseClass: "web_copyright",
+      });
+
+      const rows = repo.findUnextractedContent("v1_article_mentions", 10);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.articleId).toBe("a-001");
+      expect(rows[0]!.text).toBe("A short summary.");
+      expect(rows[0]!.rawRecordId).toBe("raw-1");
+    });
+
+    it("prefers feed_content over feed_description for the same article", () => {
+      makeRawRecord("raw-1");
+      repo.upsertArticle(makeArticle({ articleId: "a-001" }));
+      repo.upsertContent({
+        contentId: "c-desc", articleId: "a-001", sourceId: "variety",
+        contentKind: "feed_description", text: "A short summary.",
+        rawRecordId: "raw-1", contentHash: "h1", licenseClass: "web_copyright",
+      });
+      repo.upsertContent({
+        contentId: "c-full", articleId: "a-001", sourceId: "variety",
+        contentKind: "feed_content", text: "The full article body.",
+        rawRecordId: "raw-1", contentHash: "h2", licenseClass: "web_copyright",
+      });
+
+      const rows = repo.findUnextractedContent("v1_article_mentions", 10);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.text).toBe("The full article body.");
+    });
+
+    it("prefers page_extract over feed_content", () => {
+      makeRawRecord("raw-1");
+      makeRawRecord("raw-2");
+      repo.upsertArticle(makeArticle({ articleId: "a-001" }));
+      repo.upsertContent({
+        contentId: "c-full", articleId: "a-001", sourceId: "variety",
+        contentKind: "feed_content", text: "The full article body.",
+        rawRecordId: "raw-1", contentHash: "h1", licenseClass: "web_copyright",
+      });
+      repo.upsertContent({
+        contentId: "c-page", articleId: "a-001", sourceId: "variety",
+        contentKind: "page_extract", text: "The richest scraped page text.",
+        rawRecordId: "raw-2", contentHash: "h2", licenseClass: "web_copyright",
+      });
+
+      const rows = repo.findUnextractedContent("v1_article_mentions", 10);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.text).toBe("The richest scraped page text.");
+    });
+
+    it("excludes an article already extracted under the same schema version", () => {
+      makeRawRecord("raw-1");
+      repo.upsertArticle(makeArticle({ articleId: "a-001" }));
+      repo.upsertContent({
+        contentId: "c-desc", articleId: "a-001", sourceId: "variety",
+        contentKind: "feed_description", text: "A short summary.",
+        rawRecordId: "raw-1", contentHash: "h1", licenseClass: "web_copyright",
+      });
+      extractionRepo.save({
+        documentId: "raw-1", jobId: runId, schemaVersion: "v1_article_mentions",
+        promptVersion: "v1", modelName: "test-model", status: "succeeded",
+        rawJson: "{}", resultJson: "{}",
+      });
+
+      expect(repo.findUnextractedContent("v1_article_mentions", 10)).toHaveLength(0);
+    });
+
+    it("still returns an article extracted under a different schema version", () => {
+      makeRawRecord("raw-1");
+      repo.upsertArticle(makeArticle({ articleId: "a-001" }));
+      repo.upsertContent({
+        contentId: "c-desc", articleId: "a-001", sourceId: "variety",
+        contentKind: "feed_description", text: "A short summary.",
+        rawRecordId: "raw-1", contentHash: "h1", licenseClass: "web_copyright",
+      });
+      extractionRepo.save({
+        documentId: "raw-1", jobId: runId, schemaVersion: "v0_other_schema",
+        promptVersion: "v1", modelName: "test-model", status: "succeeded",
+        rawJson: "{}", resultJson: "{}",
+      });
+
+      expect(repo.findUnextractedContent("v1_article_mentions", 10)).toHaveLength(1);
+    });
+
+    it("skips content rows with no rawRecordId (can't record provenance)", () => {
+      repo.upsertArticle(makeArticle({ articleId: "a-001" }));
+      repo.upsertContent({
+        contentId: "c-desc", articleId: "a-001", sourceId: "variety",
+        contentKind: "feed_description", text: "A short summary.",
+        contentHash: "h1", licenseClass: "web_copyright",
+      });
+
+      expect(repo.findUnextractedContent("v1_article_mentions", 10)).toHaveLength(0);
+    });
+
+    it("respects the limit", () => {
+      for (const n of [1, 2, 3]) {
+        makeRawRecord(`raw-${n}`);
+        repo.upsertArticle(makeArticle({ articleId: `a-00${n}` }));
+        repo.upsertContent({
+          contentId: `c-${n}`, articleId: `a-00${n}`, sourceId: "variety",
+          contentKind: "feed_description", text: `Summary ${n}`,
+          rawRecordId: `raw-${n}`, contentHash: `h${n}`, licenseClass: "web_copyright",
+        });
+      }
+
+      expect(repo.findUnextractedContent("v1_article_mentions", 2)).toHaveLength(2);
+    });
   });
 });

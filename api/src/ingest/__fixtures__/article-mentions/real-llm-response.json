@@ -1,0 +1,111 @@
+{
+  "schema_version": "v1_article_mentions",
+  "people": [
+    {
+      "name": "Natalia Solórzano Vásquez",
+      "role_hint": "director",
+      "related_to": [
+        {
+          "name": "Spells to Revive a Witch",
+          "type": "title",
+          "relationship": "director"
+        },
+        {
+          "name": "Sputnik Films",
+          "type": "company",
+          "relationship": "produced by"
+        },
+        {
+          "name": "Avanzaré tan despacio",
+          "type": "title",
+          "relationship": "debut feature"
+        },
+        {
+          "name": "Soralla de Persia",
+          "type": "person",
+          "relationship": "casting call to embody"
+        }
+      ]
+    },
+    {
+      "name": "Mariana Murillo",
+      "role_hint": "producer",
+      "related_to": [
+        {
+          "name": "Spells to Revive a Witch",
+          "type": "title",
+          "relationship": "produced by"
+        },
+        {
+          "name": "Land of Ashes",
+          "type": "title",
+          "relationship": "produced by"
+        },
+        {
+          "name": "Madre Pájaro",
+          "type": "title",
+          "relationship": "produced by"
+        }
+      ]
+    },
+    {
+      "name": "Sofía Quirós Ubeda",
+      "role_hint": "director",
+      "related_to": [
+        {
+          "name": "Land of Ashes",
+          "type": "title",
+          "relationship": "produced by"
+        }
+      ]
+    },
+    {
+      "name": "Valentina Maurel",
+      "role_hint": "director",
+      "related_to": []
+    },
+    {
+      "name": "Soralla de Persia",
+      "role_hint": "person",
+      "related_to": [
+        {
+          "name": "Spells to Revive a Witch",
+          "type": "title",
+          "relationship": "casting call to embody"
+        }
+      ]
+    }
+  ],
+  "titles": [
+    {
+      "name": "Spells to Revive a Witch",
+      "format_hint": "documentary"
+    },
+    {
+      "name": "Land of Ashes",
+      "format_hint": "feature"
+    },
+    {
+      "name": "Madre Pájaro",
+      "format_hint": "feature"
+    },
+    {
+      "name": "Avanzaré tan despacio",
+      "format_hint": "feature"
+    }
+  ],
+  "companies": [
+    {
+      "name": "Testaferro",
+      "type_hint": "company"
+    },
+    {
+      "name": "Guay Films",
+      "type_hint": "company"
+    },
+    {
+      "name": "Sputnik Films",
+      "type_hint": "company"
+    }
+  ]
+}

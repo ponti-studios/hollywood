@@ -178,6 +178,21 @@ export class EntityRepository {
     return null;
   }
 
+  /** Exact canonicalName lookup within one entity kind — used to match-before-create. */
+  findByCanonicalName(entityType: string, canonicalName: string): EntityLikeRow | null {
+    const kind = kindFor(entityType);
+    if (kind === "person") {
+      const row = this.db.select().from(people).where(eq(people.canonicalName, canonicalName)).get();
+      return row ? toPersonRow(row) : null;
+    }
+    if (kind === "title") {
+      const row = this.db.select().from(titles).where(eq(titles.canonicalName, canonicalName)).get();
+      return row ? toTitleRow(row) : null;
+    }
+    const row = this.db.select().from(companies).where(eq(companies.canonicalName, canonicalName)).get();
+    return row ? toCompanyRow(row) : null;
+  }
+
   findByType(entityType: string, limit = 50, offset = 0): EntityLikeRow[] {
     const kind = kindFor(entityType);
     if (kind === "person") {

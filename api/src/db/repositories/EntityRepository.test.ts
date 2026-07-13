@@ -304,4 +304,65 @@ describe("EntityRepository", () => {
       expect(makeStableId("entity", "test", "Alice")).not.toBe(makeStableId("entity", "test", "Bob"));
     });
   });
+
+  describe("findByCanonicalName", () => {
+    it("finds a person by exact canonicalName match", () => {
+      const id = repo.upsert({
+        sourceId: "test",
+        entityType: "person",
+        name: "Jane Doe",
+        canonicalName: "jane doe",
+        licenseClass: "public",
+      });
+
+      const found = repo.findByCanonicalName("person", "jane doe");
+      expect(found).not.toBeNull();
+      expect(found!.id).toBe(id);
+    });
+
+    it("finds a title by exact canonicalName match", () => {
+      const id = repo.upsert({
+        sourceId: "test",
+        entityType: "title",
+        name: "The Crown",
+        canonicalName: "the crown",
+        licenseClass: "public",
+      });
+
+      const found = repo.findByCanonicalName("title", "the crown");
+      expect(found).not.toBeNull();
+      expect(found!.id).toBe(id);
+    });
+
+    it("finds a company by exact canonicalName match", () => {
+      const id = repo.upsert({
+        sourceId: "test",
+        entityType: "company",
+        name: "Netflix",
+        canonicalName: "netflix",
+        companyType: "streamer",
+        licenseClass: "public",
+      });
+
+      const found = repo.findByCanonicalName("company", "netflix");
+      expect(found).not.toBeNull();
+      expect(found!.id).toBe(id);
+    });
+
+    it("returns null on a miss", () => {
+      expect(repo.findByCanonicalName("person", "nobody here")).toBeNull();
+    });
+
+    it("does not cross-match a name that exists under a different entityType", () => {
+      repo.upsert({
+        sourceId: "test",
+        entityType: "person",
+        name: "Amazon",
+        canonicalName: "amazon",
+        licenseClass: "public",
+      });
+
+      expect(repo.findByCanonicalName("company", "amazon")).toBeNull();
+    });
+  });
 });
