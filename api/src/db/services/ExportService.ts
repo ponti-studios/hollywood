@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getDrizzle } from "../index.js";
-import { runs, rawRecords, articles, articleContent, articleEntities, entities, entityAliases, credits } from "../schema.js";
+import { runs, rawRecords, articles, articleContent, articleEntities, people, titles, companies, aliases, credits } from "../schema.js";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../schema.js";
 
@@ -13,8 +13,10 @@ const EXPORTABLE_TABLES = [
   "articles",
   "article_content",
   "article_entities",
-  "entities",
-  "entity_aliases",
+  "people",
+  "titles",
+  "companies",
+  "aliases",
   "credits",
 ] as const;
 
@@ -24,8 +26,10 @@ const TABLE_QUERIES: Record<string, (db: Db) => unknown[]> = {
   articles: (db) => db.select().from(articles).all(),
   article_content: (db) => db.select().from(articleContent).all(),
   article_entities: (db) => db.select().from(articleEntities).all(),
-  entities: (db) => db.select().from(entities).all(),
-  entity_aliases: (db) => db.select().from(entityAliases).all(),
+  people: (db) => db.select().from(people).all(),
+  titles: (db) => db.select().from(titles).all(),
+  companies: (db) => db.select().from(companies).all(),
+  aliases: (db) => db.select().from(aliases).all(),
   credits: (db) => db.select().from(credits).all(),
 };
 

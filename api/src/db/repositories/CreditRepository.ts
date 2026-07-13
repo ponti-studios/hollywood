@@ -1,6 +1,6 @@
 import { getDrizzle } from "../index.js";
 import { credits } from "../schema.js";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../schema.js";
 import { makeStableId } from "./EntityRepository.js";
@@ -23,7 +23,7 @@ export interface CreditWithTitle {
   personId: string;
   titleId: string;
   role: string;
-  creditType: string;
+  creditType: string | null;
   titleName?: string | null;
 }
 
@@ -43,7 +43,7 @@ export class CreditRepository {
         companyId: fields.companyId ?? null,
         sourceId: fields.sourceId,
         role: fields.role,
-        creditType: fields.creditType ?? "crew",
+        creditCategory: fields.creditType ?? "crew",
         billing: fields.billing ?? null,
         trustState: fields.trustState ?? "machine_extracted",
         sourceFactId: null,
@@ -62,11 +62,11 @@ export class CreditRepository {
         personId: credits.personId,
         titleId: credits.titleId,
         role: credits.role,
-        creditType: credits.creditType,
-        titleName: schema.entities.name,
+        creditType: credits.creditCategory,
+        titleName: schema.titles.title,
       })
       .from(credits)
-      .leftJoin(schema.entities, eq(schema.entities.id, credits.titleId))
+      .leftJoin(schema.titles, eq(schema.titles.id, credits.titleId))
       .where(eq(credits.personId, personId))
       .orderBy(credits.createdAt)
       .all();
@@ -81,11 +81,11 @@ export class CreditRepository {
         personId: credits.personId,
         titleId: credits.titleId,
         role: credits.role,
-        creditType: credits.creditType,
-        personName: schema.entities.name,
+        creditType: credits.creditCategory,
+        personName: schema.people.name,
       })
       .from(credits)
-      .leftJoin(schema.entities, eq(schema.entities.id, credits.personId))
+      .leftJoin(schema.people, eq(schema.people.id, credits.personId))
       .where(eq(credits.titleId, titleId))
       .orderBy(credits.createdAt)
       .all();

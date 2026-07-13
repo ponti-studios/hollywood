@@ -136,6 +136,7 @@ export interface EntityRow {
   canonicalName: string;
   licenseClass: string;
   metadataJson: string;
+  titleType?: string;
 }
 
 export interface EntityAliasRow {

@@ -18,6 +18,12 @@ import type { Adapter } from "./base.js";
 import type { DbRow } from "../../db/index.js";
 
 const NULL_VALUE = "\\N";
+const IMDB_TITLE_TYPE_TO_FORMAT: Record<string, string> = {
+  movie: "feature",
+  tvMovie: "feature",
+  tvSeries: "series",
+  tvMiniSeries: "miniseries",
+};
 
 async function downloadTsvLines(url: string, rowLimit?: number): Promise<string[]> {
   const resp = await fetch(url, {
@@ -168,6 +174,7 @@ export class ImdbAdapter implements Adapter {
             startYear: row["startYear"] ?? null,
             genres: row["genres"] ?? null,
           }),
+          titleType: IMDB_TITLE_TYPE_TO_FORMAT[row["titleType"] ?? ""],
         };
         bundle.entities.push(entityRow);
       }

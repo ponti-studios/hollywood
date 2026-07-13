@@ -40,7 +40,7 @@ export class ProjectService {
 
   get(id: string): ProjectDetail | null {
     const row = this.entityRepo.findById(id);
-    if (!row || (row.entityType !== "title" && row.entityType !== "project")) return null;
+    if (!row || (row.entityType !== "title")) return null;
     return this.enrich(row);
   }
 
@@ -74,7 +74,7 @@ export class ProjectService {
 
   update(id: string, input: UpdateProjectInput): ProjectDetail | null {
     const existing = this.entityRepo.findById(id);
-    if (!existing || (existing.entityType !== "title" && existing.entityType !== "project")) return null;
+    if (!existing || (existing.entityType !== "title")) return null;
 
     // Parse existing metadata
     const existingMeta = existing.metadataJson ? JSON.parse(existing.metadataJson) : {};

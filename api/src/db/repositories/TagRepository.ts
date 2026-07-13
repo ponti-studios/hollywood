@@ -35,12 +35,21 @@ export class TagRepository {
   tagEntity(entityId: string, tagId: string, sourceId: string): string {
     const taggingId = makeStableId("tagging", entityId, tagId);
     const now = new Date().toISOString();
+    const entityType = this.resolveEntityType(entityId);
     this.db
       .insert(entityTaggings)
-      .values({ id: taggingId, tagId, entityId, sourceId, trustState: "machine_extracted", createdAt: now })
+      .values({ id: taggingId, tagId, entityType, entityId, sourceId, trustState: "machine_extracted", createdAt: now })
       .onConflictDoNothing()
       .run();
     return taggingId;
+  }
+
+  /** Look up which gold table an id belongs to. Defaults to "person" if not found. */
+  private resolveEntityType(entityId: string): string {
+    if (this.db.select({ id: schema.people.id }).from(schema.people).where(eq(schema.people.id, entityId)).get()) return "person";
+    if (this.db.select({ id: schema.titles.id }).from(schema.titles).where(eq(schema.titles.id, entityId)).get()) return "title";
+    if (this.db.select({ id: schema.companies.id }).from(schema.companies).where(eq(schema.companies.id, entityId)).get()) return "company";
+    return "person";
   }
 
   /** Find all tags for an entity. */

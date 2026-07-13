@@ -1,6 +1,6 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 
-// ── Pipeline runtime ─────────────────────────────────────────────────────────
+// ── Pipeline: bronze (raw ingestion) ─────────────────────────────────────────
 
 export const runs = sqliteTable("runs", {
   id: text("id").primaryKey(),
@@ -42,7 +42,20 @@ export const extractionResults = sqliteTable("extraction_results", {
   createdAt: text("created_at").notNull(),
 });
 
-// ── Entity graph ─────────────────────────────────────────────────────────────
+export const sourceFacts = sqliteTable("source_facts", {
+  id: text("id").primaryKey(),
+  sourceTable: text("source_table").notNull(),
+  sourceRowId: text("source_row_id").notNull(),
+  documentId: text("document_id").references(() => rawRecords.id),
+  extractionId: text("extraction_id").references(() => extractionResults.id),
+  jsonPath: text("json_path"),
+  sourceText: text("source_text"),
+  trustState: text("trust_state").notNull().default("machine_extracted"),
+  confidence: text("confidence").notNull().default("machine_extracted"),
+  createdAt: text("created_at").notNull(),
+});
+
+// ── Pipeline: silver (entity resolution) ─────────────────────────────────────
 
 export const entities = sqliteTable("entities", {
   id: text("id").primaryKey(),
@@ -59,60 +72,119 @@ export const entities = sqliteTable("entities", {
   status: text("status").notNull().default("active"),
   licenseClass: text("license_class").notNull(),
   metadataJson: text("metadata_json").notNull().default("{}"),
+  canonicalId: text("canonical_id"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
 
-export const entityAliases = sqliteTable("entity_aliases", {
+export const entityMatchDecisions = sqliteTable("entity_match_decisions", {
   id: text("id").primaryKey(),
-  entityId: text("entity_id").notNull().references(() => entities.id),
-  sourceId: text("source_id").notNull(),
-  alias: text("alias").notNull(),
+  entityAId: text("entity_a_id").notNull().references(() => entities.id),
+  entityBId: text("entity_b_id").notNull().references(() => entities.id),
+  entityType: text("entity_type").notNull(),
+  decision: text("decision").notNull(),
+  confidence: real("confidence"),
+  reason: text("reason").notNull(),
+  decidedBy: text("decided_by").notNull(),
+  decidedAt: text("decided_at").notNull(),
   createdAt: text("created_at").notNull(),
 });
 
-export const entityContacts = sqliteTable("entity_contacts", {
+// ── Pipeline: silver (staged relationship facts) ─────────────────────────────
+
+export const stagedFacts = sqliteTable("staged_facts", {
   id: text("id").primaryKey(),
-  entityId: text("entity_id").notNull().references(() => entities.id),
+  factType: text("fact_type").notNull(),
+  entityRefsJson: text("entity_refs_json").notNull(),
+  payloadJson: text("payload_json").notNull(),
+  status: text("status").notNull().default("pending"),
+  materializedTable: text("materialized_table"),
+  materializedRowId: text("materialized_row_id"),
   sourceId: text("source_id").notNull(),
-  contactType: text("contact_type").notNull(),
-  contactValue: text("contact_value").notNull(),
+  documentId: text("document_id").references(() => rawRecords.id),
+  extractionId: text("extraction_id").references(() => extractionResults.id),
   trustState: text("trust_state").notNull().default("machine_extracted"),
   createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 
-export const entityLinks = sqliteTable("entity_links", {
+// ── Gold: core entities ───────────────────────────────────────────────────────
+
+export const people = sqliteTable("people", {
   id: text("id").primaryKey(),
-  entityId: text("entity_id").notNull().references(() => entities.id),
   sourceId: text("source_id").notNull(),
-  url: text("url").notNull(),
-  linkType: text("link_type").notNull(),
-  trustState: text("trust_state").notNull().default("machine_extracted"),
+  externalId: text("external_id"),
+  name: text("name").notNull(),
+  canonicalName: text("canonical_name").notNull(),
+  bio: text("bio"),
+  birthYear: integer("birth_year"),
+  deathYear: integer("death_year"),
+  primaryProfession: text("primary_profession"),
+  wgaStatus: text("wga_status"),
+  sagStatus: text("sag_status"),
+  status: text("status").notNull().default("active"),
+  licenseClass: text("license_class").notNull(),
+  metadataJson: text("metadata_json").notNull().default("{}"),
   createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 
-// ── Credits and relationships ────────────────────────────────────────────────
+export const titles = sqliteTable("titles", {
+  id: text("id").primaryKey(),
+  sourceId: text("source_id").notNull(),
+  externalId: text("external_id"),
+  title: text("title").notNull(),
+  canonicalName: text("canonical_name").notNull(),
+  format: text("format").notNull(),
+  genre: text("genre"),
+  network: text("network"),
+  seasonCount: integer("season_count"),
+  episodeCount: integer("episode_count"),
+  logline: text("logline"),
+  synopsis: text("synopsis"),
+  status: text("status").notNull().default("development"),
+  premiereDate: text("premiere_date"),
+  announcedDate: text("announced_date"),
+  licenseClass: text("license_class").notNull(),
+  metadataJson: text("metadata_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const companies = sqliteTable("companies", {
+  id: text("id").primaryKey(),
+  sourceId: text("source_id").notNull(),
+  externalId: text("external_id"),
+  name: text("name").notNull(),
+  canonicalName: text("canonical_name").notNull(),
+  companyType: text("company_type").notNull(),
+  parentCompanyId: text("parent_company_id").references((): AnySQLiteColumn => companies.id),
+  status: text("status").notNull().default("active"),
+  licenseClass: text("license_class").notNull(),
+  metadataJson: text("metadata_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+// ── Gold: join tables ─────────────────────────────────────────────────────────
 
 export const credits = sqliteTable("credits", {
   id: text("id").primaryKey(),
-  personId: text("person_id").notNull().references(() => entities.id),
-  titleId: text("title_id").notNull().references(() => entities.id),
-  companyId: text("company_id").references(() => entities.id),
-  sourceId: text("source_id").notNull(),
+  personId: text("person_id").notNull().references(() => people.id),
+  titleId: text("title_id").notNull().references(() => titles.id),
+  companyId: text("company_id").references(() => companies.id),
   role: text("role").notNull(),
-  creditType: text("credit_type").notNull(),
+  creditCategory: text("credit_category"),
+  season: integer("season"),
+  episodes: integer("episodes"),
+  yearStart: integer("year_start"),
+  yearEnd: integer("year_end"),
+  network: text("network"),
   billing: integer("billing"),
-  trustState: text("trust_state").notNull().default("machine_extracted"),
-  sourceFactId: text("source_fact_id"),
-  createdAt: text("created_at").notNull(),
-});
-
-export const titleCompanies = sqliteTable("title_companies", {
-  id: text("id").primaryKey(),
-  titleId: text("title_id").notNull().references(() => entities.id),
-  companyId: text("company_id").notNull().references(() => entities.id),
+  roomPosition: text("room_position"),
+  contractType: text("contract_type"),
+  active: integer("active").notNull().default(1),
   sourceId: text("source_id").notNull(),
-  relationship: text("relationship").notNull(),
   trustState: text("trust_state").notNull().default("machine_extracted"),
   sourceFactId: text("source_fact_id"),
   createdAt: text("created_at").notNull(),
@@ -120,63 +192,121 @@ export const titleCompanies = sqliteTable("title_companies", {
 
 export const representation = sqliteTable("representation", {
   id: text("id").primaryKey(),
-  clientId: text("client_id").notNull().references(() => entities.id),
-  repId: text("rep_id").notNull().references(() => entities.id),
-  repCompanyId: text("rep_company_id").references(() => entities.id),
+  clientId: text("client_id").notNull().references(() => people.id),
+  repId: text("rep_id").notNull().references(() => people.id),
+  repCompanyId: text("rep_company_id").references(() => companies.id),
   repType: text("rep_type").notNull(),
+  department: text("department"),
   title: text("title"),
   email: text("email"),
   phone: text("phone"),
+  primaryRep: integer("primary_rep").notNull().default(0),
+  coRep: integer("co_rep").notNull().default(0),
+  dateStart: text("date_start"),
+  dateEnd: text("date_end"),
+  active: integer("active").notNull().default(1),
   sourceId: text("source_id").notNull(),
   trustState: text("trust_state").notNull().default("machine_extracted"),
   sourceFactId: text("source_fact_id"),
-  createdAt: text("created_at").notNull(),
-});
-
-export const collaborations = sqliteTable("collaborations", {
-  id: text("id").primaryKey(),
-  personAId: text("person_a_id").notNull().references(() => entities.id),
-  personBId: text("person_b_id").notNull().references(() => entities.id),
-  titleId: text("title_id").references(() => entities.id),
-  relationship: text("relationship").notNull(),
-  sourceId: text("source_id").notNull(),
-  trustState: text("trust_state").notNull().default("machine_extracted"),
-  sourceFactId: text("source_fact_id"),
-  createdAt: text("created_at").notNull(),
-});
-
-// ── Submissions and deals ────────────────────────────────────────────────────
-
-export const submissions = sqliteTable("submissions", {
-  id: text("id").primaryKey(),
-  documentId: text("document_id").notNull().references(() => rawRecords.id),
-  extractionId: text("extraction_id").notNull().references(() => extractionResults.id),
-  submittedByPersonId: text("submitted_by_person_id").references(() => entities.id),
-  submittedByCompanyId: text("submitted_by_company_id").references(() => entities.id),
-  submittedToPersonId: text("submitted_to_person_id").references(() => entities.id),
-  submittedToCompanyId: text("submitted_to_company_id").references(() => entities.id),
-  opportunityTitleId: text("opportunity_title_id").references(() => entities.id),
-  purpose: text("purpose"),
-  receivedAt: text("received_at"),
-  sourceId: text("source_id").notNull(),
-  trustState: text("trust_state").notNull().default("machine_extracted"),
   createdAt: text("created_at").notNull(),
 });
 
 export const deals = sqliteTable("deals", {
   id: text("id").primaryKey(),
-  personId: text("person_id").references(() => entities.id),
-  companyId: text("company_id").references(() => entities.id),
-  titleId: text("title_id").references(() => entities.id),
   dealType: text("deal_type").notNull(),
-  status: text("status").notNull().default("machine_extracted"),
+  personId: text("person_id").references(() => people.id),
+  companyId: text("company_id").references(() => companies.id),
+  titleId: text("title_id").references(() => titles.id),
+  counterpartyId: text("counterparty_id").references(() => companies.id),
+  status: text("status").notNull().default("negotiating"),
+  compensationMin: integer("compensation_min"),
+  compensationMax: integer("compensation_max"),
+  backendPoints: real("backend_points"),
+  optionPeriods: integer("option_periods"),
+  exclusivity: text("exclusivity"),
+  territory: text("territory"),
+  dateSigned: text("date_signed"),
+  dateStart: text("date_start"),
+  dateEnd: text("date_end"),
+  creditObligations: text("credit_obligations"),
+  notes: text("notes"),
   sourceId: text("source_id").notNull(),
   trustState: text("trust_state").notNull().default("machine_extracted"),
   sourceFactId: text("source_fact_id"),
   createdAt: text("created_at").notNull(),
 });
 
-// ── Articles and content ─────────────────────────────────────────────────────
+export const awards = sqliteTable("awards", {
+  id: text("id").primaryKey(),
+  awardName: text("award_name").notNull(),
+  category: text("category").notNull(),
+  year: integer("year").notNull(),
+  personId: text("person_id").references(() => people.id),
+  titleId: text("title_id").references(() => titles.id),
+  outcome: text("outcome").notNull(),
+  sourceId: text("source_id").notNull(),
+  trustState: text("trust_state").notNull().default("machine_extracted"),
+  sourceFactId: text("source_fact_id"),
+  createdAt: text("created_at").notNull(),
+});
+
+// ── Gold: identity (polymorphic — entity_type + entity_id, no FK) ────────────
+
+export const aliases = sqliteTable("aliases", {
+  id: text("id").primaryKey(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  sourceId: text("source_id").notNull(),
+  alias: text("alias").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const contacts = sqliteTable("contacts", {
+  id: text("id").primaryKey(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  sourceId: text("source_id").notNull(),
+  contactType: text("contact_type").notNull(),
+  contactValue: text("contact_value").notNull(),
+  trustState: text("trust_state").notNull().default("machine_extracted"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const links = sqliteTable("links", {
+  id: text("id").primaryKey(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  sourceId: text("source_id").notNull(),
+  url: text("url").notNull(),
+  linkType: text("link_type").notNull(),
+  trustState: text("trust_state").notNull().default("machine_extracted"),
+  createdAt: text("created_at").notNull(),
+});
+
+// ── Gold: submissions ─────────────────────────────────────────────────────────
+
+export const submissions = sqliteTable("submissions", {
+  id: text("id").primaryKey(),
+  submittedByPerson: text("submitted_by_person").references(() => people.id),
+  submittedByCompany: text("submitted_by_company").references(() => companies.id),
+  submittedToPerson: text("submitted_to_person").references(() => people.id),
+  submittedToCompany: text("submitted_to_company").references(() => companies.id),
+  opportunityTitleId: text("opportunity_title_id").references(() => titles.id),
+  role: text("role"),
+  materialType: text("material_type"),
+  purpose: text("purpose"),
+  receivedAt: text("received_at"),
+  outcome: text("outcome"),
+  outcomeDate: text("outcome_date"),
+  notes: text("notes"),
+  documentId: text("document_id").references(() => rawRecords.id),
+  extractionId: text("extraction_id").references(() => extractionResults.id),
+  sourceId: text("source_id").notNull(),
+  trustState: text("trust_state").notNull().default("machine_extracted"),
+  createdAt: text("created_at").notNull(),
+});
+
+// ── Gold: articles and content ────────────────────────────────────────────────
 
 export const articles = sqliteTable("articles", {
   id: text("id").primaryKey(),
@@ -189,7 +319,7 @@ export const articles = sqliteTable("articles", {
   summary: text("summary"),
   feedGuid: text("feed_guid"),
   licenseClass: text("license_class").notNull(),
-  runId: text("run_id").notNull().references(() => runs.id),
+  runId: text("run_id").references(() => runs.id),
   metadataJson: text("metadata_json").notNull().default("{}"),
 });
 
@@ -208,28 +338,43 @@ export const articleContent = sqliteTable("article_content", {
 export const articleEntities = sqliteTable("article_entities", {
   id: text("id").primaryKey(),
   articleId: text("article_id").notNull().references(() => articles.id),
-  entityId: text("entity_id").notNull().references(() => entities.id),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
   sourceId: text("source_id").notNull(),
   relation: text("relation").notNull(),
   metadataJson: text("metadata_json").notNull().default("{}"),
 });
 
-// ── Provenance and trust ─────────────────────────────────────────────────────
+// ── Gold: collaboration network ──────────────────────────────────────────────
 
-export const sourceFacts = sqliteTable("source_facts", {
+export const collaborations = sqliteTable("collaborations", {
   id: text("id").primaryKey(),
-  sourceTable: text("source_table").notNull(),
-  sourceRowId: text("source_row_id").notNull(),
-  documentId: text("document_id").references(() => rawRecords.id),
-  extractionId: text("extraction_id").references(() => extractionResults.id),
-  jsonPath: text("json_path"),
-  sourceText: text("source_text"),
+  personAId: text("person_a_id").notNull().references(() => people.id),
+  personBId: text("person_b_id").notNull().references(() => people.id),
+  titleId: text("title_id").references(() => titles.id),
+  relationship: text("relationship").notNull(),
+  yearStart: integer("year_start"),
+  yearEnd: integer("year_end"),
+  projectCount: integer("project_count"),
+  sourceId: text("source_id").notNull(),
   trustState: text("trust_state").notNull().default("machine_extracted"),
-  confidence: text("confidence").notNull().default("machine_extracted"),
+  sourceFactId: text("source_fact_id"),
   createdAt: text("created_at").notNull(),
 });
 
-// ── Tagging and dedup ────────────────────────────────────────────────────────
+export const companyRelations = sqliteTable("company_relations", {
+  id: text("id").primaryKey(),
+  companyAId: text("company_a_id").notNull().references(() => companies.id),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  relationship: text("relationship").notNull(),
+  sourceId: text("source_id").notNull(),
+  trustState: text("trust_state").notNull().default("machine_extracted"),
+  sourceFactId: text("source_fact_id"),
+  createdAt: text("created_at").notNull(),
+});
+
+// ── Gold: tagging ─────────────────────────────────────────────────────────────
 
 export const tags = sqliteTable("tags", {
   id: text("id").primaryKey(),
@@ -241,26 +386,10 @@ export const tags = sqliteTable("tags", {
 export const entityTaggings = sqliteTable("entity_taggings", {
   id: text("id").primaryKey(),
   tagId: text("tag_id").notNull().references(() => tags.id),
-  entityId: text("entity_id").notNull().references(() => entities.id),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
   sourceId: text("source_id").notNull(),
   trustState: text("trust_state").notNull().default("machine_extracted"),
   sourceFactId: text("source_fact_id").references(() => sourceFacts.id),
-  createdAt: text("created_at").notNull(),
-});
-
-export const mergeCandidates = sqliteTable("merge_candidates", {
-  id: text("id").primaryKey(),
-  entityAId: text("entity_a_id").notNull().references(() => entities.id),
-  entityBId: text("entity_b_id").notNull().references(() => entities.id),
-  reason: text("reason").notNull(),
-  status: text("status").notNull().default("needs_review"),
-  createdAt: text("created_at").notNull(),
-});
-
-export const entityMerges = sqliteTable("entity_merges", {
-  id: text("id").primaryKey(),
-  survivingId: text("surviving_id").notNull().references(() => entities.id),
-  mergedId: text("merged_id").notNull().references(() => entities.id),
-  reason: text("reason").notNull(),
   createdAt: text("created_at").notNull(),
 });

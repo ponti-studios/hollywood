@@ -12,8 +12,6 @@ export default defineConfig({
   out: "./drizzle",
   dialect: "sqlite",
   dbCredentials: {
-    url: process.env.HOLLYWOOD_DB_PATH
-      ? expandHome(process.env.HOLLYWOOD_DB_PATH)
-      : resolve(import.meta.dirname, "../data/hollywood.db"),
+    url: expandHome(process.env.HOLLYWOOD_DB_PATH ?? "~/.hominem/hollywood.db"),
   },
 });

@@ -3,6 +3,7 @@ import { chromium } from "playwright";
 import type { Locator, Page } from "playwright";
 import { env } from "../../env.js";
 import { canonicalizeUrl, emptyBundle, makeStableId } from "../models.js";
+import { parseWgaProfileCredits } from "./wga-credit-parser.js";
 import type {
   CreditRow,
   EntityAliasRow,
@@ -23,7 +24,6 @@ const SEARCH_INPUT_SELECTORS = [
 const SEARCH_TYPE_BUTTON_SELECTORS = ["#search-type", "button#search-type"];
 const SEARCH_BUTTON_SELECTORS = ["#searchBtn", "button#searchBtn"];
 const STARTS_WITH_ITEM_SELECTOR = "a.dropdown-item[data-value='2']";
-const CREDIT_COUNT_RE = /^(\d+)\s+Credits?$/;
 
 export class SelectorError extends Error {}
 
@@ -104,50 +104,32 @@ async function extractWriterName(profile: Page): Promise<string> {
   return title.split(/\s*[|-]\s*/)[0]!.trim() || "Unknown Writer";
 }
 
-function parseWgaCredits(text: string, personEntityId: string): { credit: CreditRow; title: EntityRow }[] {
-  const results: { credit: CreditRow; title: EntityRow }[] = [];
-  let previousTitle: string | null = null;
-  for (const rawLine of text.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const match = CREDIT_COUNT_RE.exec(line);
-    if (match && previousTitle) {
-      const count = parseInt(match[1]!, 10);
-      const titleEntityId = makeStableId("wga_title", previousTitle);
-      results.push({
-        title: {
-          entityId: titleEntityId,
-          sourceId: "wga",
-          entityType: "title",
-          name: previousTitle,
-          canonicalName: previousTitle.toLowerCase(),
-          licenseClass: "research_non_commercial",
-          metadataJson: JSON.stringify({ stub: true }),
-        },
-        credit: {
-          creditId: makeStableId("wga", personEntityId, previousTitle, String(count)),
-          sourceId: "wga",
-          personEntityId,
-          titleEntityId,
-          role: "writer_credit_summary",
-          billing: count,
-          metadataJson: JSON.stringify({ source: "wga_profile_text" }),
-        },
-      });
-      previousTitle = null;
-      continue;
-    }
-    if (
-      !line.startsWith("Created by:") &&
-      !line.startsWith("Written by:") &&
-      !line.includes("Writers Guild") &&
-      !line.includes("Jump To") &&
-      line.includes("(")
-    ) {
-      previousTitle = line;
-    }
-  }
-  return results;
+/** Maps parsed WGA credits (pure text parsing lives in wga-credit-parser.ts) into bundle rows. */
+export function buildWgaCreditRows(text: string, personEntityId: string): { credit: CreditRow; title: EntityRow }[] {
+  return parseWgaProfileCredits(text).map((parsed) => {
+    const titleEntityId = makeStableId("wga_title", parsed.title);
+    return {
+      title: {
+        entityId: titleEntityId,
+        sourceId: "wga",
+        entityType: "title",
+        name: parsed.title,
+        canonicalName: parsed.title.toLowerCase(),
+        licenseClass: "research_non_commercial",
+        metadataJson: JSON.stringify({ stub: true, category: parsed.category }),
+        titleType: parsed.category ?? undefined,
+      },
+      credit: {
+        creditId: makeStableId("wga", personEntityId, parsed.title, parsed.role),
+        sourceId: "wga",
+        personEntityId,
+        titleEntityId,
+        role: parsed.role,
+        billing: parsed.count,
+        metadataJson: JSON.stringify({ source: "wga_profile_text" }),
+      },
+    };
+  });
 }
 
 export class WgaAdapter implements Adapter {
@@ -260,7 +242,7 @@ export class WgaAdapter implements Adapter {
       };
       bundle.entityAliases.push(aliasRow);
 
-      for (const { credit, title } of parseWgaCredits(text, entityId)) {
+      for (const { credit, title } of buildWgaCreditRows(text, entityId)) {
         bundle.entities.push(title);
         bundle.credits.push(credit);
       }

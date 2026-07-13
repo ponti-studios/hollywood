@@ -23,7 +23,7 @@ The API starts at `http://localhost:4000`. OpenAPI docs are at `/openapi`.
 - `POST /normalize` — re-derive normalized tables from already-archived raw records
 - `GET /export` — export normalized tables as JSONL
 - `GET /doctor` — health checks (data dir, DB, API keys, per-source config)
-- `GET /candidates`, `/projects`, `/submissions`, `/search`, `/tags`, `/users` — entity graph CRUD/search
+- `GET /candidates`, `/projects`, `/submissions`, `/search`, `/tags` — entity graph CRUD/search
 
 ## Environment
 

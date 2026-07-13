@@ -126,11 +126,13 @@ export class ArticleRepository {
 
   /** Link an entity to an article. */
   linkEntity(fields: ArticleEntityFields): void {
+    const entityType = this.resolveEntityType(fields.entityId);
     this.db
       .insert(articleEntities)
       .values({
         id: fields.articleEntityId,
         articleId: fields.articleId,
+        entityType,
         entityId: fields.entityId,
         sourceId: fields.sourceId,
         relation: fields.relation,
@@ -138,6 +140,14 @@ export class ArticleRepository {
       })
       .onConflictDoNothing()
       .run();
+  }
+
+  /** Look up which gold table an id belongs to. Defaults to "person" if not found. */
+  private resolveEntityType(entityId: string): string {
+    if (this.db.select({ id: schema.people.id }).from(schema.people).where(eq(schema.people.id, entityId)).get()) return "person";
+    if (this.db.select({ id: schema.titles.id }).from(schema.titles).where(eq(schema.titles.id, entityId)).get()) return "title";
+    if (this.db.select({ id: schema.companies.id }).from(schema.companies).where(eq(schema.companies.id, entityId)).get()) return "company";
+    return "person";
   }
 
   /** Find article by ID. */

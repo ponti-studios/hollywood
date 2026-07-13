@@ -1,13 +1,16 @@
 # Hollywood Domain Schema v2 — First Principles
 
 The pipeline tables (`runs`, `raw_records`, `extraction_results`,
-`source_facts`, `entities`, `entity_merges`) are intentionally omitted from
-the domain model below. They live in a separate namespace — implementation
-detail of how data enters the system and gets resolved into canonical
-records, not the domain model itself. See **Pipeline Tables** near the end
-for how `entities` (one row per source observation) resolves into
-`people`/`titles`/`companies` (one row per real-world thing) via a
-`canonical_id` crosswalk.
+`source_facts`, `entities`, `entity_match_decisions`, `staged_facts`) are
+intentionally omitted from the domain model below. They live in a separate
+namespace — implementation detail of how data enters the system and gets
+resolved into canonical records, not the domain model itself. See
+**Pipeline Tables** near the end for how `entities` (one row per source
+observation) resolves into `people`/`titles`/`companies` (one row per
+real-world thing) via a `canonical_id` crosswalk, and how relationship facts
+(credits, deals, etc.) stage in `staged_facts` until their referenced
+entities resolve. Full job/orchestration design lives in
+[`ingestion-pipeline-architecture.md`](./ingestion-pipeline-architecture.md).
 
 ---
 
@@ -505,7 +508,11 @@ CREATE TABLE entity_taggings (
 A separate namespace from the domain model — data provenance, ingestion
 tracking, and entity resolution. `runs`, `raw_records`, `extraction_results`,
 and `source_facts` stay exactly as they are in the current schema. `entities`
-and `entity_merges` are new/changed, described below.
+is changed (adds `canonical_id`), and `entity_match_decisions` +
+`staged_facts` are new, described below. See
+[`ingestion-pipeline-architecture.md`](./ingestion-pipeline-architecture.md)
+for the full bronze/silver/gold pipeline and the jobs that move data between
+these tables.
 
 ### entities — one row per source observation (staging, not domain)
 
@@ -540,56 +547,66 @@ runs, then it points directly at the golden record in
 from different sources describing the same real person both end up with the
 same `canonical_id` — that's what makes them "the same person" downstream.
 
-### entity_merges — candidate + resolution log (replaces merge_candidates)
+### entity_match_decisions — append-only match log (replaces merge_candidates and entity_merges)
 
 ```sql
-CREATE TABLE entity_merges (
+CREATE TABLE entity_match_decisions (
     id              TEXT PRIMARY KEY,
     entity_a_id     TEXT NOT NULL REFERENCES entities(id),
     entity_b_id     TEXT NOT NULL REFERENCES entities(id),
     entity_type     TEXT NOT NULL,              -- must match entity_type on both sides
-    reason          TEXT NOT NULL,              -- blocking key / rule that surfaced this pair
+    decision        TEXT NOT NULL,              -- match, no_match, needs_review
     confidence      REAL,                       -- match score, if machine-scored
-    status          TEXT NOT NULL DEFAULT 'needs_review',
-                                                -- needs_review, confirmed, rejected, auto_merged
-    canonical_id    TEXT,                       -- set once resolved
-    decided_by      TEXT,                       -- 'system' or reviewer id
-    resolved_at     TEXT,
+    reason          TEXT NOT NULL,              -- blocking key / rule that surfaced this pair
+    decided_by      TEXT NOT NULL,              -- 'system:<job>' or reviewer id
+    decided_at      TEXT NOT NULL,
     created_at      TEXT NOT NULL
 );
 ```
 
-One row now covers the lifecycle that used to need two tables:
-`status='needs_review'` with `canonical_id` null is the old
-`merge_candidates` row; `status='confirmed'`/`'auto_merged'` with
-`canonical_id` populated is the old `entity_merges` row. `merge_candidates`
-is removed.
+Never updated — every decision, including a reviewer overturning a prior
+one, is a new row. This is the audit trail: "what did we conclude about this
+pair, when, by whom." It replaces both `merge_candidates` and the old
+pairwise `entity_merges` design (a pairwise repoint-on-confirm approach is
+prone to transitive over-merging — see
+[`ingestion-pipeline-architecture.md`](./ingestion-pipeline-architecture.md)
+for why). `entities.canonical_id` is *derived* from this log by a clustering
+job, not written directly by decision review.
 
-### Resolution flow
+### staged_facts — relationship facts pending entity resolution (new)
 
-1. Ingest writes one `entities` row per source observation. `canonical_id`
-   is null.
-2. Blocking (grouping by `canonical_name` prefix, `external_id`, etc.) plus
-   scoring produces candidate pairs, inserted into `entity_merges` with
-   `status='needs_review'` — or `status='auto_merged'` immediately if the
-   score clears the auto-merge confidence threshold.
-3. On confirm: if neither side of the pair has a `canonical_id` yet,
-   promote — create one row in `people`/`titles`/`companies` (per
-   `entity_type`) and set `canonical_id` on both `entities` rows and the
-   `entity_merges` row. If one side already resolved to an existing golden
-   record (from an earlier merge), the other side's `canonical_id` is
-   repointed at that same value — no new golden row is created, and no
-   chain of pointers is ever walked. `canonical_id` always points straight
-   at the current golden record, never at another staging row.
-4. Every domain join table (`credits`, `deals`, `representation`, `awards`,
-   `collaborations`, `submissions`) FKs to `people`/`titles`/`companies` —
-   the golden layer — never to `entities` directly.
-5. Merging two golden records discovered to be duplicates after the fact:
-   repoint every `entities.canonical_id` that referenced the losing id at
-   the surviving id, then mark the losing `people`/`titles`/`companies` row
-   `status='merged'` (tombstoned, not deleted) so existing FKs from
-   `credits`/`deals`/etc. into the losing id still resolve until those rows
-   are backfilled to the surviving id.
+```sql
+CREATE TABLE staged_facts (
+    id                   TEXT PRIMARY KEY,
+    fact_type            TEXT NOT NULL,        -- credit, representation, deal,
+                                                -- award, collaboration, submission
+    entity_refs_json     TEXT NOT NULL,        -- {"person_id": "<entities.id>", ...}
+    payload_json         TEXT NOT NULL,        -- fact-type-specific fields
+    status               TEXT NOT NULL DEFAULT 'pending',
+                                                -- pending, materialized, unresolvable
+    materialized_table    TEXT,                 -- e.g. 'credits', set once promoted
+    materialized_row_id   TEXT,                 -- id of the row created in the gold table
+    source_id            TEXT NOT NULL,
+    document_id           TEXT REFERENCES raw_records(id),
+    extraction_id         TEXT REFERENCES extraction_results(id),
+    trust_state           TEXT NOT NULL DEFAULT 'machine_extracted',
+    created_at            TEXT NOT NULL,
+    updated_at            TEXT NOT NULL
+);
+```
+
+A credit extracted from a document names people and titles by their
+`entities.id`, not by a golden id — those may not have resolved yet, or may
+resolve in a later batch. `staged_facts` holds the fact until every entity it
+references has a `canonical_id`, at which point a materialization job
+promotes it into the matching gold join table. The gold tables'
+`source_fact_id` column (see Join Tables above) points at `staged_facts.id`
+once materialized — `source_facts` remains for provenance outside this
+fact-type family (tags, article entities).
+
+Full resolution and materialization mechanics — the clustering job, the
+materialization job, idempotency and incremental-processing rules — are in
+[`ingestion-pipeline-architecture.md`](./ingestion-pipeline-architecture.md).
 
 ---
 
@@ -604,5 +621,5 @@ is removed.
 | Articles | `articles`, `article_content`, `article_entities` (3) |
 | Network | `collaborations`, `company_relations` (2) |
 | Tags | `tags`, `entity_taggings` (2) |
-| Pipeline | `runs`, `raw_records`, `extraction_results`, `source_facts`, `entities`, `entity_merges` (6) |
-| **Total** | **24** (vs 21 today — adds `people`, `titles`, `companies`, `awards`, `aliases`, `contacts`, `links`, `company_relations`; removes `entity_aliases`, `entity_contacts`, `entity_links`, `title_companies`, `merge_candidates` (folded into `entity_merges`); `entities` stays as a staging table with `canonical_id` added; `deals` and `submissions` restructured) |
+| Pipeline | `runs`, `raw_records`, `extraction_results`, `source_facts`, `entities`, `entity_match_decisions`, `staged_facts` (7) |
+| **Total** | **25** (vs 21 today — adds `people`, `titles`, `companies`, `awards`, `aliases`, `contacts`, `links`, `company_relations`, `staged_facts`; removes `entity_aliases`, `entity_contacts`, `entity_links`, `title_companies`, `merge_candidates` (folded into `entity_match_decisions`); `entities` stays as a staging table with `canonical_id` added; `deals` and `submissions` restructured) |

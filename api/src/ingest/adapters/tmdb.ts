@@ -14,6 +14,7 @@ import type { Adapter } from "./base.js";
 import type { DbRow } from "../../db/index.js";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_MEDIA_TYPE_TO_FORMAT: Record<string, string> = { movie: "feature", tv: "series" };
 
 export class TmdbAdapter implements Adapter {
   constructor(public source: SourceDefinition) {}
@@ -150,6 +151,7 @@ export class TmdbAdapter implements Adapter {
         canonicalName: titleName.toLowerCase(),
         licenseClass: this.source.licenseClass,
         metadataJson: JSON.stringify({ media_type: mediaType, external_ids: document["external_ids"] ?? {} }),
+        titleType: TMDB_MEDIA_TYPE_TO_FORMAT[mediaType],
       };
       bundle.entities.push(row);
     }

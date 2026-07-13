@@ -1,11 +1,21 @@
 import { getDrizzle } from "../index.js";
-import { entities, entityAliases, entityContacts, entityLinks, representation as representationTable } from "../schema.js";
+import { people, titles, companies, aliases, contacts, links, representation as representationTable } from "../schema.js";
 import { eq, like, and, or, count } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../schema.js";
 import { createHash } from "node:crypto";
 
 type Db = BetterSQLite3Database<typeof schema>;
+
+// entityType -> gold table. "title"/"project" both land in `titles` (legacy alias).
+type Kind = "person" | "title" | "company";
+
+function kindFor(entityType: string): Kind {
+  if (entityType === "person") return "person";
+  if (entityType === "title" || entityType === "project") return "title";
+  if (entityType === "company") return "company";
+  throw new Error(`Unknown entityType: ${entityType}`);
+}
 
 export interface EntityFields {
   sourceId: string;
@@ -34,6 +44,26 @@ export interface EntityUpdate {
   status?: string;
   licenseClass?: string;
   metadataJson?: string;
+}
+
+/** Unified read shape — same as the old flat `entities` row, reshaped from people/titles/companies. */
+export interface EntityLikeRow {
+  id: string;
+  sourceId: string;
+  externalId: string | null;
+  entityType: Kind;
+  name: string;
+  canonicalName: string;
+  bio: string | null;
+  position: string | null;
+  titleType: string | null;
+  format: string | null;
+  companyType: string | null;
+  status: string | null;
+  licenseClass: string;
+  metadataJson: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EntityAliasRow {
@@ -69,66 +99,136 @@ export function makeStableId(...parts: string[]): string {
   return createHash("sha256").update(joined, "utf-8").digest("hex").slice(0, 24);
 }
 
+// biome-ignore lint: rough reshaping helpers, not type-precious right now
+function toPersonRow(row: any): EntityLikeRow {
+  return {
+    id: row.id,
+    sourceId: row.sourceId,
+    externalId: row.externalId ?? null,
+    entityType: "person",
+    name: row.name,
+    canonicalName: row.canonicalName,
+    bio: row.bio ?? null,
+    position: row.primaryProfession ?? null,
+    titleType: null,
+    format: null,
+    companyType: null,
+    status: row.status,
+    licenseClass: row.licenseClass,
+    metadataJson: row.metadataJson,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function toTitleRow(row: any): EntityLikeRow {
+  return {
+    id: row.id,
+    sourceId: row.sourceId,
+    externalId: row.externalId ?? null,
+    entityType: "title",
+    name: row.title,
+    canonicalName: row.canonicalName,
+    bio: row.synopsis ?? null,
+    position: null,
+    titleType: row.format ?? null,
+    format: row.format ?? null,
+    companyType: null,
+    status: row.status,
+    licenseClass: row.licenseClass,
+    metadataJson: row.metadataJson,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function toCompanyRow(row: any): EntityLikeRow {
+  return {
+    id: row.id,
+    sourceId: row.sourceId,
+    externalId: row.externalId ?? null,
+    entityType: "company",
+    name: row.name,
+    canonicalName: row.canonicalName,
+    bio: null,
+    position: null,
+    titleType: null,
+    format: null,
+    companyType: row.companyType,
+    status: row.status,
+    licenseClass: row.licenseClass,
+    metadataJson: row.metadataJson,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
 export class EntityRepository {
   constructor(private db: Db = getDrizzle()) {}
 
   // ── Lookup ────────────────────────────────────────────────────────────────
 
-  findById(id: string) {
-    return this.db.select().from(entities).where(eq(entities.id, id)).get() ?? null;
+  findById(id: string): EntityLikeRow | null {
+    const p = this.db.select().from(people).where(eq(people.id, id)).get();
+    if (p) return toPersonRow(p);
+    const t = this.db.select().from(titles).where(eq(titles.id, id)).get();
+    if (t) return toTitleRow(t);
+    const c = this.db.select().from(companies).where(eq(companies.id, id)).get();
+    if (c) return toCompanyRow(c);
+    return null;
   }
 
-  findByType(entityType: string, limit = 50, offset = 0) {
-    return this.db
-      .select()
-      .from(entities)
-      .where(eq(entities.entityType, entityType))
-      .orderBy(entities.name)
-      .limit(limit)
-      .offset(offset)
-      .all();
+  findByType(entityType: string, limit = 50, offset = 0): EntityLikeRow[] {
+    const kind = kindFor(entityType);
+    if (kind === "person") {
+      return this.db.select().from(people).orderBy(people.name).limit(limit).offset(offset).all().map(toPersonRow);
+    }
+    if (kind === "title") {
+      return this.db.select().from(titles).orderBy(titles.title).limit(limit).offset(offset).all().map(toTitleRow);
+    }
+    return this.db.select().from(companies).orderBy(companies.name).limit(limit).offset(offset).all().map(toCompanyRow);
   }
 
-  findByTypes(entityTypes: string[], limit = 50, offset = 0) {
-    const conditions = entityTypes.map((t) => eq(entities.entityType, t));
-    return this.db
-      .select()
-      .from(entities)
-      .where(or(...conditions))
-      .orderBy(entities.name)
-      .limit(limit)
-      .offset(offset)
-      .all();
+  findByTypes(entityTypes: string[], limit = 50, offset = 0): EntityLikeRow[] {
+    const kinds = new Set(entityTypes.map(kindFor));
+    let rows: EntityLikeRow[] = [];
+    if (kinds.has("person")) rows = rows.concat(this.db.select().from(people).all().map(toPersonRow));
+    if (kinds.has("title")) rows = rows.concat(this.db.select().from(titles).all().map(toTitleRow));
+    if (kinds.has("company")) rows = rows.concat(this.db.select().from(companies).all().map(toCompanyRow));
+    rows.sort((a, b) => a.name.localeCompare(b.name));
+    return rows.slice(offset, offset + limit);
   }
 
-  findByName(name: string) {
-    return this.db.select().from(entities).where(eq(entities.name, name)).all();
+  findByName(name: string): EntityLikeRow[] {
+    return [
+      ...this.db.select().from(people).where(eq(people.name, name)).all().map(toPersonRow),
+      ...this.db.select().from(titles).where(eq(titles.title, name)).all().map(toTitleRow),
+      ...this.db.select().from(companies).where(eq(companies.name, name)).all().map(toCompanyRow),
+    ];
   }
 
-  searchByName(query: string, limit = 20, offset = 0) {
+  searchByName(query: string, limit = 20, offset = 0): { rows: EntityLikeRow[]; total: number } {
     const pattern = `%${query}%`;
-    const rows = this.db
-      .select()
-      .from(entities)
-      .where(like(entities.name, pattern))
-      .orderBy(entities.name)
-      .limit(limit)
-      .offset(offset)
-      .all();
-    const [{ value: total }] = this.db
-      .select({ value: count() })
-      .from(entities)
-      .where(like(entities.name, pattern))
-      .all();
-    return { rows, total };
+    const allRows = [
+      ...this.db.select().from(people).where(like(people.name, pattern)).all().map(toPersonRow),
+      ...this.db.select().from(titles).where(like(titles.title, pattern)).all().map(toTitleRow),
+      ...this.db.select().from(companies).where(like(companies.name, pattern)).all().map(toCompanyRow),
+    ];
+    allRows.sort((a, b) => a.name.localeCompare(b.name));
+    return { rows: allRows.slice(offset, offset + limit), total: allRows.length };
   }
 
   countByType(entityType: string): number {
-    const [{ value }] = this.db
-      .select({ value: count() })
-      .from(entities)
-      .where(eq(entities.entityType, entityType))
-      .all();
+    const kind = kindFor(entityType);
+    if (kind === "person") {
+      const [{ value }] = this.db.select({ value: count() }).from(people).all();
+      return value;
+    }
+    if (kind === "title") {
+      const [{ value }] = this.db.select({ value: count() }).from(titles).all();
+      return value;
+    }
+    const [{ value }] = this.db.select({ value: count() }).from(companies).all();
     return value;
   }
 
@@ -142,138 +242,232 @@ export class EntityRepository {
   /** Insert if not exists. Uses stable ID from sourceId + name. */
   upsert(fields: EntityFields): string {
     const id = this.makeEntityId(fields.sourceId, fields.name);
-    const now = new Date().toISOString();
-    this.db
-      .insert(entities)
-      .values({
-        id,
-        sourceId: fields.sourceId,
-        externalId: fields.externalId ?? null,
-        entityType: fields.entityType,
-        name: fields.name,
-        canonicalName: fields.canonicalName,
-        bio: fields.bio ?? null,
-        position: fields.position ?? null,
-        titleType: fields.titleType ?? null,
-        format: fields.format ?? null,
-        companyType: fields.companyType ?? null,
-        status: fields.status ?? "active",
-        licenseClass: fields.licenseClass,
-        metadataJson: fields.metadataJson ?? "{}",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .onConflictDoNothing()
-      .run();
+    this.insertWithId(id, fields);
     return id;
   }
 
   /** Insert or replace. Overwrites all fields. */
   upsertReplace(fields: EntityFields): string {
     const id = this.makeEntityId(fields.sourceId, fields.name);
+    const kind = kindFor(fields.entityType);
     const now = new Date().toISOString();
-    this.db
-      .insert(entities)
-      .values({
-        id,
-        sourceId: fields.sourceId,
-        externalId: fields.externalId ?? null,
-        entityType: fields.entityType,
-        name: fields.name,
-        canonicalName: fields.canonicalName,
-        bio: fields.bio ?? null,
-        position: fields.position ?? null,
-        titleType: fields.titleType ?? null,
-        format: fields.format ?? null,
-        companyType: fields.companyType ?? null,
-        status: fields.status ?? "active",
-        licenseClass: fields.licenseClass,
-        metadataJson: fields.metadataJson ?? "{}",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: entities.id,
-        set: {
+
+    if (kind === "person") {
+      this.db
+        .insert(people)
+        .values({
+          id,
           sourceId: fields.sourceId,
           externalId: fields.externalId ?? null,
-          entityType: fields.entityType,
           name: fields.name,
           canonicalName: fields.canonicalName,
           bio: fields.bio ?? null,
-          position: fields.position ?? null,
-          titleType: fields.titleType ?? null,
-          format: fields.format ?? null,
-          companyType: fields.companyType ?? null,
+          primaryProfession: fields.position ?? null,
           status: fields.status ?? "active",
           licenseClass: fields.licenseClass,
           metadataJson: fields.metadataJson ?? "{}",
+          createdAt: now,
           updatedAt: now,
-        },
-      })
-      .run();
+        })
+        .onConflictDoUpdate({
+          target: people.id,
+          set: {
+            sourceId: fields.sourceId,
+            externalId: fields.externalId ?? null,
+            name: fields.name,
+            canonicalName: fields.canonicalName,
+            bio: fields.bio ?? null,
+            primaryProfession: fields.position ?? null,
+            status: fields.status ?? "active",
+            licenseClass: fields.licenseClass,
+            metadataJson: fields.metadataJson ?? "{}",
+            updatedAt: now,
+          },
+        })
+        .run();
+    } else if (kind === "title") {
+      this.db
+        .insert(titles)
+        .values({
+          id,
+          sourceId: fields.sourceId,
+          externalId: fields.externalId ?? null,
+          title: fields.name,
+          canonicalName: fields.canonicalName,
+          format: fields.titleType ?? fields.format ?? "unknown",
+          status: fields.status ?? "development",
+          licenseClass: fields.licenseClass,
+          metadataJson: fields.metadataJson ?? "{}",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: titles.id,
+          set: {
+            sourceId: fields.sourceId,
+            externalId: fields.externalId ?? null,
+            title: fields.name,
+            canonicalName: fields.canonicalName,
+            format: fields.titleType ?? fields.format ?? "unknown",
+            status: fields.status ?? "development",
+            licenseClass: fields.licenseClass,
+            metadataJson: fields.metadataJson ?? "{}",
+            updatedAt: now,
+          },
+        })
+        .run();
+    } else {
+      this.db
+        .insert(companies)
+        .values({
+          id,
+          sourceId: fields.sourceId,
+          externalId: fields.externalId ?? null,
+          name: fields.name,
+          canonicalName: fields.canonicalName,
+          companyType: fields.companyType ?? "unknown",
+          status: fields.status ?? "active",
+          licenseClass: fields.licenseClass,
+          metadataJson: fields.metadataJson ?? "{}",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: companies.id,
+          set: {
+            sourceId: fields.sourceId,
+            externalId: fields.externalId ?? null,
+            name: fields.name,
+            canonicalName: fields.canonicalName,
+            companyType: fields.companyType ?? "unknown",
+            status: fields.status ?? "active",
+            licenseClass: fields.licenseClass,
+            metadataJson: fields.metadataJson ?? "{}",
+            updatedAt: now,
+          },
+        })
+        .run();
+    }
     return id;
   }
 
   /** Insert with an explicit ID (for routes that generate IDs differently). Idempotent. */
   insertWithId(id: string, fields: EntityFields): void {
+    const kind = kindFor(fields.entityType);
     const now = new Date().toISOString();
-    this.db
-      .insert(entities)
-      .values({
-        id,
-        sourceId: fields.sourceId,
-        externalId: fields.externalId ?? null,
-        entityType: fields.entityType,
-        name: fields.name,
-        canonicalName: fields.canonicalName,
-        bio: fields.bio ?? null,
-        position: fields.position ?? null,
-        titleType: fields.titleType ?? null,
-        format: fields.format ?? null,
-        companyType: fields.companyType ?? null,
-        status: fields.status ?? "active",
-        licenseClass: fields.licenseClass,
-        metadataJson: fields.metadataJson ?? "{}",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .onConflictDoNothing()
-      .run();
+
+    if (kind === "person") {
+      this.db
+        .insert(people)
+        .values({
+          id,
+          sourceId: fields.sourceId,
+          externalId: fields.externalId ?? null,
+          name: fields.name,
+          canonicalName: fields.canonicalName,
+          bio: fields.bio ?? null,
+          primaryProfession: fields.position ?? null,
+          status: fields.status ?? "active",
+          licenseClass: fields.licenseClass,
+          metadataJson: fields.metadataJson ?? "{}",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing()
+        .run();
+    } else if (kind === "title") {
+      this.db
+        .insert(titles)
+        .values({
+          id,
+          sourceId: fields.sourceId,
+          externalId: fields.externalId ?? null,
+          title: fields.name,
+          canonicalName: fields.canonicalName,
+          format: fields.titleType ?? fields.format ?? "unknown",
+          status: fields.status ?? "development",
+          licenseClass: fields.licenseClass,
+          metadataJson: fields.metadataJson ?? "{}",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing()
+        .run();
+    } else {
+      this.db
+        .insert(companies)
+        .values({
+          id,
+          sourceId: fields.sourceId,
+          externalId: fields.externalId ?? null,
+          name: fields.name,
+          canonicalName: fields.canonicalName,
+          companyType: fields.companyType ?? "unknown",
+          status: fields.status ?? "active",
+          licenseClass: fields.licenseClass,
+          metadataJson: fields.metadataJson ?? "{}",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing()
+        .run();
+    }
   }
 
   // ── Update ────────────────────────────────────────────────────────────────
 
   update(id: string, fields: EntityUpdate): void {
+    const existing = this.findById(id);
+    if (!existing) return;
     const now = new Date().toISOString();
-    const values: Record<string, unknown> = { updatedAt: now };
-    if (fields.name !== undefined) values.name = fields.name;
-    if (fields.canonicalName !== undefined) values.canonicalName = fields.canonicalName;
-    if (fields.bio !== undefined) values.bio = fields.bio;
-    if (fields.position !== undefined) values.position = fields.position;
-    if (fields.titleType !== undefined) values.titleType = fields.titleType;
-    if (fields.format !== undefined) values.format = fields.format;
-    if (fields.companyType !== undefined) values.companyType = fields.companyType;
-    if (fields.status !== undefined) values.status = fields.status;
-    if (fields.licenseClass !== undefined) values.licenseClass = fields.licenseClass;
-    if (fields.metadataJson !== undefined) values.metadataJson = fields.metadataJson;
 
-    this.db.update(entities).set(values).where(eq(entities.id, id)).run();
+    if (existing.entityType === "person") {
+      const values: Record<string, unknown> = { updatedAt: now };
+      if (fields.name !== undefined) values.name = fields.name;
+      if (fields.canonicalName !== undefined) values.canonicalName = fields.canonicalName;
+      if (fields.bio !== undefined) values.bio = fields.bio;
+      if (fields.position !== undefined) values.primaryProfession = fields.position;
+      if (fields.status !== undefined) values.status = fields.status;
+      if (fields.licenseClass !== undefined) values.licenseClass = fields.licenseClass;
+      if (fields.metadataJson !== undefined) values.metadataJson = fields.metadataJson;
+      this.db.update(people).set(values).where(eq(people.id, id)).run();
+    } else if (existing.entityType === "title") {
+      const values: Record<string, unknown> = { updatedAt: now };
+      if (fields.name !== undefined) values.title = fields.name;
+      if (fields.canonicalName !== undefined) values.canonicalName = fields.canonicalName;
+      if (fields.format !== undefined) values.format = fields.format;
+      if (fields.titleType !== undefined) values.format = fields.titleType;
+      if (fields.status !== undefined) values.status = fields.status;
+      if (fields.licenseClass !== undefined) values.licenseClass = fields.licenseClass;
+      if (fields.metadataJson !== undefined) values.metadataJson = fields.metadataJson;
+      this.db.update(titles).set(values).where(eq(titles.id, id)).run();
+    } else {
+      const values: Record<string, unknown> = { updatedAt: now };
+      if (fields.name !== undefined) values.name = fields.name;
+      if (fields.canonicalName !== undefined) values.canonicalName = fields.canonicalName;
+      if (fields.companyType !== undefined) values.companyType = fields.companyType;
+      if (fields.status !== undefined) values.status = fields.status;
+      if (fields.licenseClass !== undefined) values.licenseClass = fields.licenseClass;
+      if (fields.metadataJson !== undefined) values.metadataJson = fields.metadataJson;
+      this.db.update(companies).set(values).where(eq(companies.id, id)).run();
+    }
   }
 
   // ── Delete ────────────────────────────────────────────────────────────────
 
   exists(id: string): boolean {
-    const row = this.db.select({ id: entities.id }).from(entities).where(eq(entities.id, id)).get();
-    return row !== undefined;
+    return this.findById(id) !== null;
   }
 
   /** Delete an entity and its related child records. */
   delete(id: string): void {
+    const existing = this.findById(id);
+    if (!existing) return;
+
     // Delete child records first to avoid FK violations
-    this.db.delete(entityAliases).where(eq(entityAliases.entityId, id)).run();
-    this.db.delete(entityContacts).where(eq(entityContacts.entityId, id)).run();
-    this.db.delete(entityLinks).where(eq(entityLinks.entityId, id)).run();
+    this.db.delete(aliases).where(eq(aliases.entityId, id)).run();
+    this.db.delete(contacts).where(eq(contacts.entityId, id)).run();
+    this.db.delete(links).where(eq(links.entityId, id)).run();
     this.db.delete(representationTable).where(eq(representationTable.clientId, id)).run();
     this.db.delete(representationTable).where(eq(representationTable.repId, id)).run();
     this.db.delete(schema.entityTaggings).where(eq(schema.entityTaggings.entityId, id)).run();
@@ -282,45 +476,47 @@ export class EntityRepository {
     this.db.delete(schema.articleEntities).where(eq(schema.articleEntities.entityId, id)).run();
     this.db.delete(schema.collaborations).where(eq(schema.collaborations.personAId, id)).run();
     this.db.delete(schema.collaborations).where(eq(schema.collaborations.personBId, id)).run();
-    this.db.delete(schema.mergeCandidates).where(eq(schema.mergeCandidates.entityAId, id)).run();
-    this.db.delete(schema.mergeCandidates).where(eq(schema.mergeCandidates.entityBId, id)).run();
-    this.db.delete(schema.entityMerges).where(eq(schema.entityMerges.survivingId, id)).run();
-    this.db.delete(schema.entityMerges).where(eq(schema.entityMerges.mergedId, id)).run();
-    // Finally delete the entity itself
-    this.db.delete(entities).where(eq(entities.id, id)).run();
+
+    if (existing.entityType === "person") {
+      this.db.delete(people).where(eq(people.id, id)).run();
+    } else if (existing.entityType === "title") {
+      this.db.delete(titles).where(eq(titles.id, id)).run();
+    } else {
+      this.db.delete(companies).where(eq(companies.id, id)).run();
+    }
   }
 
   // ── Aliases ───────────────────────────────────────────────────────────────
 
   addAlias(entityId: string, sourceId: string, alias: string): string {
+    const entity = this.findById(entityId);
+    const entityType = entity?.entityType ?? "person";
     const aliasId = makeStableId("alias", entityId, alias);
     const now = new Date().toISOString();
     this.db
-      .insert(entityAliases)
-      .values({ id: aliasId, entityId, sourceId, alias, createdAt: now })
+      .insert(aliases)
+      .values({ id: aliasId, entityType, entityId, sourceId, alias, createdAt: now })
       .onConflictDoNothing()
       .run();
     return aliasId;
   }
 
   findAliases(entityId: string): EntityAliasRow[] {
-    const rows = this.db
-      .select()
-      .from(entityAliases)
-      .where(eq(entityAliases.entityId, entityId))
-      .all();
-    return rows;
+    return this.db.select().from(aliases).where(eq(aliases.entityId, entityId)).all();
   }
 
   // ── Contacts ──────────────────────────────────────────────────────────────
 
   addContact(entityId: string, sourceId: string, contactType: string, contactValue: string): string {
+    const entity = this.findById(entityId);
+    const entityType = entity?.entityType ?? "person";
     const contactId = makeStableId("contact", entityId, contactValue);
     const now = new Date().toISOString();
     this.db
-      .insert(entityContacts)
+      .insert(contacts)
       .values({
         id: contactId,
+        entityType,
         entityId,
         sourceId,
         contactType,
@@ -334,20 +530,23 @@ export class EntityRepository {
   }
 
   findContacts(entityId: string, contactType?: string): EntityContactRow[] {
-    const conditions = [eq(entityContacts.entityId, entityId)];
-    if (contactType) conditions.push(eq(entityContacts.contactType, contactType));
-    return this.db.select().from(entityContacts).where(and(...conditions)).all();
+    const conditions = [eq(contacts.entityId, entityId)];
+    if (contactType) conditions.push(eq(contacts.contactType, contactType));
+    return this.db.select().from(contacts).where(and(...conditions)).all();
   }
 
   // ── Links ─────────────────────────────────────────────────────────────────
 
   addLink(entityId: string, sourceId: string, url: string, linkType: string): string {
+    const entity = this.findById(entityId);
+    const entityType = entity?.entityType ?? "person";
     const linkId = makeStableId("link", entityId, url);
     const now = new Date().toISOString();
     this.db
-      .insert(entityLinks)
+      .insert(links)
       .values({
         id: linkId,
+        entityType,
         entityId,
         sourceId,
         url,
@@ -361,7 +560,7 @@ export class EntityRepository {
   }
 
   findLinks(entityId: string): EntityLinkRow[] {
-    return this.db.select().from(entityLinks).where(eq(entityLinks.entityId, entityId)).all();
+    return this.db.select().from(links).where(eq(links.entityId, entityId)).all();
   }
 
   // ── Representation ──────────────────────────────────────────────────────────

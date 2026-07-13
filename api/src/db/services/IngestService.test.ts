@@ -9,6 +9,7 @@ import { RawRecordRepository } from "../repositories/RawRecordRepository.js";
 import { ArticleRepository } from "../repositories/ArticleRepository.js";
 import { ExtractionRepository } from "../repositories/ExtractionRepository.js";
 import type { Candidate } from "../../ingest/extraction.js";
+import { emptyBundle, makeStableId, type EntityRow } from "../../ingest/models.js";
 
 function makeCandidate(overrides: Partial<Candidate> = {}): Candidate {
   return {
@@ -165,6 +166,42 @@ describe("IngestService", () => {
       const phones = entityRepo.findContacts(entityId, "phone");
       expect(phones).toHaveLength(1);
       expect(phones[0].contactValue).toBe("310-555-0123");
+    });
+  });
+
+  describe("applyBundle / upsertEntities", () => {
+    function titleEntityRow(overrides: Partial<EntityRow> = {}): EntityRow {
+      const name = overrides.name ?? "A Title";
+      return {
+        entityId: makeStableId("test-title", name),
+        sourceId: "test-source",
+        entityType: "title",
+        name,
+        canonicalName: name.toLowerCase(),
+        licenseClass: "public",
+        metadataJson: "{}",
+        ...overrides,
+      };
+    }
+
+    it("writes titleType through to titles.format", () => {
+      const bundle = emptyBundle();
+      bundle.entities.push(titleEntityRow({ name: "Limited Run Show", titleType: "Limited Series" }));
+      svc.applyBundle(bundle);
+
+      const rows = entityRepo.findByName("Limited Run Show");
+      expect(rows).toHaveLength(1);
+      expect(rows[0].format).toBe("Limited Series");
+    });
+
+    it("falls back to 'unknown' when titleType is omitted", () => {
+      const bundle = emptyBundle();
+      bundle.entities.push(titleEntityRow({ name: "No Format Show" }));
+      svc.applyBundle(bundle);
+
+      const rows = entityRepo.findByName("No Format Show");
+      expect(rows).toHaveLength(1);
+      expect(rows[0].format).toBe("unknown");
     });
   });
 

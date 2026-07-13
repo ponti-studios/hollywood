@@ -287,7 +287,7 @@ export class IngestService {
 
   private upsertEntities(rows: EntityRow[]): void {
     for (const r of rows) {
-      this.entityRepo.upsert({
+      this.entityRepo.insertWithId(r.entityId, {
         sourceId: r.sourceId,
         externalId: r.externalId,
         entityType: r.entityType,
@@ -295,6 +295,7 @@ export class IngestService {
         canonicalName: r.canonicalName,
         licenseClass: r.licenseClass,
         metadataJson: r.metadataJson,
+        titleType: r.titleType,
       });
     }
   }

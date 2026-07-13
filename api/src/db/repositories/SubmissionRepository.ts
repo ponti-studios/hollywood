@@ -9,15 +9,20 @@ type Db = BetterSQLite3Database<typeof schema>;
 
 export interface SubmissionFields {
   id?: string;
-  documentId: string;
-  extractionId: string;
+  documentId?: string | null;
+  extractionId?: string | null;
   submittedByPersonId?: string | null;
   submittedByCompanyId?: string | null;
   submittedToPersonId?: string | null;
   submittedToCompanyId?: string | null;
   opportunityTitleId?: string | null;
+  role?: string | null;
+  materialType?: string | null;
   purpose?: string | null;
   receivedAt?: string | null;
+  outcome?: string | null;
+  outcomeDate?: string | null;
+  notes?: string | null;
   sourceId: string;
   trustState?: string;
 }
@@ -33,15 +38,20 @@ export class SubmissionRepository {
       .insert(submissions)
       .values({
         id,
-        documentId: fields.documentId,
-        extractionId: fields.extractionId,
-        submittedByPersonId: fields.submittedByPersonId ?? null,
-        submittedByCompanyId: fields.submittedByCompanyId ?? null,
-        submittedToPersonId: fields.submittedToPersonId ?? null,
-        submittedToCompanyId: fields.submittedToCompanyId ?? null,
+        documentId: fields.documentId ?? null,
+        extractionId: fields.extractionId ?? null,
+        submittedByPerson: fields.submittedByPersonId ?? null,
+        submittedByCompany: fields.submittedByCompanyId ?? null,
+        submittedToPerson: fields.submittedToPersonId ?? null,
+        submittedToCompany: fields.submittedToCompanyId ?? null,
         opportunityTitleId: fields.opportunityTitleId ?? null,
+        role: fields.role ?? null,
+        materialType: fields.materialType ?? null,
         purpose: fields.purpose ?? null,
         receivedAt: fields.receivedAt ?? null,
+        outcome: fields.outcome ?? null,
+        outcomeDate: fields.outcomeDate ?? null,
+        notes: fields.notes ?? null,
         sourceId: fields.sourceId,
         trustState: fields.trustState ?? "machine_extracted",
         createdAt: now,
