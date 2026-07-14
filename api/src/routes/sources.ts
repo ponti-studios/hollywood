@@ -1,6 +1,7 @@
-import { createRoute, z } from "@hono/zod-openapi";
-import { OpenAPIHono } from "@hono/zod-openapi";
-import { listSources } from "../ingest/registry.js";
+import { createRoute, z } from '@hono/zod-openapi';
+import { OpenAPIHono } from '@hono/zod-openapi';
+
+import { listSources } from '../ingest/registry.js';
 
 const SourceSchema = z.object({
   source_id: z.string(),
@@ -13,10 +14,13 @@ const SourceSchema = z.object({
 });
 
 const sourcesRoute = createRoute({
-  method: "get",
-  path: "/sources",
+  method: 'get',
+  path: '/sources',
   responses: {
-    200: { content: { "application/json": { schema: z.array(SourceSchema) } }, description: "Built-in ingest sources" },
+    200: {
+      content: { 'application/json': { schema: z.array(SourceSchema) } },
+      description: 'Built-in ingest sources',
+    },
   },
 });
 

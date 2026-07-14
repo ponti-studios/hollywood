@@ -1,7 +1,7 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-export const SCHEMA_VERSION_V2 = "v2_article_mentions";
-export const PROMPT_VERSION_V2 = "v2";
+export const SCHEMA_VERSION_V2 = 'v2_article_mentions';
+export const PROMPT_VERSION_V2 = 'v2';
 
 // Controlled vocabulary for a person's relationship to a title. Keeping this
 // closed (rather than free text) is what makes the resulting `credits.role`
@@ -10,26 +10,26 @@ export const PROMPT_VERSION_V2 = "v2";
 // leaked co-star names into a field meant to describe one person's own
 // credit. "actor" + the separate `character` field replaces all of that.
 export const TITLE_ROLE_VALUES = [
-  "director",
-  "writer",
-  "executive_producer",
-  "producer",
-  "showrunner",
-  "creator",
-  "actor",
-  "host",
-  "editor",
-  "cinematographer",
-  "composer",
-  "author",
-  "other",
+  'director',
+  'writer',
+  'executive_producer',
+  'producer',
+  'showrunner',
+  'creator',
+  'actor',
+  'host',
+  'editor',
+  'cinematographer',
+  'composer',
+  'author',
+  'other',
 ] as const;
 export type TitleRole = (typeof TITLE_ROLE_VALUES)[number];
 
 function normalizeOptionalStr(v: string | null | undefined): string | null {
   if (v === null || v === undefined) return null;
   const s = v.trim();
-  if (["null", "n/a", "none", "unknown", ""].includes(s.toLowerCase())) return null;
+  if (['null', 'n/a', 'none', 'unknown', ''].includes(s.toLowerCase())) return null;
   return s;
 }
 
@@ -37,7 +37,7 @@ function normalizeOptionalStr(v: string | null | undefined): string | null {
 
 const RawRelatedToSchema = z.object({
   name: z.string(),
-  type: z.enum(["title", "company", "person"]),
+  type: z.enum(['title', 'company', 'person']),
   relationship: z.string(),
   character: z.string().nullable().optional(),
 });
@@ -69,7 +69,7 @@ export const RawArticleMentionsSchema = z.object({
 
 export interface RelatedTo {
   name: string;
-  type: "title" | "company" | "person";
+  type: 'title' | 'company' | 'person';
   relationship: string;
   /** Character name — only ever set when type is "title" and relationship is "actor". */
   character: string | null;
@@ -100,26 +100,26 @@ export interface ArticleMentions {
 
 function validateRelatedTo(raw: z.infer<typeof RawRelatedToSchema>): RelatedTo {
   const name = raw.name.trim();
-  if (!name) throw new Error("related_to.name is required");
+  if (!name) throw new Error('related_to.name is required');
   const relationship = raw.relationship.trim();
-  if (!relationship) throw new Error("related_to.relationship is required");
+  if (!relationship) throw new Error('related_to.relationship is required');
 
-  if (raw.type === "title" && !(TITLE_ROLE_VALUES as readonly string[]).includes(relationship)) {
+  if (raw.type === 'title' && !(TITLE_ROLE_VALUES as readonly string[]).includes(relationship)) {
     throw new Error(
-      `related_to.relationship must be one of ${TITLE_ROLE_VALUES.join(", ")} when type is "title", got "${relationship}"`,
+      `related_to.relationship must be one of ${TITLE_ROLE_VALUES.join(', ')} when type is "title", got "${relationship}"`,
     );
   }
 
   // character is only meaningful for an on-screen credit; silently drop it
   // otherwise rather than rejecting an LLM response over a minor overshoot.
-  const character = relationship === "actor" ? normalizeOptionalStr(raw.character) : null;
+  const character = relationship === 'actor' ? normalizeOptionalStr(raw.character) : null;
 
   return { name, type: raw.type, relationship, character };
 }
 
 function validateMentionedPerson(raw: z.infer<typeof RawMentionedPersonSchema>): MentionedPerson {
   const name = raw.name.trim();
-  if (!name) throw new Error("person name is required");
+  if (!name) throw new Error('person name is required');
   return {
     name,
     roleHint: normalizeOptionalStr(raw.role_hint),
@@ -129,13 +129,15 @@ function validateMentionedPerson(raw: z.infer<typeof RawMentionedPersonSchema>):
 
 function validateMentionedTitle(raw: z.infer<typeof RawMentionedTitleSchema>): MentionedTitle {
   const name = raw.name.trim();
-  if (!name) throw new Error("title name is required");
+  if (!name) throw new Error('title name is required');
   return { name, formatHint: normalizeOptionalStr(raw.format_hint) };
 }
 
-function validateMentionedCompany(raw: z.infer<typeof RawMentionedCompanySchema>): MentionedCompany {
+function validateMentionedCompany(
+  raw: z.infer<typeof RawMentionedCompanySchema>,
+): MentionedCompany {
   const name = raw.name.trim();
-  if (!name) throw new Error("company name is required");
+  if (!name) throw new Error('company name is required');
   return { name, typeHint: normalizeOptionalStr(raw.type_hint) };
 }
 

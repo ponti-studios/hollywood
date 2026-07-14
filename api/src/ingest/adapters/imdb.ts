@@ -1,10 +1,13 @@
-import { readFileSync } from "node:fs";
-import { createGunzip } from "node:zlib";
-import { createInterface } from "node:readline";
-import { Readable } from "node:stream";
-import { parse } from "csv-parse/sync";
-import { env } from "../../env.js";
-import { emptyBundle, makeStableId } from "../models.js";
+import { readFileSync } from 'node:fs';
+import { createInterface } from 'node:readline';
+import { Readable } from 'node:stream';
+import { createGunzip } from 'node:zlib';
+
+import { parse } from 'csv-parse/sync';
+
+import type { DbRow } from '../../db/index.js';
+import { env } from '../../env.js';
+import { emptyBundle, makeStableId } from '../models.js';
 import type {
   CreditRow,
   EntityAliasRow,
@@ -13,28 +16,34 @@ import type {
   NormalizedBundle,
   RawPayload,
   SourceDefinition,
-} from "../models.js";
-import type { Adapter } from "./base.js";
-import type { DbRow } from "../../db/index.js";
+} from '../models.js';
+import type { Adapter } from './base.js';
 
-const NULL_VALUE = "\\N";
-const IMDB_CAST_CATEGORIES = new Set(["self", "actor", "actress", "archive_footage", "archive_sound"]);
+const NULL_VALUE = '\\N';
+const IMDB_CAST_CATEGORIES = new Set([
+  'self',
+  'actor',
+  'actress',
+  'archive_footage',
+  'archive_sound',
+]);
 const IMDB_TITLE_TYPE_TO_FORMAT: Record<string, string> = {
-  movie: "feature",
-  tvMovie: "feature",
-  tvSeries: "series",
-  tvMiniSeries: "miniseries",
+  movie: 'feature',
+  tvMovie: 'feature',
+  tvSeries: 'series',
+  tvMiniSeries: 'miniseries',
 };
 
 async function downloadTsvLines(url: string, rowLimit?: number): Promise<string[]> {
   const resp = await fetch(url, {
-    headers: { "User-Agent": env.HOLLYWOOD_USER_AGENT },
+    headers: { 'User-Agent': env.HOLLYWOOD_USER_AGENT },
     signal: AbortSignal.timeout(Math.max(env.HOLLYWOOD_REQUEST_TIMEOUT_SECONDS * 1000, 60_000)),
   });
-  if (!resp.ok || !resp.body) throw new Error(`Failed to fetch IMDb dataset ${url}: ${resp.status}`);
+  if (!resp.ok || !resp.body)
+    throw new Error(`Failed to fetch IMDb dataset ${url}: ${resp.status}`);
 
   const gunzip = createGunzip();
-  Readable.fromWeb(resp.body as import("stream/web").ReadableStream).pipe(gunzip);
+  Readable.fromWeb(resp.body as import('stream/web').ReadableStream).pipe(gunzip);
   const rl = createInterface({ input: gunzip, crlfDelay: Infinity });
 
   const rows: string[] = [];
@@ -51,7 +60,7 @@ async function downloadTsvLines(url: string, rowLimit?: number): Promise<string[
 
 function parseTsv(text: string): Record<string, string>[] {
   return parse(text, {
-    delimiter: "\t",
+    delimiter: '\t',
     columns: true,
     relax_column_count: true,
     skip_empty_lines: true,
@@ -65,18 +74,18 @@ export class ImdbAdapter implements Adapter {
   async fetchRawPayloads(options: IngestOptions): Promise<RawPayload[]> {
     const payloads: RawPayload[] = [];
     for (const url of this.source.defaultUrls) {
-      const datasetName = url.split("/").pop()!.replace(".tsv.gz", "");
+      const datasetName = url.split('/').pop()!.replace('.tsv.gz', '');
       const rows = await downloadTsvLines(url, options.limit);
-      const body = Buffer.from(rows.join("\n") + "\n", "utf-8");
+      const body = Buffer.from(rows.join('\n') + '\n', 'utf-8');
       payloads.push({
-        payloadType: "dataset_tsv",
+        payloadType: 'dataset_tsv',
         logicalId: datasetName,
         body,
-        contentType: "text/tab-separated-values",
+        contentType: 'text/tab-separated-values',
         sourceUrl: url,
         fetchedAt: new Date(),
         metadata: { dataset_name: datasetName },
-        extension: ".tsv",
+        extension: '.tsv',
       });
     }
     return payloads;
@@ -93,52 +102,55 @@ export class ImdbAdapter implements Adapter {
     // (nm0005690) and the real names never arrive.
     const byDataset = new Map<string, string>();
     for (const record of rawRecords) {
-      if (String(record["payload_type"]) !== "dataset_tsv") continue;
-      const metadata = JSON.parse(String(record["metadata_json"] ?? "{}"));
+      if (String(record['payload_type']) !== 'dataset_tsv') continue;
+      const metadata = JSON.parse(String(record['metadata_json'] ?? '{}'));
       const datasetName = metadata.dataset_name as string;
       if (!datasetName) continue;
-      byDataset.set(datasetName, String(record["content_path"]));
+      byDataset.set(datasetName, String(record['content_path']));
     }
 
-    const order = ["name.basics", "title.basics", "title.principals"];
+    const order = ['name.basics', 'title.basics', 'title.principals'];
     for (const datasetName of order) {
       const path = byDataset.get(datasetName);
       if (!path) continue;
-      const text = readFileSync(path, "utf-8");
+      const text = readFileSync(path, 'utf-8');
       const rows = parseTsv(text);
 
-      if (datasetName === "name.basics") {
+      if (datasetName === 'name.basics') {
         this.normalizeNameBasics(bundle, rows, seenEntities);
-      } else if (datasetName === "title.basics") {
+      } else if (datasetName === 'title.basics') {
         this.normalizeTitleBasics(bundle, rows, seenEntities);
-      } else if (datasetName === "title.principals") {
+      } else if (datasetName === 'title.principals') {
         this.normalizeTitlePrincipals(bundle, rows, seenEntities);
       }
     }
     return bundle;
   }
 
-  private normalizeNameBasics(bundle: NormalizedBundle, rows: Record<string, string>[], seenEntities: Set<string>): void {
+  private normalizeNameBasics(
+    bundle: NormalizedBundle,
+    rows: Record<string, string>[],
+    seenEntities: Set<string>,
+  ): void {
     for (const row of rows) {
-      const name = row["primaryName"];
-      const nconst = row["nconst"];
+      const name = row['primaryName'];
+      const nconst = row['nconst'];
       if (!name || !nconst || nconst === NULL_VALUE) continue;
-      const entityId = makeStableId("imdb", nconst);
+      const entityId = makeStableId('imdb', nconst);
       if (!seenEntities.has(entityId)) {
         seenEntities.add(entityId);
         const entityRow: EntityRow = {
           entityId,
           sourceId: this.source.sourceId,
           externalId: nconst,
-          entityType: "person",
+          entityType: 'person',
           name,
           canonicalName: name.toLowerCase(),
-          licenseClass: this.source.licenseClass,
           metadataJson: JSON.stringify({
-            birthYear: row["birthYear"] ?? null,
-            deathYear: row["deathYear"] ?? null,
-            primaryProfession: row["primaryProfession"] ?? null,
-            knownForTitles: row["knownForTitles"] ?? null,
+            birthYear: row['birthYear'] ?? null,
+            deathYear: row['deathYear'] ?? null,
+            primaryProfession: row['primaryProfession'] ?? null,
+            knownForTitles: row['knownForTitles'] ?? null,
           }),
         };
         bundle.entities.push(entityRow);
@@ -153,45 +165,52 @@ export class ImdbAdapter implements Adapter {
     }
   }
 
-  private normalizeTitleBasics(bundle: NormalizedBundle, rows: Record<string, string>[], seenEntities: Set<string>): void {
+  private normalizeTitleBasics(
+    bundle: NormalizedBundle,
+    rows: Record<string, string>[],
+    seenEntities: Set<string>,
+  ): void {
     for (const row of rows) {
-      const title = row["primaryTitle"];
-      const tconst = row["tconst"];
+      const title = row['primaryTitle'];
+      const tconst = row['tconst'];
       if (!title || !tconst || tconst === NULL_VALUE) continue;
-      const entityId = makeStableId("imdb", tconst);
+      const entityId = makeStableId('imdb', tconst);
       if (!seenEntities.has(entityId)) {
         seenEntities.add(entityId);
         const entityRow: EntityRow = {
           entityId,
           sourceId: this.source.sourceId,
           externalId: tconst,
-          entityType: "title",
+          entityType: 'title',
           name: title,
           canonicalName: title.toLowerCase(),
-          licenseClass: this.source.licenseClass,
           metadataJson: JSON.stringify({
-            titleType: row["titleType"] ?? null,
-            originalTitle: row["originalTitle"] ?? null,
-            startYear: row["startYear"] ?? null,
-            genres: row["genres"] ?? null,
+            titleType: row['titleType'] ?? null,
+            originalTitle: row['originalTitle'] ?? null,
+            startYear: row['startYear'] ?? null,
+            genres: row['genres'] ?? null,
           }),
-          titleType: IMDB_TITLE_TYPE_TO_FORMAT[row["titleType"] ?? ""],
+          titleType: IMDB_TITLE_TYPE_TO_FORMAT[row['titleType'] ?? ''],
         };
         bundle.entities.push(entityRow);
       }
     }
   }
 
-  private normalizeTitlePrincipals(bundle: NormalizedBundle, rows: Record<string, string>[], seenEntities: Set<string>): void {
+  private normalizeTitlePrincipals(
+    bundle: NormalizedBundle,
+    rows: Record<string, string>[],
+    seenEntities: Set<string>,
+  ): void {
     for (const row of rows) {
-      const tconst = row["tconst"];
-      const nconst = row["nconst"];
-      const role = row["category"];
-      const ordering = row["ordering"];
+      const tconst = row['tconst'];
+      const nconst = row['nconst'];
+      const role = row['category'];
+      const ordering = row['ordering'];
       if (!tconst || !nconst || !role || tconst === NULL_VALUE || nconst === NULL_VALUE) continue;
 
-      const personEid = makeStableId("imdb", nconst);
-      const titleEid = makeStableId("imdb", tconst);
+      const personEid = makeStableId('imdb', nconst);
+      const titleEid = makeStableId('imdb', tconst);
 
       // Skip credits whose person or title never arrived with a real name
       // (from name.basics / title.basics) rather than inventing a stub
@@ -202,20 +221,25 @@ export class ImdbAdapter implements Adapter {
       if (!seenEntities.has(personEid) || !seenEntities.has(titleEid)) continue;
 
       const row2: CreditRow = {
-        creditId: makeStableId("imdb", tconst, nconst, role, String(ordering ?? "")),
+        creditId: makeStableId('imdb', tconst, nconst, role, String(ordering ?? '')),
         sourceId: this.source.sourceId,
         personEntityId: personEid,
         titleEntityId: titleEid,
         role,
-        creditCategory: IMDB_CAST_CATEGORIES.has(role) ? "cast" : "crew",
+        creditCategory: IMDB_CAST_CATEGORIES.has(role) ? 'cast' : 'crew',
         billing: ordering ? Number(ordering) : undefined,
-        metadataJson: JSON.stringify({ job: row["job"] ?? null, characters: row["characters"] ?? null }),
+        metadataJson: JSON.stringify({
+          job: row['job'] ?? null,
+          characters: row['characters'] ?? null,
+        }),
       };
       bundle.credits.push(row2);
     }
   }
 
   doctorChecks() {
-    return [{ name: "imdb:config", ok: true, detail: "Configured fetch strategy: streamed_dataset" }];
+    return [
+      { name: 'imdb:config', ok: true, detail: 'Configured fetch strategy: streamed_dataset' },
+    ];
   }
 }

@@ -1,14 +1,14 @@
-import { ArticleRepository } from "../repositories/ArticleRepository.js";
-import { EntityRepository, makeStableId } from "../repositories/EntityRepository.js";
-import { CreditRepository } from "../repositories/CreditRepository.js";
-import { CompanyRelationRepository } from "../repositories/CompanyRelationRepository.js";
-import { ExtractionRepository } from "../repositories/ExtractionRepository.js";
-import { SCHEMA_VERSION_V2, PROMPT_VERSION_V2 } from "../../ingest/article-mentions.js";
-import { callOpenRouterForArticleMentions } from "../../ingest/article-mentions-llm.js";
-import type { ArticleMentions } from "../../ingest/article-mentions.js";
-import type { LlmProvider } from "../../ingest/article-mentions-llm.js";
+import { callOpenRouterForArticleMentions } from '../../ingest/article-mentions-llm.js';
+import type { LlmProvider } from '../../ingest/article-mentions-llm.js';
+import { SCHEMA_VERSION_V2, PROMPT_VERSION_V2 } from '../../ingest/article-mentions.js';
+import type { ArticleMentions } from '../../ingest/article-mentions.js';
+import { ArticleRepository } from '../repositories/ArticleRepository.js';
+import { CompanyRelationRepository } from '../repositories/CompanyRelationRepository.js';
+import { CreditRepository } from '../repositories/CreditRepository.js';
+import { EntityRepository, makeStableId } from '../repositories/EntityRepository.js';
+import { ExtractionRepository } from '../repositories/ExtractionRepository.js';
 
-const LLM_TRUST_STATE = "llm_extracted";
+const LLM_TRUST_STATE = 'llm_extracted';
 
 export interface MaterializeMentionsParams {
   articleId: string;
@@ -88,18 +88,17 @@ export class ArticleEnrichmentService {
     const titleIds = new Map<string, string>();
     for (const title of params.mentions.titles) {
       const canonicalName = title.name.toLowerCase();
-      const existing = this.entityRepo.findByCanonicalName("title", canonicalName);
+      const existing = this.entityRepo.findByCanonicalName('title', canonicalName);
       if (existing) {
         result.titlesMatched++;
         titleIds.set(canonicalName, existing.id);
       } else {
         const id = this.entityRepo.upsert({
           sourceId: params.sourceId,
-          entityType: "title",
+          entityType: 'title',
           name: title.name,
           canonicalName,
           titleType: title.formatHint ?? undefined,
-          licenseClass: "web_copyright",
         });
         result.titlesCreated++;
         titleIds.set(canonicalName, id);
@@ -109,18 +108,17 @@ export class ArticleEnrichmentService {
     const companyIds = new Map<string, string>();
     for (const company of params.mentions.companies) {
       const canonicalName = company.name.toLowerCase();
-      const existing = this.entityRepo.findByCanonicalName("company", canonicalName);
+      const existing = this.entityRepo.findByCanonicalName('company', canonicalName);
       if (existing) {
         result.companiesMatched++;
         companyIds.set(canonicalName, existing.id);
       } else {
         const id = this.entityRepo.upsert({
           sourceId: params.sourceId,
-          entityType: "company",
+          entityType: 'company',
           name: company.name,
           canonicalName,
-          companyType: company.typeHint ?? "company",
-          licenseClass: "web_copyright",
+          companyType: company.typeHint ?? 'company',
         });
         result.companiesCreated++;
         companyIds.set(canonicalName, id);
@@ -130,18 +128,17 @@ export class ArticleEnrichmentService {
     const personIds = new Map<string, string>();
     for (const person of params.mentions.people) {
       const canonicalName = person.name.toLowerCase();
-      const existing = this.entityRepo.findByCanonicalName("person", canonicalName);
+      const existing = this.entityRepo.findByCanonicalName('person', canonicalName);
       if (existing) {
         result.peopleMatched++;
         personIds.set(canonicalName, existing.id);
       } else {
         const id = this.entityRepo.upsert({
           sourceId: params.sourceId,
-          entityType: "person",
+          entityType: 'person',
           name: person.name,
           canonicalName,
           position: person.roleHint ?? undefined,
-          licenseClass: "web_copyright",
         });
         result.peopleCreated++;
         personIds.set(canonicalName, id);
@@ -152,27 +149,27 @@ export class ArticleEnrichmentService {
       const personId = personIds.get(person.name.toLowerCase())!;
       for (const rel of person.relatedTo) {
         const targetCanonicalName = rel.name.toLowerCase();
-        if (rel.type === "title") {
+        if (rel.type === 'title') {
           const titleId = titleIds.get(targetCanonicalName);
           if (!titleId) continue;
-          const isCast = rel.relationship === "actor";
+          const isCast = rel.relationship === 'actor';
           this.creditRepo.upsert({
             personId,
             titleId,
             sourceId: params.sourceId,
             // Mirrors the TMDB convention: role holds the character name for
             // cast credits, the job title for crew credits.
-            role: isCast ? (rel.character ?? "actor") : rel.relationship,
-            creditType: isCast ? "cast" : "crew",
+            role: isCast ? (rel.character ?? 'actor') : rel.relationship,
+            creditCategory: isCast ? 'cast' : 'crew',
             trustState: LLM_TRUST_STATE,
           });
           result.creditsCreated++;
-        } else if (rel.type === "company") {
+        } else if (rel.type === 'company') {
           const companyId = companyIds.get(targetCanonicalName);
           if (!companyId) continue;
           this.companyRelationRepo.upsert({
             companyAId: companyId,
-            entityType: "person",
+            entityType: 'person',
             entityId: personId,
             relationship: rel.relationship,
             sourceId: params.sourceId,
@@ -187,23 +184,23 @@ export class ArticleEnrichmentService {
     const allEntityIds = [...personIds.values(), ...titleIds.values(), ...companyIds.values()];
     for (const entityId of allEntityIds) {
       this.articleRepo.linkEntity({
-        articleEntityId: makeStableId("article_entity", params.articleId, entityId, "mentioned"),
+        articleEntityId: makeStableId('article_entity', params.articleId, entityId, 'mentioned'),
         articleId: params.articleId,
         entityId,
         sourceId: params.sourceId,
-        relation: "mentioned",
+        relation: 'mentioned',
       });
       result.mentionsRecorded++;
     }
 
     this.extractionRepo.save({
-      id: makeStableId("extraction", params.rawRecordId, SCHEMA_VERSION_V2),
+      id: makeStableId('extraction', params.rawRecordId, SCHEMA_VERSION_V2),
       documentId: params.rawRecordId,
       jobId: params.jobId ?? null,
       schemaVersion: SCHEMA_VERSION_V2,
       promptVersion: params.promptVersion,
       modelName: params.modelName,
-      status: "succeeded",
+      status: 'succeeded',
       rawJson: params.rawJson,
       resultJson: JSON.stringify(params.mentions),
     });

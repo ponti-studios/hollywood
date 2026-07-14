@@ -28,7 +28,13 @@ const CREDIT_COUNT_RE = /^(\d+)\s+Credits?$/;
 const TITLE_CATEGORY_RE = /^(.+?)\s*\(([^)]+)\)\s*$/;
 const TABLE_ENTRY_START_RE = /^(.+?)\s*\(([^)]+)\)\t(\d{2}\/\d{2}\/\d{4})\t?$/;
 const WRITING_CREDIT_LINE_RE = /^(Teleplay|Written|Story|Created|Developed)\s+by:\s*(.+)$/i;
-const NON_TITLE_LINE_PREFIXES = ["Created by:", "Written by:", "Teleplay by:", "Story by:", "Developed by:"];
+const NON_TITLE_LINE_PREFIXES = [
+  'Created by:',
+  'Written by:',
+  'Teleplay by:',
+  'Story by:',
+  'Developed by:',
+];
 
 /**
  * Format 1 — "count summary" layout, e.g. under "Television Series Writing Credits":
@@ -42,7 +48,7 @@ export function parseSummaryFormatCredits(text: string): ParsedWgaCredit[] {
   let previousTitle: string | null = null;
   let previousCategory: string | null = null;
 
-  for (const rawLine of text.split("\n")) {
+  for (const rawLine of text.split('\n')) {
     const line = rawLine.trim();
     if (!line) continue;
 
@@ -51,7 +57,7 @@ export function parseSummaryFormatCredits(text: string): ParsedWgaCredit[] {
       results.push({
         title: previousTitle,
         category: previousCategory,
-        role: "writer",
+        role: 'writer',
         count: parseInt(countMatch[1]!, 10),
       });
       previousTitle = null;
@@ -61,9 +67,9 @@ export function parseSummaryFormatCredits(text: string): ParsedWgaCredit[] {
 
     if (
       !NON_TITLE_LINE_PREFIXES.some((prefix) => line.startsWith(prefix)) &&
-      !line.includes("Writers Guild") &&
-      !line.includes("Jump To") &&
-      line.includes("(")
+      !line.includes('Writers Guild') &&
+      !line.includes('Jump To') &&
+      line.includes('(')
     ) {
       const titleMatch = TITLE_CATEGORY_RE.exec(line);
       previousTitle = titleMatch ? titleMatch[1]!.trim() : line;
@@ -97,8 +103,8 @@ export function parseTableFormatCredits(text: string): ParsedWgaCredit[] {
     current = null;
   };
 
-  for (const rawLine of text.split("\n")) {
-    if (rawLine.startsWith("\t")) {
+  for (const rawLine of text.split('\n')) {
+    if (rawLine.startsWith('\t')) {
       flush();
       continue;
     }

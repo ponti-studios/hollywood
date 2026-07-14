@@ -1,14 +1,4 @@
-import { RunRepository, type RunStatus } from "../repositories/RunRepository.js";
-import { RawRecordRepository } from "../repositories/RawRecordRepository.js";
-import { EntityRepository, makeStableId } from "../repositories/EntityRepository.js";
-import { CreditRepository } from "../repositories/CreditRepository.js";
-import { TagRepository } from "../repositories/TagRepository.js";
-import { ArticleRepository } from "../repositories/ArticleRepository.js";
-import { ExtractionRepository } from "../repositories/ExtractionRepository.js";
-
-import type {
-  Candidate,
-} from "../../ingest/extraction.js";
+import type { Candidate } from '../../ingest/extraction.js';
 import type {
   ArchivedPayload,
   NormalizedBundle,
@@ -18,8 +8,15 @@ import type {
   EntityAliasRow,
   ArticleEntityRow,
   CreditRow,
-} from "../../ingest/models.js";
-import type { DbRow } from "../index.js";
+} from '../../ingest/models.js';
+import type { DbRow } from '../index.js';
+import { ArticleRepository } from '../repositories/ArticleRepository.js';
+import { CreditRepository } from '../repositories/CreditRepository.js';
+import { EntityRepository, makeStableId } from '../repositories/EntityRepository.js';
+import { ExtractionRepository } from '../repositories/ExtractionRepository.js';
+import { RawRecordRepository } from '../repositories/RawRecordRepository.js';
+import { RunRepository, type RunStatus } from '../repositories/RunRepository.js';
+import { TagRepository } from '../repositories/TagRepository.js';
 
 export class IngestService {
   private runRepo: RunRepository;
@@ -58,25 +55,35 @@ export class IngestService {
     return this.runRepo.startRaw(runKind, metadata);
   }
 
-  finishRun(runId: string, status: RunStatus, summary: Record<string, unknown>, errorText?: string): void {
+  finishRun(
+    runId: string,
+    status: RunStatus,
+    summary: Record<string, unknown>,
+    errorText?: string,
+  ): void {
     this.runRepo.finish(runId, status, summary, errorText);
   }
 
   // ── Raw records ───────────────────────────────────────────────────────────
 
-  insertExtractionRawRecord(runId: string, sourceId: string, contentPath: string, contentHash: string): string {
-    const rawId = makeStableId("extraction_raw", runId, sourceId, contentHash);
+  insertExtractionRawRecord(
+    runId: string,
+    sourceId: string,
+    contentPath: string,
+    contentHash: string,
+  ): string {
+    const rawId = makeStableId('extraction_raw', runId, sourceId, contentHash);
     this.rawRecordRepo.insertOne({
       id: rawId,
       runId,
       sourceId,
-      sourceKind: "upload",
-      payloadType: "text/plain",
+      sourceKind: 'upload',
+      payloadType: 'text/plain',
       contentPath,
       contentHash,
-      contentType: "text/plain",
+      contentType: 'text/plain',
       fetchedAt: new Date().toISOString(),
-      metadataJson: "{}",
+      metadataJson: '{}',
     });
     return rawId;
   }
@@ -94,10 +101,10 @@ export class IngestService {
     this.extractionRepo.save({
       documentId: docId,
       jobId: runId,
-      schemaVersion: "v1_submission_packet",
+      schemaVersion: 'v1_submission_packet',
       promptVersion,
       modelName,
-      status: "succeeded",
+      status: 'succeeded',
       rawJson,
       resultJson: JSON.stringify(candidate),
     });
@@ -105,34 +112,32 @@ export class IngestService {
 
   // ── Candidate materialization ─────────────────────────────────────────────
 
-  materializeCandidate(candidate: Candidate, sourceId = "llm_extraction"): string {
+  materializeCandidate(candidate: Candidate, sourceId = 'llm_extraction'): string {
     const entityId = this.entityRepo.upsert({
       sourceId,
-      entityType: "person",
+      entityType: 'person',
       name: candidate.name,
       canonicalName: candidate.name.toLowerCase(),
       bio: candidate.bio,
-      position: candidate.position ?? "",
-      licenseClass: "public",
+      position: candidate.position ?? '',
     });
 
     this.entityRepo.addAlias(entityId, sourceId, candidate.name);
 
     if (candidate.email) {
-      this.entityRepo.addContact(entityId, sourceId, "email", candidate.email);
+      this.entityRepo.addContact(entityId, sourceId, 'email', candidate.email);
     }
     if (candidate.phone_number) {
-      this.entityRepo.addContact(entityId, sourceId, "phone", candidate.phone_number);
+      this.entityRepo.addContact(entityId, sourceId, 'phone', candidate.phone_number);
     }
 
     for (const credit of candidate.credits) {
       const titleId = this.entityRepo.upsert({
         sourceId,
-        entityType: "title",
+        entityType: 'title',
         name: credit.production,
         canonicalName: credit.production.toLowerCase(),
-        titleType: "tv",
-        licenseClass: "public",
+        titleType: 'tv',
       });
 
       this.creditRepo.upsert({
@@ -140,18 +145,17 @@ export class IngestService {
         titleId,
         sourceId,
         role: credit.role,
-        creditType: credit.type || "crew",
+        creditCategory: credit.type || 'crew',
       });
     }
 
     for (const org of candidate.organizations) {
       this.entityRepo.upsert({
         sourceId,
-        entityType: "company",
+        entityType: 'company',
         name: org.name,
         canonicalName: org.name.toLowerCase(),
-        companyType: org.type || "organization",
-        licenseClass: "public",
+        companyType: org.type || 'organization',
       });
     }
 
@@ -167,22 +171,21 @@ export class IngestService {
     for (const rep of candidate.representatives) {
       const repEntityId = this.entityRepo.upsert({
         sourceId,
-        entityType: "person",
+        entityType: 'person',
         name: rep.name,
         canonicalName: rep.name.toLowerCase(),
-        companyType: "agent",
-        licenseClass: "public",
+        companyType: 'agent',
       });
 
-      const repRelId = makeStableId("rep", entityId, repEntityId);
+      const repRelId = makeStableId('rep', entityId, repEntityId);
       this.entityRepo.upsertRepresentation(
         repRelId,
         entityId,
         repEntityId,
         rep.title,
         rep.title,
-        rep.email ?? "",
-        rep.phone_number ?? "",
+        rep.email ?? '',
+        rep.phone_number ?? '',
         sourceId,
       );
     }
@@ -219,18 +222,18 @@ export class IngestService {
   /** Convert Drizzle camelCase raw record to snake_case for adapter compatibility. */
   private toSnakeCase(r: Record<string, unknown>): Record<string, unknown> {
     const map: Record<string, string> = {
-      id: "id",
-      runId: "run_id",
-      sourceId: "source_id",
-      sourceKind: "source_kind",
-      payloadType: "payload_type",
-      contentPath: "content_path",
-      contentHash: "content_hash",
-      contentType: "content_type",
-      sourceUrl: "source_url",
-      canonicalUrl: "canonical_url",
-      fetchedAt: "fetched_at",
-      metadataJson: "metadata_json",
+      id: 'id',
+      runId: 'run_id',
+      sourceId: 'source_id',
+      sourceKind: 'source_kind',
+      payloadType: 'payload_type',
+      contentPath: 'content_path',
+      contentHash: 'content_hash',
+      contentType: 'content_type',
+      sourceUrl: 'source_url',
+      canonicalUrl: 'canonical_url',
+      fetchedAt: 'fetched_at',
+      metadataJson: 'metadata_json',
     };
     const result: Record<string, unknown> = {};
     for (const [camel, snake] of Object.entries(map)) {
@@ -262,7 +265,6 @@ export class IngestService {
         publishedAt: r.publishedAt?.toISOString() ?? null,
         summary: r.summary ?? null,
         feedGuid: r.feedGuid ?? null,
-        licenseClass: r.licenseClass,
         runId: r.runId,
         metadataJson: r.metadataJson,
       });
@@ -279,7 +281,6 @@ export class IngestService {
         text: r.text,
         rawRecordId: r.rawRecordId ?? null,
         contentHash: r.contentHash,
-        licenseClass: r.licenseClass,
         metadataJson: r.metadataJson,
       });
     }
@@ -293,7 +294,6 @@ export class IngestService {
         entityType: r.entityType,
         name: r.name,
         canonicalName: r.canonicalName,
-        licenseClass: r.licenseClass,
         metadataJson: r.metadataJson,
         titleType: r.titleType,
       });
@@ -327,8 +327,9 @@ export class IngestService {
           titleId: r.titleEntityId,
           sourceId: r.sourceId,
           role: r.role,
-          creditType: r.creditCategory,
+          creditCategory: r.creditCategory,
           billing: r.billing,
+          metadataJson: r.metadataJson,
         });
       }
     }

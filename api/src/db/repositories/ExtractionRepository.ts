@@ -1,23 +1,17 @@
-import { randomUUID } from "node:crypto";
-import { getDrizzle } from "../index.js";
-import { extractionResults } from "../schema.js";
-import { eq } from "drizzle-orm";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema.js";
+import { randomUUID } from 'node:crypto';
+
+import { eq } from 'drizzle-orm';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+
+import { getDrizzle } from '../index.js';
+import { extractionResults } from '../schema.js';
+import * as schema from '../schema.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
 
-export interface ExtractionFields {
+export type ExtractionFields = Omit<typeof extractionResults.$inferInsert, 'id' | 'createdAt'> & {
   id?: string;
-  documentId: string;
-  jobId?: string | null;
-  schemaVersion: string;
-  promptVersion: string;
-  modelName: string;
-  status: string;
-  rawJson: string;
-  resultJson: string;
-}
+};
 
 export class ExtractionRepository {
   constructor(private db: Db = getDrizzle()) {}
@@ -59,7 +53,9 @@ export class ExtractionRepository {
 
   /** Find an extraction result by ID. */
   findById(id: string) {
-    return this.db.select().from(extractionResults).where(eq(extractionResults.id, id)).get() ?? null;
+    return (
+      this.db.select().from(extractionResults).where(eq(extractionResults.id, id)).get() ?? null
+    );
   }
 
   /** Find extraction results for a document. */

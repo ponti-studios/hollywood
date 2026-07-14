@@ -1,19 +1,29 @@
-import { getDrizzle } from "../index.js";
-import { people, titles, companies, aliases, contacts, links, representation as representationTable } from "../schema.js";
-import { eq, like, and, or, count } from "drizzle-orm";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema.js";
-import { createHash } from "node:crypto";
+import { createHash } from 'node:crypto';
+
+import { and, count, eq, like } from 'drizzle-orm';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+
+import { getDrizzle } from '../index.js';
+import * as schema from '../schema.js';
+import {
+  aliases,
+  companies,
+  contacts,
+  links,
+  people,
+  representation as representationTable,
+  titles,
+} from '../schema.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
 
 // entityType -> gold table. "title"/"project" both land in `titles` (legacy alias).
-type Kind = "person" | "title" | "company";
+type Kind = 'person' | 'title' | 'company';
 
 function kindFor(entityType: string): Kind {
-  if (entityType === "person") return "person";
-  if (entityType === "title" || entityType === "project") return "title";
-  if (entityType === "company") return "company";
+  if (entityType === 'person') return 'person';
+  if (entityType === 'title' || entityType === 'project') return 'title';
+  if (entityType === 'company') return 'company';
   throw new Error(`Unknown entityType: ${entityType}`);
 }
 
@@ -29,7 +39,6 @@ export interface EntityFields {
   format?: string | null;
   companyType?: string | null;
   status?: string;
-  licenseClass: string;
   metadataJson?: string;
 }
 
@@ -42,7 +51,6 @@ export interface EntityUpdate {
   format?: string | null;
   companyType?: string | null;
   status?: string;
-  licenseClass?: string;
   metadataJson?: string;
 }
 
@@ -60,43 +68,21 @@ export interface EntityLikeRow {
   format: string | null;
   companyType: string | null;
   status: string | null;
-  licenseClass: string;
   metadataJson: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface EntityAliasRow {
-  id: string;
-  entityId: string;
-  sourceId: string;
-  alias: string;
-  createdAt: string;
-}
-
-export interface EntityContactRow {
-  id: string;
-  entityId: string;
-  sourceId: string;
-  contactType: string;
-  contactValue: string;
-  trustState: string;
-  createdAt: string;
-}
-
-export interface EntityLinkRow {
-  id: string;
-  entityId: string;
-  sourceId: string;
-  url: string;
-  linkType: string;
-  trustState: string;
-  createdAt: string;
-}
+export type EntityAliasRow = typeof aliases.$inferSelect;
+export type EntityContactRow = typeof contacts.$inferSelect;
+export type EntityLinkRow = typeof links.$inferSelect;
 
 export function makeStableId(...parts: string[]): string {
-  const joined = parts.filter(Boolean).map((p) => p.trim()).join("::");
-  return createHash("sha256").update(joined, "utf-8").digest("hex").slice(0, 24);
+  const joined = parts
+    .filter(Boolean)
+    .map((p) => p.trim())
+    .join('::');
+  return createHash('sha256').update(joined, 'utf-8').digest('hex').slice(0, 24);
 }
 
 // biome-ignore lint: rough reshaping helpers, not type-precious right now
@@ -105,7 +91,7 @@ function toPersonRow(row: any): EntityLikeRow {
     id: row.id,
     sourceId: row.sourceId,
     externalId: row.externalId ?? null,
-    entityType: "person",
+    entityType: 'person',
     name: row.name,
     canonicalName: row.canonicalName,
     bio: row.bio ?? null,
@@ -114,7 +100,6 @@ function toPersonRow(row: any): EntityLikeRow {
     format: null,
     companyType: null,
     status: row.status,
-    licenseClass: row.licenseClass,
     metadataJson: row.metadataJson,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -126,7 +111,7 @@ function toTitleRow(row: any): EntityLikeRow {
     id: row.id,
     sourceId: row.sourceId,
     externalId: row.externalId ?? null,
-    entityType: "title",
+    entityType: 'title',
     name: row.title,
     canonicalName: row.canonicalName,
     bio: row.synopsis ?? null,
@@ -135,7 +120,6 @@ function toTitleRow(row: any): EntityLikeRow {
     format: row.format ?? null,
     companyType: null,
     status: row.status,
-    licenseClass: row.licenseClass,
     metadataJson: row.metadataJson,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -147,7 +131,7 @@ function toCompanyRow(row: any): EntityLikeRow {
     id: row.id,
     sourceId: row.sourceId,
     externalId: row.externalId ?? null,
-    entityType: "company",
+    entityType: 'company',
     name: row.name,
     canonicalName: row.canonicalName,
     bio: null,
@@ -156,7 +140,6 @@ function toCompanyRow(row: any): EntityLikeRow {
     format: null,
     companyType: row.companyType,
     status: row.status,
-    licenseClass: row.licenseClass,
     metadataJson: row.metadataJson,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -181,35 +164,70 @@ export class EntityRepository {
   /** Exact canonicalName lookup within one entity kind — used to match-before-create. */
   findByCanonicalName(entityType: string, canonicalName: string): EntityLikeRow | null {
     const kind = kindFor(entityType);
-    if (kind === "person") {
-      const row = this.db.select().from(people).where(eq(people.canonicalName, canonicalName)).get();
+    if (kind === 'person') {
+      const row = this.db
+        .select()
+        .from(people)
+        .where(eq(people.canonicalName, canonicalName))
+        .get();
       return row ? toPersonRow(row) : null;
     }
-    if (kind === "title") {
-      const row = this.db.select().from(titles).where(eq(titles.canonicalName, canonicalName)).get();
+    if (kind === 'title') {
+      const row = this.db
+        .select()
+        .from(titles)
+        .where(eq(titles.canonicalName, canonicalName))
+        .get();
       return row ? toTitleRow(row) : null;
     }
-    const row = this.db.select().from(companies).where(eq(companies.canonicalName, canonicalName)).get();
+    const row = this.db
+      .select()
+      .from(companies)
+      .where(eq(companies.canonicalName, canonicalName))
+      .get();
     return row ? toCompanyRow(row) : null;
   }
 
   findByType(entityType: string, limit = 50, offset = 0): EntityLikeRow[] {
     const kind = kindFor(entityType);
-    if (kind === "person") {
-      return this.db.select().from(people).orderBy(people.name).limit(limit).offset(offset).all().map(toPersonRow);
+    if (kind === 'person') {
+      return this.db
+        .select()
+        .from(people)
+        .orderBy(people.name)
+        .limit(limit)
+        .offset(offset)
+        .all()
+        .map(toPersonRow);
     }
-    if (kind === "title") {
-      return this.db.select().from(titles).orderBy(titles.title).limit(limit).offset(offset).all().map(toTitleRow);
+    if (kind === 'title') {
+      return this.db
+        .select()
+        .from(titles)
+        .orderBy(titles.title)
+        .limit(limit)
+        .offset(offset)
+        .all()
+        .map(toTitleRow);
     }
-    return this.db.select().from(companies).orderBy(companies.name).limit(limit).offset(offset).all().map(toCompanyRow);
+    return this.db
+      .select()
+      .from(companies)
+      .orderBy(companies.name)
+      .limit(limit)
+      .offset(offset)
+      .all()
+      .map(toCompanyRow);
   }
 
   findByTypes(entityTypes: string[], limit = 50, offset = 0): EntityLikeRow[] {
     const kinds = new Set(entityTypes.map(kindFor));
     let rows: EntityLikeRow[] = [];
-    if (kinds.has("person")) rows = rows.concat(this.db.select().from(people).all().map(toPersonRow));
-    if (kinds.has("title")) rows = rows.concat(this.db.select().from(titles).all().map(toTitleRow));
-    if (kinds.has("company")) rows = rows.concat(this.db.select().from(companies).all().map(toCompanyRow));
+    if (kinds.has('person'))
+      rows = rows.concat(this.db.select().from(people).all().map(toPersonRow));
+    if (kinds.has('title')) rows = rows.concat(this.db.select().from(titles).all().map(toTitleRow));
+    if (kinds.has('company'))
+      rows = rows.concat(this.db.select().from(companies).all().map(toCompanyRow));
     rows.sort((a, b) => a.name.localeCompare(b.name));
     return rows.slice(offset, offset + limit);
   }
@@ -227,7 +245,12 @@ export class EntityRepository {
     const allRows = [
       ...this.db.select().from(people).where(like(people.name, pattern)).all().map(toPersonRow),
       ...this.db.select().from(titles).where(like(titles.title, pattern)).all().map(toTitleRow),
-      ...this.db.select().from(companies).where(like(companies.name, pattern)).all().map(toCompanyRow),
+      ...this.db
+        .select()
+        .from(companies)
+        .where(like(companies.name, pattern))
+        .all()
+        .map(toCompanyRow),
     ];
     allRows.sort((a, b) => a.name.localeCompare(b.name));
     return { rows: allRows.slice(offset, offset + limit), total: allRows.length };
@@ -235,11 +258,11 @@ export class EntityRepository {
 
   countByType(entityType: string): number {
     const kind = kindFor(entityType);
-    if (kind === "person") {
+    if (kind === 'person') {
       const [{ value }] = this.db.select({ value: count() }).from(people).all();
       return value;
     }
-    if (kind === "title") {
+    if (kind === 'title') {
       const [{ value }] = this.db.select({ value: count() }).from(titles).all();
       return value;
     }
@@ -251,7 +274,7 @@ export class EntityRepository {
 
   /** Generate a stable entity ID from source + name. */
   makeEntityId(sourceId: string, name: string): string {
-    return makeStableId("entity", sourceId, name);
+    return makeStableId('entity', sourceId, name);
   }
 
   /** Insert if not exists. Uses stable ID from sourceId + name. */
@@ -267,7 +290,7 @@ export class EntityRepository {
     const kind = kindFor(fields.entityType);
     const now = new Date().toISOString();
 
-    if (kind === "person") {
+    if (kind === 'person') {
       this.db
         .insert(people)
         .values({
@@ -278,9 +301,8 @@ export class EntityRepository {
           canonicalName: fields.canonicalName,
           bio: fields.bio ?? null,
           primaryProfession: fields.position ?? null,
-          status: fields.status ?? "active",
-          licenseClass: fields.licenseClass,
-          metadataJson: fields.metadataJson ?? "{}",
+          status: fields.status ?? 'active',
+          metadataJson: fields.metadataJson ?? '{}',
           createdAt: now,
           updatedAt: now,
         })
@@ -293,14 +315,13 @@ export class EntityRepository {
             canonicalName: fields.canonicalName,
             bio: fields.bio ?? null,
             primaryProfession: fields.position ?? null,
-            status: fields.status ?? "active",
-            licenseClass: fields.licenseClass,
-            metadataJson: fields.metadataJson ?? "{}",
+            status: fields.status ?? 'active',
+            metadataJson: fields.metadataJson ?? '{}',
             updatedAt: now,
           },
         })
         .run();
-    } else if (kind === "title") {
+    } else if (kind === 'title') {
       this.db
         .insert(titles)
         .values({
@@ -309,10 +330,9 @@ export class EntityRepository {
           externalId: fields.externalId ?? null,
           title: fields.name,
           canonicalName: fields.canonicalName,
-          format: fields.titleType ?? fields.format ?? "unknown",
-          status: fields.status ?? "development",
-          licenseClass: fields.licenseClass,
-          metadataJson: fields.metadataJson ?? "{}",
+          format: fields.titleType ?? fields.format ?? 'unknown',
+          status: fields.status ?? 'development',
+          metadataJson: fields.metadataJson ?? '{}',
           createdAt: now,
           updatedAt: now,
         })
@@ -323,10 +343,9 @@ export class EntityRepository {
             externalId: fields.externalId ?? null,
             title: fields.name,
             canonicalName: fields.canonicalName,
-            format: fields.titleType ?? fields.format ?? "unknown",
-            status: fields.status ?? "development",
-            licenseClass: fields.licenseClass,
-            metadataJson: fields.metadataJson ?? "{}",
+            format: fields.titleType ?? fields.format ?? 'unknown',
+            status: fields.status ?? 'development',
+            metadataJson: fields.metadataJson ?? '{}',
             updatedAt: now,
           },
         })
@@ -340,10 +359,9 @@ export class EntityRepository {
           externalId: fields.externalId ?? null,
           name: fields.name,
           canonicalName: fields.canonicalName,
-          companyType: fields.companyType ?? "unknown",
-          status: fields.status ?? "active",
-          licenseClass: fields.licenseClass,
-          metadataJson: fields.metadataJson ?? "{}",
+          companyType: fields.companyType ?? 'unknown',
+          status: fields.status ?? 'active',
+          metadataJson: fields.metadataJson ?? '{}',
           createdAt: now,
           updatedAt: now,
         })
@@ -354,10 +372,9 @@ export class EntityRepository {
             externalId: fields.externalId ?? null,
             name: fields.name,
             canonicalName: fields.canonicalName,
-            companyType: fields.companyType ?? "unknown",
-            status: fields.status ?? "active",
-            licenseClass: fields.licenseClass,
-            metadataJson: fields.metadataJson ?? "{}",
+            companyType: fields.companyType ?? 'unknown',
+            status: fields.status ?? 'active',
+            metadataJson: fields.metadataJson ?? '{}',
             updatedAt: now,
           },
         })
@@ -371,7 +388,7 @@ export class EntityRepository {
     const kind = kindFor(fields.entityType);
     const now = new Date().toISOString();
 
-    if (kind === "person") {
+    if (kind === 'person') {
       this.db
         .insert(people)
         .values({
@@ -382,15 +399,14 @@ export class EntityRepository {
           canonicalName: fields.canonicalName,
           bio: fields.bio ?? null,
           primaryProfession: fields.position ?? null,
-          status: fields.status ?? "active",
-          licenseClass: fields.licenseClass,
-          metadataJson: fields.metadataJson ?? "{}",
+          status: fields.status ?? 'active',
+          metadataJson: fields.metadataJson ?? '{}',
           createdAt: now,
           updatedAt: now,
         })
         .onConflictDoNothing()
         .run();
-    } else if (kind === "title") {
+    } else if (kind === 'title') {
       this.db
         .insert(titles)
         .values({
@@ -399,10 +415,9 @@ export class EntityRepository {
           externalId: fields.externalId ?? null,
           title: fields.name,
           canonicalName: fields.canonicalName,
-          format: fields.titleType ?? fields.format ?? "unknown",
-          status: fields.status ?? "development",
-          licenseClass: fields.licenseClass,
-          metadataJson: fields.metadataJson ?? "{}",
+          format: fields.titleType ?? fields.format ?? 'unknown',
+          status: fields.status ?? 'development',
+          metadataJson: fields.metadataJson ?? '{}',
           createdAt: now,
           updatedAt: now,
         })
@@ -417,10 +432,9 @@ export class EntityRepository {
           externalId: fields.externalId ?? null,
           name: fields.name,
           canonicalName: fields.canonicalName,
-          companyType: fields.companyType ?? "unknown",
-          status: fields.status ?? "active",
-          licenseClass: fields.licenseClass,
-          metadataJson: fields.metadataJson ?? "{}",
+          companyType: fields.companyType ?? 'unknown',
+          status: fields.status ?? 'active',
+          metadataJson: fields.metadataJson ?? '{}',
           createdAt: now,
           updatedAt: now,
         })
@@ -436,24 +450,22 @@ export class EntityRepository {
     if (!existing) return;
     const now = new Date().toISOString();
 
-    if (existing.entityType === "person") {
+    if (existing.entityType === 'person') {
       const values: Record<string, unknown> = { updatedAt: now };
       if (fields.name !== undefined) values.name = fields.name;
       if (fields.canonicalName !== undefined) values.canonicalName = fields.canonicalName;
       if (fields.bio !== undefined) values.bio = fields.bio;
       if (fields.position !== undefined) values.primaryProfession = fields.position;
       if (fields.status !== undefined) values.status = fields.status;
-      if (fields.licenseClass !== undefined) values.licenseClass = fields.licenseClass;
       if (fields.metadataJson !== undefined) values.metadataJson = fields.metadataJson;
       this.db.update(people).set(values).where(eq(people.id, id)).run();
-    } else if (existing.entityType === "title") {
+    } else if (existing.entityType === 'title') {
       const values: Record<string, unknown> = { updatedAt: now };
       if (fields.name !== undefined) values.title = fields.name;
       if (fields.canonicalName !== undefined) values.canonicalName = fields.canonicalName;
       if (fields.format !== undefined) values.format = fields.format;
       if (fields.titleType !== undefined) values.format = fields.titleType;
       if (fields.status !== undefined) values.status = fields.status;
-      if (fields.licenseClass !== undefined) values.licenseClass = fields.licenseClass;
       if (fields.metadataJson !== undefined) values.metadataJson = fields.metadataJson;
       this.db.update(titles).set(values).where(eq(titles.id, id)).run();
     } else {
@@ -462,7 +474,6 @@ export class EntityRepository {
       if (fields.canonicalName !== undefined) values.canonicalName = fields.canonicalName;
       if (fields.companyType !== undefined) values.companyType = fields.companyType;
       if (fields.status !== undefined) values.status = fields.status;
-      if (fields.licenseClass !== undefined) values.licenseClass = fields.licenseClass;
       if (fields.metadataJson !== undefined) values.metadataJson = fields.metadataJson;
       this.db.update(companies).set(values).where(eq(companies.id, id)).run();
     }
@@ -490,9 +501,9 @@ export class EntityRepository {
     this.db.delete(schema.credits).where(eq(schema.credits.titleId, id)).run();
     this.db.delete(schema.articleEntities).where(eq(schema.articleEntities.entityId, id)).run();
 
-    if (existing.entityType === "person") {
+    if (existing.entityType === 'person') {
       this.db.delete(people).where(eq(people.id, id)).run();
-    } else if (existing.entityType === "title") {
+    } else if (existing.entityType === 'title') {
       this.db.delete(titles).where(eq(titles.id, id)).run();
     } else {
       this.db.delete(companies).where(eq(companies.id, id)).run();
@@ -503,8 +514,8 @@ export class EntityRepository {
 
   addAlias(entityId: string, sourceId: string, alias: string): string {
     const entity = this.findById(entityId);
-    const entityType = entity?.entityType ?? "person";
-    const aliasId = makeStableId("alias", entityId, alias);
+    const entityType = entity?.entityType ?? 'person';
+    const aliasId = makeStableId('alias', entityId, alias);
     const now = new Date().toISOString();
     this.db
       .insert(aliases)
@@ -520,10 +531,15 @@ export class EntityRepository {
 
   // ── Contacts ──────────────────────────────────────────────────────────────
 
-  addContact(entityId: string, sourceId: string, contactType: string, contactValue: string): string {
+  addContact(
+    entityId: string,
+    sourceId: string,
+    contactType: string,
+    contactValue: string,
+  ): string {
     const entity = this.findById(entityId);
-    const entityType = entity?.entityType ?? "person";
-    const contactId = makeStableId("contact", entityId, contactValue);
+    const entityType = entity?.entityType ?? 'person';
+    const contactId = makeStableId('contact', entityId, contactValue);
     const now = new Date().toISOString();
     this.db
       .insert(contacts)
@@ -534,7 +550,7 @@ export class EntityRepository {
         sourceId,
         contactType,
         contactValue,
-        trustState: "machine_extracted",
+        trustState: 'machine_extracted',
         createdAt: now,
       })
       .onConflictDoNothing()
@@ -545,15 +561,19 @@ export class EntityRepository {
   findContacts(entityId: string, contactType?: string): EntityContactRow[] {
     const conditions = [eq(contacts.entityId, entityId)];
     if (contactType) conditions.push(eq(contacts.contactType, contactType));
-    return this.db.select().from(contacts).where(and(...conditions)).all();
+    return this.db
+      .select()
+      .from(contacts)
+      .where(and(...conditions))
+      .all();
   }
 
   // ── Links ─────────────────────────────────────────────────────────────────
 
   addLink(entityId: string, sourceId: string, url: string, linkType: string): string {
     const entity = this.findById(entityId);
-    const entityType = entity?.entityType ?? "person";
-    const linkId = makeStableId("link", entityId, url);
+    const entityType = entity?.entityType ?? 'person';
+    const linkId = makeStableId('link', entityId, url);
     const now = new Date().toISOString();
     this.db
       .insert(links)
@@ -564,7 +584,7 @@ export class EntityRepository {
         sourceId,
         url,
         linkType,
-        trustState: "machine_extracted",
+        trustState: 'machine_extracted',
         createdAt: now,
       })
       .onConflictDoNothing()
@@ -600,7 +620,7 @@ export class EntityRepository {
         email,
         phone,
         sourceId,
-        trustState: "machine_extracted",
+        trustState: 'machine_extracted',
         sourceFactId: null,
         createdAt: now,
       })

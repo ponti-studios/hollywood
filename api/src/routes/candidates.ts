@@ -1,5 +1,6 @@
-import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
-import { CandidateService } from "../db/services/CandidateService.js";
+import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
+
+import { CandidateService } from '../db/services/CandidateService.js';
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -81,8 +82,8 @@ const UpdateCandidateInputSchema = z.object({
 // ── Routes ──────────────────────────────────────────────────────────────────
 
 const listRoute = createRoute({
-  method: "get",
-  path: "/candidates",
+  method: 'get',
+  path: '/candidates',
   request: {
     query: z.object({
       limit: z.coerce.number().int().min(1).max(200).default(50).openapi({ example: 50 }),
@@ -91,65 +92,65 @@ const listRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: z.array(CandidateSchema) } },
-      description: "List of candidates",
+      content: { 'application/json': { schema: z.array(CandidateSchema) } },
+      description: 'List of candidates',
     },
   },
 });
 
 const getRoute = createRoute({
-  method: "get",
-  path: "/candidates/{id}",
+  method: 'get',
+  path: '/candidates/{id}',
   request: { params: z.object({ id: z.string() }) },
   responses: {
     200: {
-      content: { "application/json": { schema: CandidateSchema } },
-      description: "Candidate details",
+      content: { 'application/json': { schema: CandidateSchema } },
+      description: 'Candidate details',
     },
-    404: { description: "Candidate not found" },
+    404: { description: 'Candidate not found' },
   },
 });
 
 const createRoute_ = createRoute({
-  method: "post",
-  path: "/candidates",
-  tags: ["mutating"],
+  method: 'post',
+  path: '/candidates',
+  tags: ['mutating'],
   request: {
-    body: { content: { "application/json": { schema: z.array(CreateCandidateInputSchema) } } },
+    body: { content: { 'application/json': { schema: z.array(CreateCandidateInputSchema) } } },
   },
   responses: {
     201: {
-      content: { "application/json": { schema: z.array(CandidateSchema) } },
-      description: "Created candidates",
+      content: { 'application/json': { schema: z.array(CandidateSchema) } },
+      description: 'Created candidates',
     },
   },
 });
 
 const updateRoute = createRoute({
-  method: "patch",
-  path: "/candidates/{id}",
-  tags: ["mutating"],
+  method: 'patch',
+  path: '/candidates/{id}',
+  tags: ['mutating'],
   request: {
     params: z.object({ id: z.string() }),
-    body: { content: { "application/json": { schema: UpdateCandidateInputSchema } } },
+    body: { content: { 'application/json': { schema: UpdateCandidateInputSchema } } },
   },
   responses: {
     200: {
-      content: { "application/json": { schema: CandidateSchema } },
-      description: "Updated candidate",
+      content: { 'application/json': { schema: CandidateSchema } },
+      description: 'Updated candidate',
     },
-    404: { description: "Candidate not found" },
+    404: { description: 'Candidate not found' },
   },
 });
 
 const deleteRoute = createRoute({
-  method: "delete",
-  path: "/candidates/{id}",
-  tags: ["mutating"],
+  method: 'delete',
+  path: '/candidates/{id}',
+  tags: ['mutating'],
   request: { params: z.object({ id: z.string() }) },
   responses: {
-    204: { description: "Deleted successfully" },
-    404: { description: "Candidate not found" },
+    204: { description: 'Deleted successfully' },
+    404: { description: 'Candidate not found' },
   },
 });
 
@@ -159,36 +160,36 @@ const router = new OpenAPIHono();
 const candidateService = new CandidateService();
 
 router.openapi(listRoute, (c) => {
-  const { limit, offset } = c.req.valid("query");
+  const { limit, offset } = c.req.valid('query');
   const candidates = candidateService.list(limit, offset);
   return c.json(candidates as z.infer<typeof CandidateSchema>[], 200);
 });
 
 router.openapi(getRoute, (c) => {
-  const { id } = c.req.valid("param");
+  const { id } = c.req.valid('param');
   const candidate = candidateService.get(id);
-  if (!candidate) return c.json({ error: "Candidate not found" } as any, 404);
+  if (!candidate) return c.json({ error: 'Candidate not found' } as any, 404);
   return c.json(candidate as z.infer<typeof CandidateSchema>, 200);
 });
 
 router.openapi(createRoute_, (c) => {
-  const inputs = c.req.valid("json");
+  const inputs = c.req.valid('json');
   const results = candidateService.create(inputs);
   return c.json(results as z.infer<typeof CandidateSchema>[], 201);
 });
 
 router.openapi(updateRoute, (c) => {
-  const { id } = c.req.valid("param");
-  const input = c.req.valid("json");
+  const { id } = c.req.valid('param');
+  const input = c.req.valid('json');
   const result = candidateService.update(id, input);
-  if (!result) return c.json({ error: "Candidate not found" } as any, 404);
+  if (!result) return c.json({ error: 'Candidate not found' } as any, 404);
   return c.json(result as z.infer<typeof CandidateSchema>, 200);
 });
 
 router.openapi(deleteRoute, (c) => {
-  const { id } = c.req.valid("param");
+  const { id } = c.req.valid('param');
   const deleted = candidateService.delete(id);
-  if (!deleted) return c.json({ error: "Candidate not found" } as any, 404);
+  if (!deleted) return c.json({ error: 'Candidate not found' } as any, 404);
   return c.body(null, 204);
 });
 

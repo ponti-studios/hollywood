@@ -1,17 +1,24 @@
+import { env } from '../env.js';
 import {
   ALLOWED_CREDIT_TYPES,
   ALLOWED_LINK_TYPES,
   SCHEMA_VERSION_V1,
   parseSubmissionPacket,
-} from "./extraction.js";
-import type { Associate, Candidate, Credit, Link, Organization, SubmissionPacket } from "./extraction.js";
-import { env } from "../env.js";
+} from './extraction.js';
+import type {
+  Associate,
+  Candidate,
+  Credit,
+  Link,
+  Organization,
+  SubmissionPacket,
+} from './extraction.js';
 
 const ORGANIZATION_PATTERN =
   /\b([A-Z][A-Za-z0-9&+.'’:-]*(?:\s+[A-Z][A-Za-z0-9&+.'’:-]*){0,4}\s(?:Studios|Studio|TV|Television|Animation|Media|Productions|Entertainment|Network|Networks|Pictures|Films|Film|Labs|Lab))\b/g;
 
-export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-export const DEFAULT_MODEL = "openai/gpt-4o-mini";
+export const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+export const DEFAULT_MODEL = 'openai/gpt-4o-mini';
 const MAX_TOKENS = 8000;
 
 export class ExtractionError extends Error {}
@@ -66,98 +73,139 @@ Prompt version: ${promptVersion}`;
 // ── JSON schema (mirrors _build_json_schema in llm.py) ──────────────────────
 
 function optionalString(description: string) {
-  return { anyOf: [{ type: "string", description }, { type: "null" }] };
+  return { anyOf: [{ type: 'string', description }, { type: 'null' }] };
 }
 function optionalEmail(description: string) {
-  return { anyOf: [{ type: "string", description, format: "email" }, { type: "null" }] };
+  return { anyOf: [{ type: 'string', description, format: 'email' }, { type: 'null' }] };
 }
 function optionalPhone(description: string) {
-  return { anyOf: [{ type: "string", description, pattern: "^\\d{3}-\\d{3}-\\d{4}$" }, { type: "null" }] };
+  return {
+    anyOf: [{ type: 'string', description, pattern: '^\\d{3}-\\d{3}-\\d{4}$' }, { type: 'null' }],
+  };
 }
 
 function buildJsonSchema(): Record<string, unknown> {
   const creditSchema = {
-    type: "object",
+    type: 'object',
     additionalProperties: false,
     properties: {
-      role: { type: "string", description: "The candidate's role on the project. Use lowercase." },
-      type: { type: "string", enum: ALLOWED_CREDIT_TYPES, description: "The type of project. Use lowercase." },
-      production: { type: "string", description: "The name of the production or project." },
-      network: optionalString("The network, streamer, studio, platform, publisher, or company associated with the project."),
+      role: { type: 'string', description: "The candidate's role on the project. Use lowercase." },
+      type: {
+        type: 'string',
+        enum: ALLOWED_CREDIT_TYPES,
+        description: 'The type of project. Use lowercase.',
+      },
+      production: { type: 'string', description: 'The name of the production or project.' },
+      network: optionalString(
+        'The network, streamer, studio, platform, publisher, or company associated with the project.',
+      ),
     },
-    required: ["role", "type", "production", "network"],
+    required: ['role', 'type', 'production', 'network'],
   };
 
   const organizationSchema = {
-    type: "object",
+    type: 'object',
     additionalProperties: false,
     properties: {
-      name: { type: "string", description: "The exact name of the organization." },
-      type: { type: "string", description: "The organization type: network, studio, streamer, agency, etc." },
+      name: { type: 'string', description: 'The exact name of the organization.' },
+      type: {
+        type: 'string',
+        description: 'The organization type: network, studio, streamer, agency, etc.',
+      },
     },
-    required: ["name", "type"],
+    required: ['name', 'type'],
   };
 
   const associateSchema = {
-    type: "object",
+    type: 'object',
     additionalProperties: false,
     properties: {
-      name: { type: "string", description: "The name of the associate." },
-      production: optionalString("The production the associate worked on with the candidate."),
+      name: { type: 'string', description: 'The name of the associate.' },
+      production: optionalString('The production the associate worked on with the candidate.'),
     },
-    required: ["name", "production"],
+    required: ['name', 'production'],
   };
 
   const linkSchema = {
-    type: "object",
+    type: 'object',
     additionalProperties: false,
     properties: {
-      url: { type: "string", description: "The full URL of the link." },
-      type: { type: "string", enum: ALLOWED_LINK_TYPES, description: "The type of link." },
+      url: { type: 'string', description: 'The full URL of the link.' },
+      type: { type: 'string', enum: ALLOWED_LINK_TYPES, description: 'The type of link.' },
     },
-    required: ["url", "type"],
+    required: ['url', 'type'],
   };
 
   const repSchema = {
-    type: "object",
+    type: 'object',
     additionalProperties: false,
     properties: {
-      name: { type: "string", description: "The full name of the representative." },
-      title: { type: "string", description: "The representative's job title. Use lowercase." },
-      organization: optionalString("The company or organization the representative is associated with."),
-      email: optionalEmail("The email address of the representative."),
-      phone_number: optionalPhone("The phone number of the representative."),
+      name: { type: 'string', description: 'The full name of the representative.' },
+      title: { type: 'string', description: "The representative's job title. Use lowercase." },
+      organization: optionalString(
+        'The company or organization the representative is associated with.',
+      ),
+      email: optionalEmail('The email address of the representative.'),
+      phone_number: optionalPhone('The phone number of the representative.'),
     },
-    required: ["name", "title", "organization", "email", "phone_number"],
+    required: ['name', 'title', 'organization', 'email', 'phone_number'],
   };
 
   const candidateSchema = {
-    type: "object",
+    type: 'object',
     additionalProperties: false,
     properties: {
-      name: { type: "string", description: "The full name of the candidate." },
-      bio: { type: "string", description: "A comprehensive summary of the candidate." },
+      name: { type: 'string', description: 'The full name of the candidate.' },
+      bio: { type: 'string', description: 'A comprehensive summary of the candidate.' },
       email: optionalEmail("The candidate's email address."),
       phone_number: optionalPhone("The candidate's phone number."),
       position: optionalString("The candidate's primary job title."),
-      tags: { type: "array", items: { type: "string" }, description: "4-5 concise tags." },
-      credits: { type: "array", items: creditSchema, description: "Projects in the candidate's bio." },
-      organizations: { type: "array", items: organizationSchema, description: "Organizations tied to the candidate." },
-      associates: { type: "array", items: associateSchema, description: "People who have worked with the candidate." },
-      links: { type: "array", items: linkSchema, description: "URLs for the candidate." },
-      representatives: { type: "array", items: repSchema, description: "Agents, managers, assistants, or publicists." },
+      tags: { type: 'array', items: { type: 'string' }, description: '4-5 concise tags.' },
+      credits: {
+        type: 'array',
+        items: creditSchema,
+        description: "Projects in the candidate's bio.",
+      },
+      organizations: {
+        type: 'array',
+        items: organizationSchema,
+        description: 'Organizations tied to the candidate.',
+      },
+      associates: {
+        type: 'array',
+        items: associateSchema,
+        description: 'People who have worked with the candidate.',
+      },
+      links: { type: 'array', items: linkSchema, description: 'URLs for the candidate.' },
+      representatives: {
+        type: 'array',
+        items: repSchema,
+        description: 'Agents, managers, assistants, or publicists.',
+      },
     },
-    required: ["name", "bio", "email", "phone_number", "position", "tags", "credits", "organizations", "associates", "links", "representatives"],
+    required: [
+      'name',
+      'bio',
+      'email',
+      'phone_number',
+      'position',
+      'tags',
+      'credits',
+      'organizations',
+      'associates',
+      'links',
+      'representatives',
+    ],
   };
 
   return {
-    type: "object",
+    type: 'object',
     additionalProperties: false,
     properties: {
-      schema_version: { type: "string", const: SCHEMA_VERSION_V1 },
-      candidates: { type: "array", items: candidateSchema },
+      schema_version: { type: 'string', const: SCHEMA_VERSION_V1 },
+      candidates: { type: 'array', items: candidateSchema },
     },
-    required: ["schema_version", "candidates"],
+    required: ['schema_version', 'candidates'],
   };
 }
 
@@ -169,30 +217,30 @@ export async function callOpenRouter(
   model?: string,
 ): Promise<ExtractionResponse> {
   const apiKey = getApiKey();
-  if (!apiKey) throw new ExtractionError("OPENROUTER_API_KEY not set");
+  if (!apiKey) throw new ExtractionError('OPENROUTER_API_KEY not set');
 
   const resolvedModel = model || DEFAULT_MODEL;
   const body = {
     model: resolvedModel,
     messages: [
-      { role: "system", content: systemPrompt(promptVersion) },
-      { role: "user", content: text },
+      { role: 'system', content: systemPrompt(promptVersion) },
+      { role: 'user', content: text },
     ],
     response_format: {
-      type: "json_schema",
-      json_schema: { name: "submission_packet", strict: true, schema: buildJsonSchema() },
+      type: 'json_schema',
+      json_schema: { name: 'submission_packet', strict: true, schema: buildJsonSchema() },
     },
     temperature: 0,
     max_tokens: MAX_TOKENS,
   };
 
   const resp = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
-    method: "POST",
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://hollywood.ponti.io",
-      "X-Title": "Hollywood Extraction",
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://hollywood.ponti.io',
+      'X-Title': 'Hollywood Extraction',
     },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(90_000),
@@ -203,13 +251,13 @@ export async function callOpenRouter(
   }
 
   const data = (await resp.json()) as Record<string, unknown>;
-  if (data["error"]) {
-    const err = data["error"] as { message?: string };
+  if (data['error']) {
+    const err = data['error'] as { message?: string };
     throw new ExtractionError(`OpenRouter error: ${err.message ?? JSON.stringify(err)}`);
   }
 
-  const choices = data["choices"] as Array<{ message: { content: string } }> | undefined;
-  if (!choices || !choices.length) throw new ExtractionError("OpenRouter returned no choices");
+  const choices = data['choices'] as Array<{ message: { content: string } }> | undefined;
+  if (!choices || !choices.length) throw new ExtractionError('OpenRouter returned no choices');
 
   const content = choices[0]!.message.content;
   let parsed: unknown;
@@ -245,8 +293,15 @@ export function normalizeCandidate(c: Candidate): Candidate {
     })),
   );
 
-  let organizations = c.organizations.map((org) => ({ ...org, name: org.name.trim(), type: org.type.trim() }));
-  organizations = organizations.concat(organizationsFromCredits(credits), organizationsFromBio(bio));
+  let organizations = c.organizations.map((org) => ({
+    ...org,
+    name: org.name.trim(),
+    type: org.type.trim(),
+  }));
+  organizations = organizations.concat(
+    organizationsFromCredits(credits),
+    organizationsFromBio(bio),
+  );
   organizations = dedupeOrganizations(organizations);
 
   const associates = dedupeAssociates(c.associates.map((a) => ({ ...a, name: a.name.trim() })));
@@ -256,7 +311,11 @@ export function normalizeCandidate(c: Candidate): Candidate {
   );
 
   const representatives = dedupeReps(
-    c.representatives.map((rep) => ({ ...rep, name: rep.name.trim(), title: rep.title.trim().toLowerCase() })),
+    c.representatives.map((rep) => ({
+      ...rep,
+      name: rep.name.trim(),
+      title: rep.title.trim().toLowerCase(),
+    })),
   );
 
   if (!bio && name) bio = synthesizeBio({ ...c, name, credits, tags: c.tags });
@@ -278,7 +337,7 @@ function organizationsFromCredits(credits: Credit[]): Organization[] {
 function organizationsFromBio(bio: string): Organization[] {
   const orgs: Organization[] = [];
   for (const match of bio.matchAll(ORGANIZATION_PATTERN)) {
-    const name = cleanOrgName(match[1] ?? "");
+    const name = cleanOrgName(match[1] ?? '');
     if (name) orgs.push({ name, type: classifyOrgType(name) });
   }
   return orgs;
@@ -286,38 +345,50 @@ function organizationsFromBio(bio: string): Organization[] {
 
 function cleanOrgName(name: string): string {
   let cleaned = name.trim();
-  cleaned = cleaned.replace(/'s$/, "").replace(/’s$/, "");
-  return cleaned.trim().replace(/^[\s\t\n\r.,;:()]+|[\s\t\n\r.,;:()]+$/g, "");
+  cleaned = cleaned.replace(/'s$/, '').replace(/’s$/, '');
+  return cleaned.trim().replace(/^[\s\t\n\r.,;:()]+|[\s\t\n\r.,;:()]+$/g, '');
 }
 
 function classifyOrgType(name: string): string {
   const lower = name.toLowerCase().trim();
-  if (lower.includes("network")) return "network";
-  if (lower.includes("studio") || lower.includes("animation") || lower.includes(" tv") || lower.endsWith("tv")) return "studio";
-  if (lower.includes("productions") || lower.includes("production")) return "production company";
-  if (lower.includes("media") || lower.includes("entertainment") || lower.includes("pictures") || lower.includes("films") || lower.includes("film")) {
-    return "production company";
+  if (lower.includes('network')) return 'network';
+  if (
+    lower.includes('studio') ||
+    lower.includes('animation') ||
+    lower.includes(' tv') ||
+    lower.endsWith('tv')
+  )
+    return 'studio';
+  if (lower.includes('productions') || lower.includes('production')) return 'production company';
+  if (
+    lower.includes('media') ||
+    lower.includes('entertainment') ||
+    lower.includes('pictures') ||
+    lower.includes('films') ||
+    lower.includes('film')
+  ) {
+    return 'production company';
   }
-  return "company";
+  return 'company';
 }
 
 function normalizeLinkType(linkType: string): string {
   const mapping: Record<string, string> = {
-    imdb: "IMDB",
-    twitter: "Twitter",
-    instagram: "Instagram",
-    facebook: "Facebook",
-    linkedin: "LinkedIn",
+    imdb: 'IMDB',
+    twitter: 'Twitter',
+    instagram: 'Instagram',
+    facebook: 'Facebook',
+    linkedin: 'LinkedIn',
   };
-  return mapping[linkType.trim().toLowerCase()] ?? "Other";
+  return mapping[linkType.trim().toLowerCase()] ?? 'Other';
 }
 
 function synthesizeBio(c: Candidate): string {
   const parts = [c.name];
-  parts.push(c.position ? `is identified as a ${c.position}` : "is mentioned in the submission");
+  parts.push(c.position ? `is identified as a ${c.position}` : 'is mentioned in the submission');
   if (c.credits.length) parts.push(`with ${c.credits.length} referenced credits`);
-  if (c.tags.length) parts.push("and associated tags including " + c.tags.join(", "));
-  return parts.join(" ") + ".";
+  if (c.tags.length) parts.push('and associated tags including ' + c.tags.join(', '));
+  return parts.join(' ') + '.';
 }
 
 // ── Deduplication ────────────────────────────────────────────────────────────
@@ -326,7 +397,12 @@ function dedupeCredits(values: Credit[]): Credit[] {
   const seen = new Set<string>();
   const result: Credit[] = [];
   for (const v of values) {
-    const key = [v.role.toLowerCase(), v.type.toLowerCase(), v.production, (v.network ?? "").toLowerCase()].join("|");
+    const key = [
+      v.role.toLowerCase(),
+      v.type.toLowerCase(),
+      v.production,
+      (v.network ?? '').toLowerCase(),
+    ].join('|');
     if (!seen.has(key)) {
       seen.add(key);
       result.push(v);
@@ -352,7 +428,7 @@ function dedupeAssociates(values: Associate[]): Associate[] {
   const seen = new Set<string>();
   const result: Associate[] = [];
   for (const v of values) {
-    const key = [v.name.toLowerCase(), (v.production ?? "").toLowerCase()].join("|");
+    const key = [v.name.toLowerCase(), (v.production ?? '').toLowerCase()].join('|');
     if (!seen.has(key)) {
       seen.add(key);
       result.push(v);
@@ -365,7 +441,7 @@ function dedupeLinks(values: Link[]): Link[] {
   const seen = new Set<string>();
   const result: Link[] = [];
   for (const v of values) {
-    const key = [v.url.toLowerCase(), v.type.toLowerCase()].join("|");
+    const key = [v.url.toLowerCase(), v.type.toLowerCase()].join('|');
     if (!seen.has(key)) {
       seen.add(key);
       result.push(v);
@@ -374,13 +450,25 @@ function dedupeLinks(values: Link[]): Link[] {
   return result;
 }
 
-function dedupeReps<T extends { name: string; title: string; organization: string | null; email: string | null; phone_number: string | null }>(
-  values: T[],
-): T[] {
+function dedupeReps<
+  T extends {
+    name: string;
+    title: string;
+    organization: string | null;
+    email: string | null;
+    phone_number: string | null;
+  },
+>(values: T[]): T[] {
   const seen = new Set<string>();
   const result: T[] = [];
   for (const v of values) {
-    const key = [v.name.toLowerCase(), v.title.toLowerCase(), (v.organization ?? "").toLowerCase(), (v.email ?? "").toLowerCase(), (v.phone_number ?? "").toLowerCase()].join("|");
+    const key = [
+      v.name.toLowerCase(),
+      v.title.toLowerCase(),
+      (v.organization ?? '').toLowerCase(),
+      (v.email ?? '').toLowerCase(),
+      (v.phone_number ?? '').toLowerCase(),
+    ].join('|');
     if (!seen.has(key)) {
       seen.add(key);
       result.push(v);

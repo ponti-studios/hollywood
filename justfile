@@ -20,6 +20,12 @@ api-dev:
 api-typecheck:
     cd api && npx tsc --noEmit
 
+api-lint:
+    cd api && npx oxlint
+
+api-lint-fix:
+    cd api && npx oxlint --fix
+
 api-build:
     cd api && npx tsc
 

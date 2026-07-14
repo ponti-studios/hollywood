@@ -1,4 +1,4 @@
-import { EntityRepository, makeStableId } from "../repositories/EntityRepository.js";
+import { EntityRepository, makeStableId } from '../repositories/EntityRepository.js';
 
 export interface ProjectDetail {
   id: string;
@@ -34,18 +34,18 @@ export class ProjectService {
   }
 
   list(): ProjectDetail[] {
-    const rows = this.entityRepo.findByTypes(["title", "project"]);
+    const rows = this.entityRepo.findByTypes(['title', 'project']);
     return rows.map((row) => this.enrich(row));
   }
 
   get(id: string): ProjectDetail | null {
     const row = this.entityRepo.findById(id);
-    if (!row || (row.entityType !== "title")) return null;
+    if (!row || row.entityType !== 'title') return null;
     return this.enrich(row);
   }
 
   create(input: CreateProjectInput): ProjectDetail {
-    const entityId = makeStableId("entity", "hollywood-api", input.title);
+    const entityId = makeStableId('entity', 'hollywood-api', input.title);
     const meta = JSON.stringify({
       genres: input.genres ?? [],
       season: input.season ?? 1,
@@ -54,13 +54,12 @@ export class ProjectService {
     const now = new Date().toISOString();
 
     this.entityRepo.insertWithId(entityId, {
-      sourceId: "hollywood-api",
+      sourceId: 'hollywood-api',
       externalId: input.imdbLink ?? null,
-      entityType: "title",
+      entityType: 'title',
       name: input.title,
       canonicalName: input.title.toLowerCase(),
       titleType: input.format ?? null,
-      licenseClass: "public",
       metadataJson: meta,
     });
 
@@ -74,7 +73,7 @@ export class ProjectService {
 
   update(id: string, input: UpdateProjectInput): ProjectDetail | null {
     const existing = this.entityRepo.findById(id);
-    if (!existing || (existing.entityType !== "title")) return null;
+    if (!existing || existing.entityType !== 'title') return null;
 
     // Parse existing metadata
     const existingMeta = existing.metadataJson ? JSON.parse(existing.metadataJson) : {};
@@ -102,7 +101,12 @@ export class ProjectService {
 
   // ── Private ──────────────────────────────────────────────────────────────
 
-  private enrich(row: { id: string; name: string; titleType: string | null; metadataJson: string | null }): ProjectDetail {
+  private enrich(row: {
+    id: string;
+    name: string;
+    titleType: string | null;
+    metadataJson: string | null;
+  }): ProjectDetail {
     const meta = row.metadataJson ? JSON.parse(row.metadataJson) : {};
     return {
       id: row.id,

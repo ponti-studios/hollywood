@@ -1,27 +1,26 @@
-import { getDrizzle } from "../index.js";
-import { companyRelations } from "../schema.js";
-import { eq } from "drizzle-orm";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema.js";
-import { makeStableId } from "./EntityRepository.js";
+import { eq } from 'drizzle-orm';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+
+import { getDrizzle } from '../index.js';
+import { companyRelations } from '../schema.js';
+import * as schema from '../schema.js';
+import { makeStableId } from './EntityRepository.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
 
-export interface CompanyRelationFields {
-  companyAId: string;
-  entityType: string;
-  entityId: string;
-  relationship: string;
-  sourceId: string;
-  trustState?: string;
-}
+export type CompanyRelationFields = Omit<typeof companyRelations.$inferInsert, 'id' | 'createdAt'>;
 
 export class CompanyRelationRepository {
   constructor(private db: Db = getDrizzle()) {}
 
   /** Upsert a company relation. Idempotent — uses stable ID from company + entity + relationship. */
   upsert(fields: CompanyRelationFields): string {
-    const id = makeStableId("company_relation", fields.companyAId, fields.entityId, fields.relationship);
+    const id = makeStableId(
+      'company_relation',
+      fields.companyAId,
+      fields.entityId,
+      fields.relationship,
+    );
     const now = new Date().toISOString();
     this.db
       .insert(companyRelations)
@@ -32,7 +31,7 @@ export class CompanyRelationRepository {
         entityId: fields.entityId,
         relationship: fields.relationship,
         sourceId: fields.sourceId,
-        trustState: fields.trustState ?? "machine_extracted",
+        trustState: fields.trustState ?? 'machine_extracted',
         sourceFactId: null,
         createdAt: now,
       })

@@ -1,11 +1,13 @@
-import { randomUUID } from "node:crypto";
-import { getDrizzle } from "../index.js";
-import { runs } from "../schema.js";
-import { eq } from "drizzle-orm";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema.js";
+import { randomUUID } from 'node:crypto';
 
-export type RunStatus = "running" | "succeeded" | "failed";
+import { eq } from 'drizzle-orm';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+
+import { getDrizzle } from '../index.js';
+import { runs } from '../schema.js';
+import * as schema from '../schema.js';
+
+export type RunStatus = 'running' | 'succeeded' | 'failed';
 
 type Db = BetterSQLite3Database<typeof schema>;
 
@@ -21,8 +23,8 @@ export class RunRepository {
       .values({
         id: runId,
         sourceId,
-        runKind: "ingest",
-        status: "running",
+        runKind: 'ingest',
+        status: 'running',
         startedAt: now,
         optionsJson,
       })
@@ -39,9 +41,9 @@ export class RunRepository {
       .insert(runs)
       .values({
         id: runId,
-        sourceId: "hollywood",
+        sourceId: 'hollywood',
         runKind,
-        status: "running",
+        status: 'running',
         startedAt: now,
         optionsJson: metaJson,
       })
@@ -50,7 +52,12 @@ export class RunRepository {
   }
 
   /** Mark a run as finished with the given status and summary. */
-  finish(runId: string, status: RunStatus, summary: Record<string, unknown>, errorText?: string): void {
+  finish(
+    runId: string,
+    status: RunStatus,
+    summary: Record<string, unknown>,
+    errorText?: string,
+  ): void {
     this.db
       .update(runs)
       .set({

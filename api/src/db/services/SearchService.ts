@@ -1,5 +1,5 @@
-import { EntityRepository } from "../repositories/EntityRepository.js";
-import { CreditRepository } from "../repositories/CreditRepository.js";
+import { CreditRepository } from '../repositories/CreditRepository.js';
+import { EntityRepository } from '../repositories/EntityRepository.js';
 
 export interface SearchResult {
   id: string;
@@ -36,13 +36,13 @@ export class SearchService {
       id: row.id,
       name: row.name,
       agencyBio: row.bio ?? null,
-      position: row.position ?? "",
-      status: row.status ?? "active",
+      position: row.position ?? '',
+      status: row.status ?? 'active',
       credits: this.creditRepo.findByPerson(row.id).map((c) => ({
         id: c.id,
         role: c.role,
-        type: c.creditType ?? null,
-        production: c.titleName ?? "Unknown",
+        type: c.creditCategory ?? null,
+        production: c.titleName ?? 'Unknown',
         network: null,
       })),
     }));

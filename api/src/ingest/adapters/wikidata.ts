@@ -1,6 +1,8 @@
-import { readFileSync } from "node:fs";
-import { env } from "../../env.js";
-import { emptyBundle, makeStableId } from "../models.js";
+import { readFileSync } from 'node:fs';
+
+import type { DbRow } from '../../db/index.js';
+import { env } from '../../env.js';
+import { emptyBundle, makeStableId } from '../models.js';
 import type {
   EntityAliasRow,
   EntityRow,
@@ -8,9 +10,8 @@ import type {
   NormalizedBundle,
   RawPayload,
   SourceDefinition,
-} from "../models.js";
-import type { Adapter } from "./base.js";
-import type { DbRow } from "../../db/index.js";
+} from '../models.js';
+import type { Adapter } from './base.js';
 
 const WIKIDATA_QUERY = `
 SELECT ?item ?itemLabel ?occupationLabel ?imdb WHERE {
@@ -35,13 +36,16 @@ export class WikidataAdapter implements Adapter {
 
   async fetchRawPayloads(options: IngestOptions): Promise<RawPayload[]> {
     const limit = options.limit ?? 25;
-    const query = WIKIDATA_QUERY.replace("{limit}", String(limit));
+    const query = WIKIDATA_QUERY.replace('{limit}', String(limit));
     const url = new URL(this.source.defaultUrls[0]!);
-    url.searchParams.set("query", query);
-    url.searchParams.set("format", "json");
+    url.searchParams.set('query', query);
+    url.searchParams.set('format', 'json');
 
     const resp = await fetch(url, {
-      headers: { Accept: "application/sparql-results+json", "User-Agent": env.HOLLYWOOD_USER_AGENT },
+      headers: {
+        Accept: 'application/sparql-results+json',
+        'User-Agent': env.HOLLYWOOD_USER_AGENT,
+      },
       signal: AbortSignal.timeout(env.HOLLYWOOD_REQUEST_TIMEOUT_SECONDS * 1000),
     });
     if (!resp.ok) throw new Error(`Wikidata request failed: ${resp.status}`);
@@ -49,14 +53,14 @@ export class WikidataAdapter implements Adapter {
 
     return [
       {
-        payloadType: "api_json",
+        payloadType: 'api_json',
         logicalId: `wikidata-${limit}`,
         body,
-        contentType: resp.headers.get("content-type") ?? "application/json",
+        contentType: resp.headers.get('content-type') ?? 'application/json',
         sourceUrl: resp.url,
         fetchedAt: new Date(),
         metadata: { query, limit },
-        extension: ".json",
+        extension: '.json',
       },
     ];
   }
@@ -64,8 +68,8 @@ export class WikidataAdapter implements Adapter {
   async normalizeRawRecords(_runId: string, rawRecords: DbRow[]): Promise<NormalizedBundle> {
     const bundle = emptyBundle();
     for (const record of rawRecords) {
-      if (String(record["payload_type"]) !== "api_json") continue;
-      const document = JSON.parse(readFileSync(String(record["content_path"]), "utf-8")) as {
+      if (String(record['payload_type']) !== 'api_json') continue;
+      const document = JSON.parse(readFileSync(String(record['content_path']), 'utf-8')) as {
         results?: { bindings?: SparqlBinding[] };
       };
       const bindings = document.results?.bindings ?? [];
@@ -77,16 +81,15 @@ export class WikidataAdapter implements Adapter {
         const occupation = item.occupationLabel?.value ?? null;
         if (!itemUrl || !label) continue;
 
-        const qid = itemUrl.split("/").pop()!;
-        const entityId = makeStableId("wikidata", qid);
+        const qid = itemUrl.split('/').pop()!;
+        const entityId = makeStableId('wikidata', qid);
         const entityRow: EntityRow = {
           entityId,
           sourceId: this.source.sourceId,
           externalId: qid,
-          entityType: "person",
+          entityType: 'person',
           name: label,
           canonicalName: label.toLowerCase(),
-          licenseClass: this.source.licenseClass,
           metadataJson: JSON.stringify({ occupation, imdb_id: imdbId }),
         };
         bundle.entities.push(entityRow);

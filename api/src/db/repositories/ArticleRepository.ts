@@ -1,50 +1,25 @@
-import { getDrizzle } from "../index.js";
-import { articles, articleContent, articleEntities, extractionResults } from "../schema.js";
-import { eq } from "drizzle-orm";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema.js";
-import { makeStableId } from "./EntityRepository.js";
+import { eq } from 'drizzle-orm';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+
+import { getDrizzle } from '../index.js';
+import { articles, articleContent, articleEntities, extractionResults } from '../schema.js';
+import * as schema from '../schema.js';
+import { makeStableId } from './EntityRepository.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
 
 // Prefer the richest available content variant per article — lower index wins.
-const CONTENT_KIND_PRIORITY = ["page_extract", "feed_content", "feed_description"];
+const CONTENT_KIND_PRIORITY = ['page_extract', 'feed_content', 'feed_description'];
 
-export interface ArticleFields {
-  articleId: string;
-  sourceId: string;
-  canonicalUrl?: string | null;
-  url: string;
-  title?: string | null;
-  author?: string | null;
-  publishedAt?: string | null;
-  summary?: string | null;
-  feedGuid?: string | null;
-  licenseClass: string;
-  runId: string;
-  metadataJson?: string;
-}
+export type ArticleFields = Omit<typeof articles.$inferInsert, 'id'> & { articleId: string };
 
-export interface ArticleContentFields {
+export type ArticleContentFields = Omit<typeof articleContent.$inferInsert, 'id'> & {
   contentId: string;
-  articleId: string;
-  sourceId: string;
-  contentKind: string;
-  text: string;
-  rawRecordId?: string | null;
-  contentHash: string;
-  licenseClass: string;
-  metadataJson?: string;
-}
+};
 
-export interface ArticleEntityFields {
+export type ArticleEntityFields = Omit<typeof articleEntities.$inferInsert, 'id' | 'entityType'> & {
   articleEntityId: string;
-  articleId: string;
-  entityId: string;
-  sourceId: string;
-  relation: string;
-  metadataJson?: string;
-}
+};
 
 export class ArticleRepository {
   constructor(private db: Db = getDrizzle()) {}
@@ -63,9 +38,8 @@ export class ArticleRepository {
         publishedAt: fields.publishedAt ?? null,
         summary: fields.summary ?? null,
         feedGuid: fields.feedGuid ?? null,
-        licenseClass: fields.licenseClass,
         runId: fields.runId,
-        metadataJson: fields.metadataJson ?? "{}",
+        metadataJson: fields.metadataJson ?? '{}',
       })
       .onConflictDoUpdate({
         target: articles.id,
@@ -78,9 +52,8 @@ export class ArticleRepository {
           publishedAt: fields.publishedAt ?? null,
           summary: fields.summary ?? null,
           feedGuid: fields.feedGuid ?? null,
-          licenseClass: fields.licenseClass,
           runId: fields.runId,
-          metadataJson: fields.metadataJson ?? "{}",
+          metadataJson: fields.metadataJson ?? '{}',
         },
       })
       .run();
@@ -103,8 +76,7 @@ export class ArticleRepository {
         text: fields.text,
         rawRecordId: fields.rawRecordId ?? null,
         contentHash: fields.contentHash,
-        licenseClass: fields.licenseClass,
-        metadataJson: fields.metadataJson ?? "{}",
+        metadataJson: fields.metadataJson ?? '{}',
       })
       .onConflictDoUpdate({
         target: articleContent.id,
@@ -115,8 +87,7 @@ export class ArticleRepository {
           text: fields.text,
           rawRecordId: fields.rawRecordId ?? null,
           contentHash: fields.contentHash,
-          licenseClass: fields.licenseClass,
-          metadataJson: fields.metadataJson ?? "{}",
+          metadataJson: fields.metadataJson ?? '{}',
         },
       })
       .run();
@@ -139,7 +110,7 @@ export class ArticleRepository {
         entityId: fields.entityId,
         sourceId: fields.sourceId,
         relation: fields.relation,
-        metadataJson: fields.metadataJson ?? "{}",
+        metadataJson: fields.metadataJson ?? '{}',
       })
       .onConflictDoNothing()
       .run();
@@ -147,10 +118,31 @@ export class ArticleRepository {
 
   /** Look up which gold table an id belongs to. Defaults to "person" if not found. */
   private resolveEntityType(entityId: string): string {
-    if (this.db.select({ id: schema.people.id }).from(schema.people).where(eq(schema.people.id, entityId)).get()) return "person";
-    if (this.db.select({ id: schema.titles.id }).from(schema.titles).where(eq(schema.titles.id, entityId)).get()) return "title";
-    if (this.db.select({ id: schema.companies.id }).from(schema.companies).where(eq(schema.companies.id, entityId)).get()) return "company";
-    return "person";
+    if (
+      this.db
+        .select({ id: schema.people.id })
+        .from(schema.people)
+        .where(eq(schema.people.id, entityId))
+        .get()
+    )
+      return 'person';
+    if (
+      this.db
+        .select({ id: schema.titles.id })
+        .from(schema.titles)
+        .where(eq(schema.titles.id, entityId))
+        .get()
+    )
+      return 'title';
+    if (
+      this.db
+        .select({ id: schema.companies.id })
+        .from(schema.companies)
+        .where(eq(schema.companies.id, entityId))
+        .get()
+    )
+      return 'company';
+    return 'person';
   }
 
   /** Find article by ID. */
@@ -219,9 +211,12 @@ export class ArticleRepository {
       if (!row.rawRecordId) continue;
       const existing = bestByArticle.get(row.articleId);
       const priority = CONTENT_KIND_PRIORITY.indexOf(row.contentKind);
-      const existingPriority = existing ? CONTENT_KIND_PRIORITY.indexOf(existing.contentKind) : Infinity;
+      const existingPriority = existing
+        ? CONTENT_KIND_PRIORITY.indexOf(existing.contentKind)
+        : Infinity;
       const rank = priority === -1 ? CONTENT_KIND_PRIORITY.length : priority;
-      const existingRank = existingPriority === -1 ? CONTENT_KIND_PRIORITY.length : existingPriority;
+      const existingRank =
+        existingPriority === -1 ? CONTENT_KIND_PRIORITY.length : existingPriority;
       if (!existing || rank < existingRank) bestByArticle.set(row.articleId, row);
     }
 
@@ -234,10 +229,20 @@ export class ArticleRepository {
         .map((r) => r.documentId),
     );
 
-    const result: Array<{ articleId: string; contentId: string; rawRecordId: string; text: string }> = [];
+    const result: Array<{
+      articleId: string;
+      contentId: string;
+      rawRecordId: string;
+      text: string;
+    }> = [];
     for (const row of bestByArticle.values()) {
       if (extractedDocumentIds.has(row.rawRecordId!)) continue;
-      result.push({ articleId: row.articleId, contentId: row.contentId, rawRecordId: row.rawRecordId!, text: row.text });
+      result.push({
+        articleId: row.articleId,
+        contentId: row.contentId,
+        rawRecordId: row.rawRecordId!,
+        text: row.text,
+      });
       if (result.length >= limit) break;
     }
     return result;

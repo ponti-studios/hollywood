@@ -1,6 +1,7 @@
-import { createRoute, z } from "@hono/zod-openapi";
-import { OpenAPIHono } from "@hono/zod-openapi";
-import { ProjectService } from "../db/services/ProjectService.js";
+import { createRoute, z } from '@hono/zod-openapi';
+import { OpenAPIHono } from '@hono/zod-openapi';
+
+import { ProjectService } from '../db/services/ProjectService.js';
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -33,44 +34,56 @@ const UpdateProjectSchema = z.object({
 // ── Routes ──────────────────────────────────────────────────────────────────
 
 const listRoute = createRoute({
-  method: "get",
-  path: "/projects",
+  method: 'get',
+  path: '/projects',
   responses: {
-    200: { content: { "application/json": { schema: z.array(ProjectSchema) } }, description: "List of projects" },
+    200: {
+      content: { 'application/json': { schema: z.array(ProjectSchema) } },
+      description: 'List of projects',
+    },
   },
 });
 
 const getRoute = createRoute({
-  method: "get",
-  path: "/projects/{id}",
+  method: 'get',
+  path: '/projects/{id}',
   request: { params: z.object({ id: z.string() }) },
   responses: {
-    200: { content: { "application/json": { schema: ProjectSchema } }, description: "Project details" },
-    404: { description: "Project not found" },
+    200: {
+      content: { 'application/json': { schema: ProjectSchema } },
+      description: 'Project details',
+    },
+    404: { description: 'Project not found' },
   },
 });
 
 const createRoute_ = createRoute({
-  method: "post",
-  path: "/projects",
-  tags: ["mutating"],
-  request: { body: { content: { "application/json": { schema: CreateProjectSchema } } } },
+  method: 'post',
+  path: '/projects',
+  tags: ['mutating'],
+  request: { body: { content: { 'application/json': { schema: CreateProjectSchema } } } },
   responses: {
-    201: { content: { "application/json": { schema: ProjectSchema } }, description: "Created project" },
+    201: {
+      content: { 'application/json': { schema: ProjectSchema } },
+      description: 'Created project',
+    },
   },
 });
 
 const updateRoute = createRoute({
-  method: "patch",
-  path: "/projects/{id}",
-  tags: ["mutating"],
+  method: 'patch',
+  path: '/projects/{id}',
+  tags: ['mutating'],
   request: {
     params: z.object({ id: z.string() }),
-    body: { content: { "application/json": { schema: UpdateProjectSchema } } },
+    body: { content: { 'application/json': { schema: UpdateProjectSchema } } },
   },
   responses: {
-    200: { content: { "application/json": { schema: ProjectSchema } }, description: "Updated project" },
-    404: { description: "Project not found" },
+    200: {
+      content: { 'application/json': { schema: ProjectSchema } },
+      description: 'Updated project',
+    },
+    404: { description: 'Project not found' },
   },
 });
 
@@ -85,23 +98,23 @@ router.openapi(listRoute, (c) => {
 });
 
 router.openapi(getRoute, (c) => {
-  const { id } = c.req.valid("param");
+  const { id } = c.req.valid('param');
   const project = projectService.get(id);
-  if (!project) return c.json({ error: "Project not found" } as any, 404);
+  if (!project) return c.json({ error: 'Project not found' } as any, 404);
   return c.json(project as z.infer<typeof ProjectSchema>, 200);
 });
 
 router.openapi(createRoute_, (c) => {
-  const input = c.req.valid("json");
+  const input = c.req.valid('json');
   const project = projectService.create(input);
   return c.json(project as z.infer<typeof ProjectSchema>, 201);
 });
 
 router.openapi(updateRoute, (c) => {
-  const { id } = c.req.valid("param");
-  const input = c.req.valid("json");
+  const { id } = c.req.valid('param');
+  const input = c.req.valid('json');
   const result = projectService.update(id, input);
-  if (!result) return c.json({ error: "Project not found" } as any, 404);
+  if (!result) return c.json({ error: 'Project not found' } as any, 404);
   return c.json(result as z.infer<typeof ProjectSchema>, 200);
 });
 

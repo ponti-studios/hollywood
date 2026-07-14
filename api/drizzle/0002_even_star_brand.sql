@@ -1,0 +1,1 @@
+ALTER TABLE `credits` ADD `metadata_json` text DEFAULT '{}' NOT NULL;

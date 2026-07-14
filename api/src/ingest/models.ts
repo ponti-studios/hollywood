@@ -1,24 +1,37 @@
-import { createHash } from "node:crypto";
+import { createHash } from 'node:crypto';
+
+import type { EntityFields } from '../db/repositories/EntityRepository.js';
+import type {
+  articles,
+  articleContent,
+  articleEntities,
+  credits,
+  aliases,
+  rawRecords,
+} from '../db/schema.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const TRACKING_QUERY_KEYS = new Set([
-  "fbclid",
-  "gclid",
-  "mc_cid",
-  "mc_eid",
-  "ref",
-  "source",
-  "utm_campaign",
-  "utm_content",
-  "utm_medium",
-  "utm_source",
-  "utm_term",
+  'fbclid',
+  'gclid',
+  'mc_cid',
+  'mc_eid',
+  'ref',
+  'source',
+  'utm_campaign',
+  'utm_content',
+  'utm_medium',
+  'utm_source',
+  'utm_term',
 ]);
 
 export function makeStableId(...parts: string[]): string {
-  const joined = parts.filter(Boolean).map((p) => p.trim()).join("::");
-  return createHash("sha256").update(joined, "utf-8").digest("hex").slice(0, 24);
+  const joined = parts
+    .filter(Boolean)
+    .map((p) => p.trim())
+    .join('::');
+  return createHash('sha256').update(joined, 'utf-8').digest('hex').slice(0, 24);
 }
 
 export function canonicalizeUrl(url: string): string {
@@ -26,25 +39,25 @@ export function canonicalizeUrl(url: string): string {
   const query = [...split.searchParams.entries()].filter(
     ([key]) => !TRACKING_QUERY_KEYS.has(key.toLowerCase()),
   );
-  const path = split.pathname.replace(/\/+$/, "") || "/";
-  const qs = query.map(([k, v]) => `${k}=${v}`).join("&");
-  return `${split.protocol.toLowerCase()}//${split.host.toLowerCase()}${path}${qs ? "&" + qs : ""}`;
+  const path = split.pathname.replace(/\/+$/, '') || '/';
+  const qs = query.map(([k, v]) => `${k}=${v}`).join('&');
+  return `${split.protocol.toLowerCase()}//${split.host.toLowerCase()}${path}${qs ? '&' + qs : ''}`;
 }
 
 export function normalizeWhitespace(text: string): string {
-  return text.split(/\s+/).filter(Boolean).join(" ");
+  return text.split(/\s+/).filter(Boolean).join(' ');
 }
 
 // ── Enums ────────────────────────────────────────────────────────────────────
 
-export type SourceKind = "rss" | "api" | "dataset" | "browser";
+export type SourceKind = 'rss' | 'api' | 'dataset' | 'browser';
 export type LicenseClass =
-  | "research_non_commercial"
-  | "web_copyright"
-  | "api_terms"
-  | "public_knowledge";
-export type EntityKind = "person" | "title" | "company" | "organization" | "award";
-export type RunStatus = "running" | "succeeded" | "failed";
+  | 'research_non_commercial'
+  | 'web_copyright'
+  | 'api_terms'
+  | 'public_knowledge';
+export type EntityKind = 'person' | 'title' | 'company' | 'organization' | 'award';
+export type RunStatus = 'running' | 'succeeded' | 'failed';
 
 // ── Source definition ────────────────────────────────────────────────────────
 
@@ -83,89 +96,86 @@ export interface RawPayload {
   extension?: string;
 }
 
-export interface ArchivedPayload {
+/**
+ * Pre-`raw_records` archival result. Mirrors the `raw_records` table
+ * (via `$inferInsert`) except for `logicalId` (a dedup key that's never
+ * persisted) and `fetchedAt`/`contentType` (required here; the row is only
+ * ever constructed with both already resolved).
+ */
+export type ArchivedPayload = Omit<
+  typeof rawRecords.$inferInsert,
+  'id' | 'runId' | 'contentType' | 'fetchedAt' | 'metadataJson'
+> & {
   rawRecordId: string;
-  sourceId: string;
-  sourceKind: string;
-  payloadType: string;
   logicalId: string;
-  contentPath: string;
-  contentHash: string;
   contentType: string;
-  sourceUrl?: string;
-  canonicalUrl?: string;
   fetchedAt: Date;
   metadataJson: string;
-}
+};
 
 // ── Normalized rows ──────────────────────────────────────────────────────────
+// These mirror the `articles`/`article_content`/`article_entities`/`credits`
+// gold tables via `$inferInsert`, tightened to the subset of fields adapters
+// actually populate (narrower optionality than the DB allows) and renamed
+// where the pipeline hasn't resolved a DB primary key yet (e.g. `*EntityId`
+// suffixes on `CreditRow` — these are adapter-generated stable ids, not
+// guaranteed-persisted `people`/`titles` rows, until `IngestService` writes
+// them).
 
-export interface ArticleRow {
+export type ArticleRow = Omit<
+  typeof articles.$inferInsert,
+  'id' | 'canonicalUrl' | 'title' | 'runId' | 'metadataJson' | 'publishedAt'
+> & {
   articleId: string;
-  sourceId: string;
   canonicalUrl: string;
-  url: string;
   title: string;
-  author?: string;
-  publishedAt?: Date;
-  summary?: string;
-  feedGuid?: string;
-  licenseClass: string;
   runId: string;
   metadataJson: string;
-}
+  publishedAt?: Date;
+};
 
-export interface ArticleContentRow {
+export type ArticleContentRow = Omit<
+  typeof articleContent.$inferInsert,
+  'id' | 'rawRecordId' | 'metadataJson'
+> & {
   contentId: string;
-  articleId: string;
-  sourceId: string;
-  contentKind: string;
-  text: string;
   rawRecordId: string;
-  contentHash: string;
-  licenseClass: string;
   metadataJson: string;
-}
+};
 
-export interface EntityRow {
+export type EntityRow = Pick<
+  EntityFields,
+  'sourceId' | 'externalId' | 'entityType' | 'name' | 'canonicalName' | 'titleType'
+> & {
   entityId: string;
-  sourceId: string;
-  externalId?: string;
-  entityType: string;
-  name: string;
-  canonicalName: string;
-  licenseClass: string;
   metadataJson: string;
-  titleType?: string;
-}
+};
 
-export interface EntityAliasRow {
+export type EntityAliasRow = Pick<
+  typeof aliases.$inferInsert,
+  'entityId' | 'sourceId' | 'alias'
+> & {
   entityAliasId: string;
-  entityId: string;
-  sourceId: string;
-  alias: string;
-}
+};
 
-export interface ArticleEntityRow {
+export type ArticleEntityRow = Omit<
+  typeof articleEntities.$inferInsert,
+  'id' | 'entityType' | 'metadataJson'
+> & {
   articleEntityId: string;
-  articleId: string;
-  entityId: string;
-  sourceId: string;
-  relation: string;
   metadataJson: string;
-}
+};
 
-export interface CreditRow {
+export type CreditRow = Pick<
+  typeof credits.$inferInsert,
+  'role' | 'sourceId' | 'creditCategory'
+> & {
   creditId: string;
-  sourceId: string;
   personEntityId?: string;
   titleEntityId?: string;
-  role: string;
-  /** "cast" or "crew" — which side of the credit this row represents. */
-  creditCategory?: string;
   billing?: number;
   metadataJson: string;
-}
+};
 
 export interface NormalizedBundle {
   articles: ArticleRow[];
@@ -177,7 +187,14 @@ export interface NormalizedBundle {
 }
 
 export function emptyBundle(): NormalizedBundle {
-  return { articles: [], articleContent: [], entities: [], entityAliases: [], articleEntities: [], credits: [] };
+  return {
+    articles: [],
+    articleContent: [],
+    entities: [],
+    entityAliases: [],
+    articleEntities: [],
+    credits: [],
+  };
 }
 
 export function extendBundle(target: NormalizedBundle, other: NormalizedBundle): void {

@@ -1,6 +1,7 @@
-import { createRoute, z } from "@hono/zod-openapi";
-import { OpenAPIHono } from "@hono/zod-openapi";
-import { ArticleEnrichmentService } from "../db/services/ArticleEnrichmentService.js";
+import { createRoute, z } from '@hono/zod-openapi';
+import { OpenAPIHono } from '@hono/zod-openapi';
+
+import { ArticleEnrichmentService } from '../db/services/ArticleEnrichmentService.js';
 
 const EnrichSummarySchema = z.object({
   articles_processed: z.number().int(),
@@ -22,27 +23,35 @@ const EnrichArticlesInputSchema = z.object({
   limit: z.number().int().optional().openapi({ example: 5 }),
   model: z.string().optional(),
   prompt_version: z.string().optional(),
-  provider: z.enum(["openrouter", "ollama"]).optional(),
+  provider: z.enum(['openrouter', 'ollama']).optional(),
 });
 
 const enrichArticlesRoute = createRoute({
-  method: "post",
-  path: "/articles/enrich",
-  tags: ["mutating"],
-  request: { body: { content: { "application/json": { schema: EnrichArticlesInputSchema } } } },
+  method: 'post',
+  path: '/articles/enrich',
+  tags: ['mutating'],
+  request: { body: { content: { 'application/json': { schema: EnrichArticlesInputSchema } } } },
   responses: {
-    200: { content: { "application/json": { schema: EnrichSummarySchema } }, description: "Article enrichment summary" },
-    500: { description: "Enrichment failed" },
+    200: {
+      content: { 'application/json': { schema: EnrichSummarySchema } },
+      description: 'Article enrichment summary',
+    },
+    500: { description: 'Enrichment failed' },
   },
 });
 
 const router = new OpenAPIHono();
 
 router.openapi(enrichArticlesRoute, async (c) => {
-  const { limit, model, prompt_version, provider } = c.req.valid("json");
+  const { limit, model, prompt_version, provider } = c.req.valid('json');
   try {
     const service = new ArticleEnrichmentService();
-    const summary = await service.enrichNext({ limit: limit ?? 5, model, promptVersion: prompt_version, provider });
+    const summary = await service.enrichNext({
+      limit: limit ?? 5,
+      model,
+      promptVersion: prompt_version,
+      provider,
+    });
     return c.json(
       {
         articles_processed: summary.articlesProcessed,
@@ -61,7 +70,7 @@ router.openapi(enrichArticlesRoute, async (c) => {
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return c.json({ error: "Enrichment failed", detail: msg } as any, 500);
+    return c.json({ error: 'Enrichment failed', detail: msg } as any, 500);
   }
 });
 

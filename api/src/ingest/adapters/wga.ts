@@ -1,9 +1,11 @@
-import { readFileSync } from "node:fs";
-import { chromium } from "playwright";
-import type { Locator, Page } from "playwright";
-import { env } from "../../env.js";
-import { canonicalizeUrl, emptyBundle, makeStableId } from "../models.js";
-import { parseWgaProfileCredits } from "./wga-credit-parser.js";
+import { readFileSync } from 'node:fs';
+
+import { chromium } from 'playwright';
+import type { Locator, Page } from 'playwright';
+
+import type { DbRow } from '../../db/index.js';
+import { env } from '../../env.js';
+import { canonicalizeUrl, emptyBundle, makeStableId } from '../models.js';
 import type {
   CreditRow,
   EntityAliasRow,
@@ -12,31 +14,31 @@ import type {
   NormalizedBundle,
   RawPayload,
   SourceDefinition,
-} from "../models.js";
-import type { Adapter } from "./base.js";
-import type { DbRow } from "../../db/index.js";
+} from '../models.js';
+import type { Adapter } from './base.js';
+import { parseWgaProfileCredits } from './wga-credit-parser.js';
 
 const SEARCH_INPUT_SELECTORS = [
-  "#Filter_Keyword",
+  '#Filter_Keyword',
   "input[name='Filter.Keyword']",
   "input[placeholder='Search writer or project here...']",
 ];
-const SEARCH_TYPE_BUTTON_SELECTORS = ["#search-type", "button#search-type"];
-const SEARCH_BUTTON_SELECTORS = ["#searchBtn", "button#searchBtn"];
+const SEARCH_TYPE_BUTTON_SELECTORS = ['#search-type', 'button#search-type'];
+const SEARCH_BUTTON_SELECTORS = ['#searchBtn', 'button#searchBtn'];
 const STARTS_WITH_ITEM_SELECTOR = "a.dropdown-item[data-value='2']";
 
 export class SelectorError extends Error {}
 
 export function writerKey(url: string): string {
-  return makeStableId("wga", canonicalizeUrl(url));
+  return makeStableId('wga', canonicalizeUrl(url));
 }
 
 export function normalizePrefixes(raw: string): string[] {
   const value = raw.trim();
-  if (!value) throw new Error("prefixes must not be empty");
-  const prefixes = value.includes(",") ? value.split(",").map((p) => p.trim()) : value.split("");
+  if (!value) throw new Error('prefixes must not be empty');
+  const prefixes = value.includes(',') ? value.split(',').map((p) => p.trim()) : value.split('');
   const cleaned = prefixes.filter(Boolean);
-  if (!cleaned.length) throw new Error("prefixes must contain at least one non-empty prefix");
+  if (!cleaned.length) throw new Error('prefixes must contain at least one non-empty prefix');
   return cleaned;
 }
 
@@ -44,7 +46,11 @@ function uniqueProfileUrls(urls: string[]): string[] {
   return [...new Set(urls.map(canonicalizeUrl))].sort();
 }
 
-async function clickFirstVisible(page: Page, selectors: string[], description: string): Promise<void> {
+async function clickFirstVisible(
+  page: Page,
+  selectors: string[],
+  description: string,
+): Promise<void> {
   for (const selector of selectors) {
     const locator = page.locator(selector);
     const count = await locator.count();
@@ -56,10 +62,17 @@ async function clickFirstVisible(page: Page, selectors: string[], description: s
       }
     }
   }
-  throw new SelectorError(`Could not find ${description} on ${page.url()} using selectors: ${selectors.join(", ")}`);
+  throw new SelectorError(
+    `Could not find ${description} on ${page.url()} using selectors: ${selectors.join(', ')}`,
+  );
 }
 
-async function fillFirstVisible(page: Page, selectors: string[], value: string, description: string): Promise<void> {
+async function fillFirstVisible(
+  page: Page,
+  selectors: string[],
+  value: string,
+  description: string,
+): Promise<void> {
   for (const selector of selectors) {
     const locator = page.locator(selector);
     const count = await locator.count();
@@ -71,18 +84,22 @@ async function fillFirstVisible(page: Page, selectors: string[], value: string, 
       }
     }
   }
-  throw new SelectorError(`Could not find ${description} on ${page.url()} using selectors: ${selectors.join(", ")}`);
+  throw new SelectorError(
+    `Could not find ${description} on ${page.url()} using selectors: ${selectors.join(', ')}`,
+  );
 }
 
 async function searchPrefix(page: Page, prefix: string): Promise<void> {
-  await clickFirstVisible(page, SEARCH_TYPE_BUTTON_SELECTORS, "the search type dropdown");
+  await clickFirstVisible(page, SEARCH_TYPE_BUTTON_SELECTORS, 'the search type dropdown');
   await clickFirstVisible(page, [STARTS_WITH_ITEM_SELECTOR], "the 'Starts With' option");
-  await fillFirstVisible(page, SEARCH_INPUT_SELECTORS, prefix, "the search input");
+  await fillFirstVisible(page, SEARCH_INPUT_SELECTORS, prefix, 'the search input');
   await clickFirstVisible(page, SEARCH_BUTTON_SELECTORS, "the 'Search' control");
 }
 
 async function collectProfileUrls(page: Page): Promise<string[]> {
-  const urls = await page.locator("a[href*='/member/']").evaluateAll((els) => els.map((a) => (a as HTMLAnchorElement).href));
+  const urls = await page
+    .locator("a[href*='/member/']")
+    .evaluateAll((els) => els.map((a) => (a as HTMLAnchorElement).href));
   return uniqueProfileUrls(urls);
 }
 
@@ -92,7 +109,7 @@ async function extractWriterName(profile: Page): Promise<string> {
   // selectors below are the site's older/generic page-banner heading
   // ("Find A Writer") and are kept only as a fallback in case the markup
   // reverts, so they must be tried after the more specific selector.
-  for (const selector of ["#main-member h3", ".header h3", "h1", "main h1", ".page-title h1"]) {
+  for (const selector of ['#main-member h3', '.header h3', 'h1', 'main h1', '.page-title h1']) {
     const locator = profile.locator(selector);
     if (await locator.count()) {
       const text = (await locator.first().innerText()).trim();
@@ -100,34 +117,36 @@ async function extractWriterName(profile: Page): Promise<string> {
     }
   }
   const title = (await profile.title()).trim();
-  if (!title) return "Unknown Writer";
-  return title.split(/\s*[|-]\s*/)[0]!.trim() || "Unknown Writer";
+  if (!title) return 'Unknown Writer';
+  return title.split(/\s*[|-]\s*/)[0]!.trim() || 'Unknown Writer';
 }
 
 /** Maps parsed WGA credits (pure text parsing lives in wga-credit-parser.ts) into bundle rows. */
-export function buildWgaCreditRows(text: string, personEntityId: string): { credit: CreditRow; title: EntityRow }[] {
+export function buildWgaCreditRows(
+  text: string,
+  personEntityId: string,
+): { credit: CreditRow; title: EntityRow }[] {
   return parseWgaProfileCredits(text).map((parsed) => {
-    const titleEntityId = makeStableId("wga_title", parsed.title);
+    const titleEntityId = makeStableId('wga_title', parsed.title);
     return {
       title: {
         entityId: titleEntityId,
-        sourceId: "wga",
-        entityType: "title",
+        sourceId: 'wga',
+        entityType: 'title',
         name: parsed.title,
         canonicalName: parsed.title.toLowerCase(),
-        licenseClass: "research_non_commercial",
         metadataJson: JSON.stringify({ stub: true, category: parsed.category }),
         titleType: parsed.category ?? undefined,
       },
       credit: {
-        creditId: makeStableId("wga", personEntityId, parsed.title, parsed.role),
-        sourceId: "wga",
+        creditId: makeStableId('wga', personEntityId, parsed.title, parsed.role),
+        sourceId: 'wga',
         personEntityId,
         titleEntityId,
         role: parsed.role,
-        creditCategory: "crew",
+        creditCategory: 'crew',
         billing: parsed.count,
-        metadataJson: JSON.stringify({ source: "wga_profile_text" }),
+        metadataJson: JSON.stringify({ source: 'wga_profile_text' }),
       },
     };
   });
@@ -139,7 +158,11 @@ export class WgaAdapter implements Adapter {
   async fetchRawPayloads(options: IngestOptions): Promise<RawPayload[]> {
     const payloads: RawPayload[] = [];
     const seen = new Set<string>();
-    const prefixes = options.prefixes ?? normalizePrefixes(String(this.source.metadata["default_prefixes"] ?? "abcdefghijklmnopqrstuvwxyz"));
+    const prefixes =
+      options.prefixes ??
+      normalizePrefixes(
+        String(this.source.metadata['default_prefixes'] ?? 'abcdefghijklmnopqrstuvwxyz'),
+      );
     let emitted = 0;
 
     const browser = await chromium.launch({ headless: true });
@@ -149,9 +172,9 @@ export class WgaAdapter implements Adapter {
         const page = await context.newPage();
         for (const prefix of prefixes) {
           if (options.limit !== undefined && emitted >= options.limit) break;
-          await page.goto(this.source.defaultUrls[0]!, { waitUntil: "networkidle" });
+          await page.goto(this.source.defaultUrls[0]!, { waitUntil: 'networkidle' });
           await searchPrefix(page, prefix);
-          await page.waitForLoadState("networkidle");
+          await page.waitForLoadState('networkidle');
 
           for (const url of await collectProfileUrls(page)) {
             if (seen.has(url)) continue;
@@ -162,9 +185,9 @@ export class WgaAdapter implements Adapter {
             let text: string;
             let name: string;
             try {
-              await profile.goto(url, { waitUntil: "networkidle" });
+              await profile.goto(url, { waitUntil: 'networkidle' });
               html = await profile.content();
-              text = await profile.locator("body").innerText();
+              text = await profile.locator('body').innerText();
               name = await extractWriterName(profile);
             } finally {
               await profile.close();
@@ -172,29 +195,34 @@ export class WgaAdapter implements Adapter {
 
             const canonicalUrl = canonicalizeUrl(url);
             const writerId = writerKey(canonicalUrl);
-            const metadata = { profile_url: canonicalUrl, writer_id: writerId, writer_name: name, prefix };
+            const metadata = {
+              profile_url: canonicalUrl,
+              writer_id: writerId,
+              writer_name: name,
+              prefix,
+            };
 
             payloads.push({
-              payloadType: "browser_html",
+              payloadType: 'browser_html',
               logicalId: writerId,
-              body: Buffer.from(html, "utf-8"),
-              contentType: "text/html",
+              body: Buffer.from(html, 'utf-8'),
+              contentType: 'text/html',
               sourceUrl: canonicalUrl,
               canonicalUrl,
               fetchedAt: new Date(),
               metadata,
-              extension: ".html",
+              extension: '.html',
             });
             payloads.push({
-              payloadType: "browser_text",
+              payloadType: 'browser_text',
               logicalId: writerId,
-              body: Buffer.from(text, "utf-8"),
-              contentType: "text/plain",
+              body: Buffer.from(text, 'utf-8'),
+              contentType: 'text/plain',
               sourceUrl: canonicalUrl,
               canonicalUrl,
               fetchedAt: new Date(),
               metadata,
-              extension: ".txt",
+              extension: '.txt',
             });
 
             emitted++;
@@ -215,23 +243,26 @@ export class WgaAdapter implements Adapter {
   async normalizeRawRecords(_runId: string, rawRecords: DbRow[]): Promise<NormalizedBundle> {
     const bundle = emptyBundle();
     for (const record of rawRecords) {
-      if (String(record["payload_type"]) !== "browser_text") continue;
-      const path = String(record["content_path"]);
-      const metadata = JSON.parse(String(record["metadata_json"] ?? "{}"));
-      const text = readFileSync(path, "utf-8");
-      const writerName = metadata.writer_name ?? "Unknown Writer";
-      const writerId = metadata.writer_id ?? writerKey(String(record["canonical_url"] ?? record["source_url"]));
-      const entityId = makeStableId("wga", "person", String(writerId));
+      if (String(record['payload_type']) !== 'browser_text') continue;
+      const path = String(record['content_path']);
+      const metadata = JSON.parse(String(record['metadata_json'] ?? '{}'));
+      const text = readFileSync(path, 'utf-8');
+      const writerName = metadata.writer_name ?? 'Unknown Writer';
+      const writerId =
+        metadata.writer_id ?? writerKey(String(record['canonical_url'] ?? record['source_url']));
+      const entityId = makeStableId('wga', 'person', String(writerId));
 
       const entityRow: EntityRow = {
         entityId,
         sourceId: this.source.sourceId,
         externalId: String(writerId),
-        entityType: "person",
+        entityType: 'person',
         name: String(writerName),
         canonicalName: String(writerName).toLowerCase(),
-        licenseClass: this.source.licenseClass,
-        metadataJson: JSON.stringify({ profile_url: metadata.profile_url ?? null, raw_record_id: record["id"] }),
+        metadataJson: JSON.stringify({
+          profile_url: metadata.profile_url ?? null,
+          raw_record_id: record['id'],
+        }),
       };
       bundle.entities.push(entityRow);
 

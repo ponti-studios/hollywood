@@ -1,5 +1,8 @@
-import { SubmissionRepository, type SubmissionFields } from "../repositories/SubmissionRepository.js";
-import { EntityRepository, makeStableId } from "../repositories/EntityRepository.js";
+import { EntityRepository, makeStableId } from '../repositories/EntityRepository.js';
+import {
+  SubmissionRepository,
+  type SubmissionFields,
+} from '../repositories/SubmissionRepository.js';
 
 export interface SubmissionDetail {
   id: string;
@@ -24,7 +27,7 @@ export class SubmissionService {
     const rows = this.submissionRepo.findAllWithExtractions();
     return rows.map((r) => ({
       id: r.id,
-      projectId: projectId ?? "default",
+      projectId: projectId ?? 'default',
       candidateId: null,
       created: r.createdAt,
       submissionJson: this.parseResultJson(r.resultJson),
@@ -40,39 +43,41 @@ export class SubmissionService {
     return { deleted: changes > 0 };
   }
 
-  createCandidate(submissionId: string, position: string): { id: string; name: string; position: string; status: string } | null {
+  createCandidate(
+    submissionId: string,
+    position: string,
+  ): { id: string; name: string; position: string; status: string } | null {
     const sub = this.submissionRepo.findWithExtraction(submissionId);
     if (!sub) return null;
 
     const sj = this.parseResultJson(sub.resultJson ?? null);
-    const name = (sj.name as string) ?? "Unknown";
-    const entityId = makeStableId("entity", "hollywood-api", name);
+    const name = (sj.name as string) ?? 'Unknown';
+    const entityId = makeStableId('entity', 'hollywood-api', name);
     const now = new Date().toISOString();
 
     this.entityRepo.insertWithId(entityId, {
-      sourceId: "hollywood-api",
-      entityType: "person",
+      sourceId: 'hollywood-api',
+      entityType: 'person',
       name,
       canonicalName: name.toLowerCase(),
       bio: (sj.bio as string) ?? null,
       position: position,
-      licenseClass: "public",
     });
 
-    this.entityRepo.addAlias(entityId, "hollywood-api", name);
+    this.entityRepo.addAlias(entityId, 'hollywood-api', name);
 
-    return { id: entityId, name, position, status: "active" };
+    return { id: entityId, name, position, status: 'active' };
   }
 
   private parseResultJson(raw: string | null): Record<string, unknown> {
-    if (!raw) return { name: "Unknown" };
+    if (!raw) return { name: 'Unknown' };
     try {
       const obj = JSON.parse(raw);
       // SubmissionPacket format: { candidates: [{ name, bio, ... }] }
       if (obj.candidates && Array.isArray(obj.candidates) && obj.candidates.length > 0) {
         const c = obj.candidates[0];
         return {
-          name: c.name ?? "Unknown",
+          name: c.name ?? 'Unknown',
           bio: c.bio ?? null,
           email: c.email ?? null,
           phone_number: c.phone_number ?? null,
@@ -95,7 +100,7 @@ export class SubmissionService {
       }
       return obj;
     } catch {
-      return { name: "Unknown" };
+      return { name: 'Unknown' };
     }
   }
 }

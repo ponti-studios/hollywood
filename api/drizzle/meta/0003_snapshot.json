@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "82d40097-6823-454a-9644-2dd3925a842b",
-  "prevId": "3e8e8518-a9ae-450d-b47e-4f2246150b2f",
+  "id": "b06c2dd6-2753-4a27-97ad-486da3792559",
+  "prevId": "07c611a2-2510-425b-926a-4e11e3c8b5ad",
   "tables": {
     "aliases": {
       "name": "aliases",
@@ -103,13 +103,6 @@
         },
         "content_hash": {
           "name": "content_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "license_class": {
-          "name": "license_class",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -285,13 +278,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "license_class": {
-          "name": "license_class",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "run_id": {
           "name": "run_id",
           "type": "text",
@@ -383,13 +369,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'active'"
-        },
-        "license_class": {
-          "name": "license_class",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
         },
         "metadata_json": {
           "name": "metadata_json",
@@ -711,6 +690,14 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "metadata_json": {
+          "name": "metadata_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
         },
         "created_at": {
           "name": "created_at",
@@ -1085,13 +1072,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'active'"
-        },
-        "license_class": {
-          "name": "license_class",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
         },
         "metadata_json": {
           "name": "metadata_json",
@@ -1820,13 +1800,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false,
-          "autoincrement": false
-        },
-        "license_class": {
-          "name": "license_class",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
           "autoincrement": false
         },
         "metadata_json": {

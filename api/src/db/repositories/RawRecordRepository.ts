@@ -1,25 +1,13 @@
-import { getDrizzle } from "../index.js";
-import { rawRecords } from "../schema.js";
-import { eq, and } from "drizzle-orm";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema.js";
+import { eq, and } from 'drizzle-orm';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+
+import { getDrizzle } from '../index.js';
+import { rawRecords } from '../schema.js';
+import * as schema from '../schema.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
 
-export interface RawRecordInsert {
-  id: string;
-  runId: string;
-  sourceId: string;
-  sourceKind: string;
-  payloadType: string;
-  contentPath: string;
-  contentHash: string;
-  contentType?: string | null;
-  sourceUrl?: string | null;
-  canonicalUrl?: string | null;
-  fetchedAt: string;
-  metadataJson: string;
-}
+export type RawRecordInsert = typeof rawRecords.$inferInsert;
 
 export class RawRecordRepository {
   constructor(private db: Db = getDrizzle()) {}

@@ -1,11 +1,11 @@
-import { archivePayload } from "./archive.js";
-import { bundleCounts } from "./models.js";
-import type { DoctorCheck, IngestOptions, RunSummary } from "./models.js";
-import { getSource, listSources } from "./registry.js";
-import { IngestService } from "../db/services/IngestService.js";
-import { ExportService } from "../db/services/ExportService.js";
-import type { Adapter } from "./adapters/base.js";
-import type { DbRow } from "../db/index.js";
+import type { DbRow } from '../db/index.js';
+import { ExportService } from '../db/services/ExportService.js';
+import { IngestService } from '../db/services/IngestService.js';
+import type { Adapter } from './adapters/base.js';
+import { archivePayload } from './archive.js';
+import { bundleCounts } from './models.js';
+import type { DoctorCheck, IngestOptions, RunSummary } from './models.js';
+import { getSource, listSources } from './registry.js';
 
 const ADAPTERS = new Map<string, Adapter>();
 
@@ -18,7 +18,9 @@ export function registerAdapter(sourceId: string, adapter: Adapter): void {
 function getAdapter(sourceId: string): Adapter {
   const adapter = ADAPTERS.get(sourceId);
   if (!adapter) {
-    throw new Error(`No TypeScript adapter registered yet for source '${sourceId}' (ports land in a later phase)`);
+    throw new Error(
+      `No TypeScript adapter registered yet for source '${sourceId}' (ports land in a later phase)`,
+    );
   }
   return adapter;
 }
@@ -27,7 +29,7 @@ export async function normalizeFlow(sourceId?: string): Promise<Record<string, n
   const rawRecords = ingestService.loadRawRecords(sourceId ? { sourceId } : {});
   const grouped = new Map<string, DbRow[]>();
   for (const record of rawRecords) {
-    const key = String(record["source_id"]);
+    const key = String(record['source_id']);
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key)!.push(record);
   }
@@ -36,11 +38,11 @@ export async function normalizeFlow(sourceId?: string): Promise<Record<string, n
   for (const [groupedSourceId, records] of grouped) {
     getSource(groupedSourceId);
     const adapter = getAdapter(groupedSourceId);
-    const runId = ingestService.startRunRaw("normalize", { source_id: groupedSourceId });
+    const runId = ingestService.startRunRaw('normalize', { source_id: groupedSourceId });
     const bundle = await adapter.normalizeRawRecords(runId, records);
     ingestService.applyBundle(bundle);
     const counts = bundleCounts(bundle);
-    ingestService.finishRun(runId, "succeeded", counts);
+    ingestService.finishRun(runId, 'succeeded', counts);
     for (const [key, value] of Object.entries(counts)) {
       combinedCounts[key] = (combinedCounts[key] ?? 0) + value;
     }
@@ -48,7 +50,11 @@ export async function normalizeFlow(sourceId?: string): Promise<Record<string, n
   return combinedCounts;
 }
 
-export function exportFlow(fileFormat: "jsonl" | "parquet", outputDir: string, table?: string): string[] {
+export function exportFlow(
+  fileFormat: 'jsonl' | 'parquet',
+  outputDir: string,
+  table?: string,
+): string[] {
   const exportService = new ExportService();
   if (table) return [exportService.exportTable(table, outputDir, fileFormat)];
   return exportService.exportAll(outputDir, fileFormat);
@@ -61,9 +67,17 @@ export function sourceDoctorChecks(): DoctorCheck[] {
     if (adapter?.doctorChecks) {
       checks.push(...adapter.doctorChecks());
     } else if (adapter) {
-      checks.push({ name: `${source.sourceId}:config`, ok: true, detail: `Configured fetch strategy: ${source.fetchStrategy}` });
+      checks.push({
+        name: `${source.sourceId}:config`,
+        ok: true,
+        detail: `Configured fetch strategy: ${source.fetchStrategy}`,
+      });
     } else {
-      checks.push({ name: `${source.sourceId}:config`, ok: true, detail: `Configured fetch strategy: ${source.fetchStrategy} (adapter not yet ported)` });
+      checks.push({
+        name: `${source.sourceId}:config`,
+        ok: true,
+        detail: `Configured fetch strategy: ${source.fetchStrategy} (adapter not yet ported)`,
+      });
     }
   }
   return checks;
@@ -86,15 +100,15 @@ export async function runIngestSource(
     const summary: RunSummary = {
       runId,
       sourceId: source.sourceId,
-      status: "succeeded",
+      status: 'succeeded',
       rawRecords: archivedPayloads.length,
       normalized: bundleCounts(bundle),
     };
-    ingestService.finishRun(runId, "succeeded", summary as unknown as Record<string, unknown>);
+    ingestService.finishRun(runId, 'succeeded', summary as unknown as Record<string, unknown>);
     return summary;
   } catch (exc) {
     const error = exc instanceof Error ? exc.message : String(exc);
-    ingestService.finishRun(runId, "failed", { source_id: source.sourceId, error }, error);
+    ingestService.finishRun(runId, 'failed', { source_id: source.sourceId, error }, error);
     throw exc;
   }
 }

@@ -1,38 +1,29 @@
-import { getDrizzle } from "../index.js";
-import { credits } from "../schema.js";
-import { eq } from "drizzle-orm";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema.js";
-import { makeStableId } from "./EntityRepository.js";
+import { eq } from 'drizzle-orm';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+
+import { getDrizzle } from '../index.js';
+import { credits } from '../schema.js';
+import * as schema from '../schema.js';
+import { makeStableId } from './EntityRepository.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
 
-export interface CreditFields {
-  personId: string;
-  titleId: string;
-  companyId?: string | null;
-  sourceId: string;
-  role: string;
-  creditType?: string;
-  billing?: number | null;
-  trustState?: string;
-}
+/** Everything insertable on a credit, minus repo-generated id/createdAt. */
+export type CreditFields = Omit<typeof credits.$inferInsert, 'id' | 'createdAt'>;
 
-export interface CreditWithTitle {
-  id: string;
-  personId: string;
-  titleId: string;
-  role: string;
-  creditType: string | null;
+export type CreditWithTitle = Pick<
+  typeof credits.$inferSelect,
+  'id' | 'personId' | 'titleId' | 'role' | 'creditCategory' | 'metadataJson'
+> & {
   titleName?: string | null;
-}
+};
 
 export class CreditRepository {
   constructor(private db: Db = getDrizzle()) {}
 
   /** Upsert a credit. Idempotent — uses stable ID from person + title + role. */
   upsert(fields: CreditFields): string {
-    const creditId = makeStableId("credit", fields.personId, fields.titleId, fields.role);
+    const creditId = makeStableId('credit', fields.personId, fields.titleId, fields.role);
     const now = new Date().toISOString();
     this.db
       .insert(credits)
@@ -43,10 +34,11 @@ export class CreditRepository {
         companyId: fields.companyId ?? null,
         sourceId: fields.sourceId,
         role: fields.role,
-        creditCategory: fields.creditType ?? "crew",
+        creditCategory: fields.creditCategory ?? 'crew',
         billing: fields.billing ?? null,
-        trustState: fields.trustState ?? "machine_extracted",
+        trustState: fields.trustState ?? 'machine_extracted',
         sourceFactId: null,
+        metadataJson: fields.metadataJson ?? '{}',
         createdAt: now,
       })
       .onConflictDoNothing()
@@ -62,7 +54,8 @@ export class CreditRepository {
         personId: credits.personId,
         titleId: credits.titleId,
         role: credits.role,
-        creditType: credits.creditCategory,
+        creditCategory: credits.creditCategory,
+        metadataJson: credits.metadataJson,
         titleName: schema.titles.title,
       })
       .from(credits)
@@ -81,7 +74,8 @@ export class CreditRepository {
         personId: credits.personId,
         titleId: credits.titleId,
         role: credits.role,
-        creditType: credits.creditCategory,
+        creditCategory: credits.creditCategory,
+        metadataJson: credits.metadataJson,
         personName: schema.people.name,
       })
       .from(credits)

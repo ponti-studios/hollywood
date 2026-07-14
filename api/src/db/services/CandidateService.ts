@@ -1,6 +1,6 @@
-import { EntityRepository, makeStableId } from "../repositories/EntityRepository.js";
-import { CreditRepository } from "../repositories/CreditRepository.js";
-import { TagRepository } from "../repositories/TagRepository.js";
+import { CreditRepository } from '../repositories/CreditRepository.js';
+import { EntityRepository, makeStableId } from '../repositories/EntityRepository.js';
+import { TagRepository } from '../repositories/TagRepository.js';
 
 export interface CandidateDetail {
   id: string;
@@ -60,55 +60,62 @@ export class CandidateService {
   }
 
   list(limit = 50, offset = 0): CandidateDetail[] {
-    const rows = this.entityRepo.findByType("person", limit, offset);
+    const rows = this.entityRepo.findByType('person', limit, offset);
     return rows.map((row) => this.enrich(row));
   }
 
   get(id: string): CandidateDetail | null {
     const row = this.entityRepo.findById(id);
-    if (!row || row.entityType !== "person") return null;
+    if (!row || row.entityType !== 'person') return null;
     return this.enrich(row);
   }
 
   create(inputs: CreateCandidateInput[]): CandidateDetail[] {
     const results: CandidateDetail[] = [];
     for (const input of inputs) {
-      const entityId = makeStableId("entity", "hollywood-api", input.name);
+      const entityId = makeStableId('entity', 'hollywood-api', input.name);
       const now = new Date().toISOString();
 
       this.entityRepo.insertWithId(entityId, {
-        sourceId: "hollywood-api",
-        entityType: "person",
+        sourceId: 'hollywood-api',
+        entityType: 'person',
         name: input.name,
         canonicalName: input.name.toLowerCase(),
         bio: input.agencyBio ?? null,
         position: input.position ?? null,
-        licenseClass: "public",
       });
 
-      this.entityRepo.addAlias(entityId, "hollywood-api", input.name);
+      this.entityRepo.addAlias(entityId, 'hollywood-api', input.name);
 
       if (input.tags) {
         for (const tagText of input.tags) {
           const tag = this.tagRepo.ensure(tagText);
-          this.tagRepo.tagEntity(entityId, tag.id, "hollywood-api");
+          this.tagRepo.tagEntity(entityId, tag.id, 'hollywood-api');
         }
       }
 
       if (input.supportingLinks) {
         for (const link of input.supportingLinks) {
-          this.entityRepo.addLink(entityId, "hollywood-api", link.url, link.linkType ?? "other");
+          this.entityRepo.addLink(entityId, 'hollywood-api', link.url, link.linkType ?? 'other');
         }
       }
 
-      results.push(this.enrich({ id: entityId, name: input.name, bio: input.agencyBio ?? null, position: input.position ?? "", status: "active" } as any));
+      results.push(
+        this.enrich({
+          id: entityId,
+          name: input.name,
+          bio: input.agencyBio ?? null,
+          position: input.position ?? '',
+          status: 'active',
+        } as any),
+      );
     }
     return results;
   }
 
   update(id: string, input: UpdateCandidateInput): CandidateDetail | null {
     const existing = this.entityRepo.findById(id);
-    if (!existing || existing.entityType !== "person") return null;
+    if (!existing || existing.entityType !== 'person') return null;
 
     this.entityRepo.update(id, {
       name: input.name,
@@ -129,12 +136,19 @@ export class CandidateService {
   }
 
   totalCount(): number {
-    return this.entityRepo.countByType("person");
+    return this.entityRepo.countByType('person');
   }
 
   // ── Private ──────────────────────────────────────────────────────────────
 
-  private enrich(row: { id: string; name: string; bio: string | null; position: string | null; status: string | null; metadataJson?: string | null }): CandidateDetail {
+  private enrich(row: {
+    id: string;
+    name: string;
+    bio: string | null;
+    position: string | null;
+    status: string | null;
+    metadataJson?: string | null;
+  }): CandidateDetail {
     const entityId = row.id;
     const credits = this.creditRepo.findByPerson(entityId);
     const aliases = this.entityRepo.findAliases(entityId);
@@ -146,29 +160,29 @@ export class CandidateService {
       id: entityId,
       name: row.name,
       agencyBio: row.bio ?? null,
-      position: row.position ?? "",
-      status: row.status ?? "active",
+      position: row.position ?? '',
+      status: row.status ?? 'active',
       credits: credits.map((c) => ({
         id: c.id,
         role: c.role,
-        type: c.creditType ?? null,
-        production: c.titleName ?? "Unknown",
+        type: c.creditCategory ?? null,
+        production: c.titleName ?? 'Unknown',
         network: null,
       })),
       emails: contacts
-        .filter((c) => c.contactType === "email")
-        .map((c) => ({ address: c.contactValue, contactType: "email" })),
+        .filter((c) => c.contactType === 'email')
+        .map((c) => ({ address: c.contactValue, contactType: 'email' })),
       phoneNumbers: contacts
-        .filter((c) => c.contactType === "phone")
-        .map((c) => ({ number: c.contactValue, contactType: "phone" })),
-      tags: tags.map((t) => ({ id: t.id, label: t.tag, tagger: "system" })),
+        .filter((c) => c.contactType === 'phone')
+        .map((c) => ({ number: c.contactValue, contactType: 'phone' })),
+      tags: tags.map((t) => ({ id: t.id, label: t.tag, tagger: 'system' })),
       representatives: reps.map((r) => ({
         id: r.id,
-        name: "",
-        organization: "",
+        name: '',
+        organization: '',
         representationType: r.repType,
-        emails: r.email ? [{ address: r.email, contactType: "work" as const }] : [],
-        phoneNumbers: r.phone ? [{ number: r.phone, contactType: "work" as const }] : [],
+        emails: r.email ? [{ address: r.email, contactType: 'work' as const }] : [],
+        phoneNumbers: r.phone ? [{ number: r.phone, contactType: 'work' as const }] : [],
       })),
       links: this.entityRepo.findLinks(entityId).map((l) => ({ url: l.url, linkType: l.linkType })),
     };
