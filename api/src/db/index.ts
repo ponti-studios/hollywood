@@ -11,7 +11,7 @@ function createDrizzle(sqlite: BetterSqlite3.Database) {
   return drizzle(sqlite, { schema });
 }
 
-export function getDb(dbPath?: string): BetterSqlite3.Database {
+function getDb(dbPath?: string): BetterSqlite3.Database {
   if (_db) return _db;
   const path = dbPath ?? env.HOLLYWOOD_DB_PATH;
   _db = new BetterSqlite3(path);

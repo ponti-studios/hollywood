@@ -22,7 +22,7 @@ function normalizeOptionalStr(v: string | null | undefined): string | null {
   return s;
 }
 
-export function normalizeEmail(v: string | null | undefined): string | null {
+function normalizeEmail(v: string | null | undefined): string | null {
   const s = normalizeOptionalStr(v);
   if (s === null) return null;
   const at = s.lastIndexOf('@');
@@ -32,7 +32,7 @@ export function normalizeEmail(v: string | null | undefined): string | null {
   return s.toLowerCase();
 }
 
-export function normalizePhone(v: string | null | undefined): string | null {
+function normalizePhone(v: string | null | undefined): string | null {
   const s = normalizeOptionalStr(v);
   if (s === null) return null;
   return PHONE_PATTERN.test(s) ? s : null;
@@ -84,7 +84,7 @@ const RawCandidateSchema = z.object({
   representatives: z.array(RawRepresentativeSchema).default([]),
 });
 
-export const RawSubmissionPacketSchema = z.object({
+const RawSubmissionPacketSchema = z.object({
   schema_version: z.string().default(SCHEMA_VERSION_V1),
   candidates: z.array(RawCandidateSchema).default([]),
 });
@@ -113,7 +113,7 @@ export interface Link {
   type: string;
 }
 
-export interface Representative {
+interface Representative {
   name: string;
   title: string;
   organization: string | null;

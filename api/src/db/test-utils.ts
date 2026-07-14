@@ -16,7 +16,7 @@ export interface TestDb {
 }
 
 /** Create a fresh in-memory SQLite database with all tables from the Drizzle migrations. */
-export function createTestDb(): TestDb {
+function createTestDb(): TestDb {
   const sqlite = new DatabaseClass(':memory:');
   sqlite.pragma('journal_mode = DELETE');
   sqlite.pragma('foreign_keys = ON');

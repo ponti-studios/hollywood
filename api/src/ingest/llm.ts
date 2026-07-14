@@ -273,14 +273,14 @@ export async function callOpenRouter(
 
 // ── Normalization ────────────────────────────────────────────────────────────
 
-export function normalizePacket(packet: SubmissionPacket): SubmissionPacket {
+function normalizePacket(packet: SubmissionPacket): SubmissionPacket {
   return {
     schema_version: packet.schema_version.trim() ? packet.schema_version : SCHEMA_VERSION_V1,
     candidates: packet.candidates.map(normalizeCandidate),
   };
 }
 
-export function normalizeCandidate(c: Candidate): Candidate {
+function normalizeCandidate(c: Candidate): Candidate {
   const name = c.name.trim();
   let bio = c.bio.trim();
 

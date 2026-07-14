@@ -27,9 +27,9 @@ const SEARCH_TYPE_BUTTON_SELECTORS = ['#search-type', 'button#search-type'];
 const SEARCH_BUTTON_SELECTORS = ['#searchBtn', 'button#searchBtn'];
 const STARTS_WITH_ITEM_SELECTOR = "a.dropdown-item[data-value='2']";
 
-export class SelectorError extends Error {}
+class SelectorError extends Error {}
 
-export function writerKey(url: string): string {
+function writerKey(url: string): string {
   return makeStableId('wga', canonicalizeUrl(url));
 }
 

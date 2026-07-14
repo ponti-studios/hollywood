@@ -1,5 +1,4 @@
 import type { RawRecordRow } from '../db/repositories/RawRecordRepository.js';
-import { ExportService } from '../db/services/ExportService.js';
 import { IngestService } from '../db/services/IngestService.js';
 import type { Adapter } from './adapters/base.js';
 import { archivePayload } from './archive.js';
@@ -48,16 +47,6 @@ export async function normalizeFlow(sourceId?: string): Promise<Record<string, n
     }
   }
   return combinedCounts;
-}
-
-export function exportFlow(
-  fileFormat: 'jsonl' | 'parquet',
-  outputDir: string,
-  table?: string,
-): string[] {
-  const exportService = new ExportService();
-  if (table) return [exportService.exportTable(table, outputDir, fileFormat)];
-  return exportService.exportAll(outputDir, fileFormat);
 }
 
 export function sourceDoctorChecks(): DoctorCheck[] {

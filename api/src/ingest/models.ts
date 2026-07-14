@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import type { EntityFields } from '../db/repositories/EntityRepository.js';
+import type { RunStatus } from '../db/repositories/RunRepository.js';
 import type {
   articles,
   articleContent,
@@ -50,15 +51,12 @@ export function normalizeWhitespace(text: string): string {
 
 // ── Enums ────────────────────────────────────────────────────────────────────
 
-export type SourceKind = 'rss' | 'api' | 'dataset' | 'browser';
-export type LicenseClass =
+type SourceKind = 'rss' | 'api' | 'dataset' | 'browser';
+type LicenseClass =
   | 'research_non_commercial'
   | 'web_copyright'
   | 'api_terms'
   | 'public_knowledge';
-export type EntityKind = 'person' | 'title' | 'company' | 'organization' | 'award';
-export type RunStatus = 'running' | 'succeeded' | 'failed';
-
 // ── Source definition ────────────────────────────────────────────────────────
 
 export interface SourceDefinition {

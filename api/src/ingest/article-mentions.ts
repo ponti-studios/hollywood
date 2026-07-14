@@ -24,7 +24,6 @@ export const TITLE_ROLE_VALUES = [
   'author',
   'other',
 ] as const;
-export type TitleRole = (typeof TITLE_ROLE_VALUES)[number];
 
 function normalizeOptionalStr(v: string | null | undefined): string | null {
   if (v === null || v === undefined) return null;
@@ -58,7 +57,7 @@ const RawMentionedCompanySchema = z.object({
   type_hint: z.string().nullable().optional(),
 });
 
-export const RawArticleMentionsSchema = z.object({
+const RawArticleMentionsSchema = z.object({
   schema_version: z.string().default(SCHEMA_VERSION_V2),
   people: z.array(RawMentionedPersonSchema).default([]),
   titles: z.array(RawMentionedTitleSchema).default([]),
@@ -67,7 +66,7 @@ export const RawArticleMentionsSchema = z.object({
 
 // ── Validated domain types ───────────────────────────────────────────────────
 
-export interface RelatedTo {
+interface RelatedTo {
   name: string;
   type: 'title' | 'company' | 'person';
   relationship: string;
@@ -75,18 +74,18 @@ export interface RelatedTo {
   character: string | null;
 }
 
-export interface MentionedPerson {
+interface MentionedPerson {
   name: string;
   roleHint: string | null;
   relatedTo: RelatedTo[];
 }
 
-export interface MentionedTitle {
+interface MentionedTitle {
   name: string;
   formatHint: string | null;
 }
 
-export interface MentionedCompany {
+interface MentionedCompany {
   name: string;
   typeHint: string | null;
 }

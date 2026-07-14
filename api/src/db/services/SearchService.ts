@@ -4,7 +4,7 @@ import { EntityRepository } from '../repositories/EntityRepository.js';
 
 // ── API schemas (source of truth for both the OpenAPI route and this service) ─
 
-export const SearchCreditSchema = z.object({
+const SearchCreditSchema = z.object({
   id: z.string(),
   role: z.string(),
   type: z.string().nullable(),
@@ -12,7 +12,7 @@ export const SearchCreditSchema = z.object({
   network: z.string().nullable(),
 });
 
-export const SearchResultSchema = z.object({
+const SearchResultSchema = z.object({
   id: z.string(),
   name: z.string(),
   agencyBio: z.string().nullable(),
@@ -26,7 +26,6 @@ export const SearchResultsSchema = z.object({
   entities: z.array(SearchResultSchema),
 });
 
-export type SearchResult = z.infer<typeof SearchResultSchema>;
 export type SearchResults = z.infer<typeof SearchResultsSchema>;
 
 export class SearchService {

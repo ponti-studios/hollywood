@@ -13,13 +13,3 @@ export interface Adapter {
   normalizeRawRecords(runId: string, rawRecords: RawRecordRow[]): Promise<NormalizedBundle>;
   doctorChecks?(): DoctorCheck[];
 }
-
-export function defaultDoctorChecks(source: SourceDefinition): DoctorCheck[] {
-  return [
-    {
-      name: `${source.sourceId}:config`,
-      ok: true,
-      detail: `Configured fetch strategy: ${source.fetchStrategy}`,
-    },
-  ];
-}

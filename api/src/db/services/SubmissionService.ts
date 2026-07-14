@@ -7,26 +7,26 @@ import {
 
 // ── API schemas (source of truth for both the OpenAPI route and this service) ─
 
-export const SubmissionCreditSchema = z.object({
+const SubmissionCreditSchema = z.object({
   role: z.string().nullable(),
   type: z.string().nullable(),
   production: z.string().nullable(),
   network: z.string().nullable(),
 });
 
-export const SubmissionRepresentativeSchema = z.object({
+const SubmissionRepresentativeSchema = z.object({
   name: z.string().nullable(),
   title: z.string().nullable(),
   agency: z.string().nullable(),
   email: z.string().nullable(),
 });
 
-export const SubmissionLinkSchema = z.object({
+const SubmissionLinkSchema = z.object({
   url: z.string().nullable(),
   type: z.string().nullable(),
 });
 
-export const SubmissionJsonSchema = z.object({
+const SubmissionJsonSchema = z.object({
   name: z.string(),
   bio: z.string().nullable(),
   email: z.string().nullable(),

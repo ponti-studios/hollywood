@@ -127,7 +127,7 @@ export function parseTableFormatCredits(text: string): ParsedWgaCredit[] {
   return results;
 }
 
-export const CREDIT_FORMAT_PARSERS: readonly CreditFormatParser[] = [
+const CREDIT_FORMAT_PARSERS: readonly CreditFormatParser[] = [
   parseSummaryFormatCredits,
   parseTableFormatCredits,
 ];

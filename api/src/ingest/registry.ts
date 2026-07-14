@@ -1,6 +1,6 @@
 import type { SourceDefinition } from './models.js';
 
-export const BUILTIN_SOURCES: readonly SourceDefinition[] = [
+const BUILTIN_SOURCES: readonly SourceDefinition[] = [
   {
     sourceId: 'variety',
     name: 'Variety RSS',

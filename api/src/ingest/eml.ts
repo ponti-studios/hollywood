@@ -8,7 +8,7 @@ const FORWARD_HEADER_LINE_RE = /^(From|Date|To|Cc|Subject|Resent-From|Resent-To|
 const SIGNATURE_BOILERPLATE_RE = /^Sent from my (iPhone|iPad|Android)/i;
 const GET_OUTLOOK_RE = /^Get Outlook for /i;
 
-export function cleanEmailBody(text: string): string {
+function cleanEmailBody(text: string): string {
   const lines = text.split('\n');
   const kept: string[] = [];
   let inForwardHeaderBlock = false;

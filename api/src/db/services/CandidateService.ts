@@ -5,7 +5,7 @@ import { TagRepository } from '../repositories/TagRepository.js';
 
 // ── API schemas (source of truth for both the OpenAPI route and this service) ─
 
-export const CandidateCreditSchema = z.object({
+const CandidateCreditSchema = z.object({
   id: z.string(),
   role: z.string(),
   type: z.string().nullable(),
@@ -13,17 +13,17 @@ export const CandidateCreditSchema = z.object({
   network: z.string().nullable(),
 });
 
-export const CandidateEmailSchema = z.object({
+const CandidateEmailSchema = z.object({
   address: z.string(),
   contactType: z.string().nullable(),
 });
 
-export const CandidatePhoneNumberSchema = z.object({
+const CandidatePhoneNumberSchema = z.object({
   number: z.string(),
   contactType: z.string().nullable(),
 });
 
-export const CandidateRepresentativeSchema = z.object({
+const CandidateRepresentativeSchema = z.object({
   id: z.string(),
   name: z.string(),
   organization: z.string(),
@@ -32,13 +32,13 @@ export const CandidateRepresentativeSchema = z.object({
   phoneNumbers: z.array(CandidatePhoneNumberSchema),
 });
 
-export const CandidateTagSchema = z.object({
+const CandidateTagSchema = z.object({
   id: z.string(),
   label: z.string(),
   tagger: z.string(),
 });
 
-export const CandidateLinkSchema = z.object({
+const CandidateLinkSchema = z.object({
   url: z.string(),
   linkType: z.string(),
 });
