@@ -28,6 +28,7 @@ const EnvSchema = z.object({
   TMDB_API_KEY: z.string().min(1).optional(),
   OPENROUTER_API_KEY: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
+  OLLAMA_BASE_URL: z.string().default("http://localhost:11434/v1"),
 });
 
 function loadEnv(): z.infer<typeof EnvSchema> {

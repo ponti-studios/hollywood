@@ -1,111 +1,117 @@
 {
-  "schema_version": "v1_article_mentions",
+  "schema_version": "v2_article_mentions",
   "people": [
     {
-      "name": "Natalia Solórzano Vásquez",
-      "role_hint": "director",
+      "name": "Jane Doe",
+      "role_hint": null,
       "related_to": [
         {
-          "name": "Spells to Revive a Witch",
+          "name": "The Long Winter",
           "type": "title",
-          "relationship": "director"
+          "relationship": "director",
+          "character": null
         },
+        {
+          "name": "CAA",
+          "type": "company",
+          "relationship": "repped by",
+          "character": null
+        },
+        {
+          "name": "The Crown",
+          "type": "title",
+          "relationship": "actor",
+          "character": "Detective Reyes"
+        },
+        {
+          "name": "Tudor Court",
+          "type": "title",
+          "relationship": "actor",
+          "character": "Cardinal Thomas Wolsey"
+        }
+      ]
+    },
+    {
+      "name": "John Smith",
+      "role_hint": null,
+      "related_to": [
         {
           "name": "Sputnik Films",
           "type": "company",
-          "relationship": "produced by"
+          "relationship": "producer at",
+          "character": null
         },
         {
-          "name": "Avanzaré tan despacio",
+          "name": "The Long Winter",
           "type": "title",
-          "relationship": "debut feature"
-        },
-        {
-          "name": "Soralla de Persia",
-          "type": "person",
-          "relationship": "casting call to embody"
+          "relationship": "producer",
+          "character": null
         }
       ]
     },
     {
-      "name": "Mariana Murillo",
-      "role_hint": "producer",
+      "name": "Nicole Kidman",
+      "role_hint": null,
       "related_to": [
         {
-          "name": "Spells to Revive a Witch",
+          "name": "The Long Winter",
           "type": "title",
-          "relationship": "produced by"
-        },
-        {
-          "name": "Land of Ashes",
-          "type": "title",
-          "relationship": "produced by"
-        },
-        {
-          "name": "Madre Pájaro",
-          "type": "title",
-          "relationship": "produced by"
+          "relationship": "actor",
+          "character": null
         }
       ]
     },
     {
-      "name": "Sofía Quirós Ubeda",
-      "role_hint": "director",
+      "name": "Judy Davis",
+      "role_hint": null,
       "related_to": [
         {
-          "name": "Land of Ashes",
+          "name": "The Long Winter",
           "type": "title",
-          "relationship": "produced by"
-        }
-      ]
-    },
-    {
-      "name": "Valentina Maurel",
-      "role_hint": "director",
-      "related_to": []
-    },
-    {
-      "name": "Soralla de Persia",
-      "role_hint": "person",
-      "related_to": [
-        {
-          "name": "Spells to Revive a Witch",
-          "type": "title",
-          "relationship": "casting call to embody"
+          "relationship": "actor",
+          "character": null
         }
       ]
     }
   ],
   "titles": [
     {
-      "name": "Spells to Revive a Witch",
-      "format_hint": "documentary"
+      "name": "The Long Winter",
+      "format_hint": "limited series"
     },
     {
-      "name": "Land of Ashes",
-      "format_hint": "feature"
+      "name": "The Crown",
+      "format_hint": null
     },
     {
-      "name": "Madre Pájaro",
-      "format_hint": "feature"
-    },
-    {
-      "name": "Avanzaré tan despacio",
-      "format_hint": "feature"
+      "name": "Tudor Court",
+      "format_hint": null
     }
   ],
   "companies": [
     {
-      "name": "Testaferro",
-      "type_hint": "company"
+      "name": "Warner Bros. Television",
+      "type_hint": null
     },
     {
-      "name": "Guay Films",
-      "type_hint": "company"
+      "name": "HBO Max",
+      "type_hint": null
+    },
+    {
+      "name": "CAA",
+      "type_hint": null
+    },
+    {
+      "name": "Netflix",
+      "type_hint": null
+    },
+    {
+      "name": "BBC",
+      "type_hint": null
     },
     {
       "name": "Sputnik Films",
-      "type_hint": "company"
+      "type_hint": null
     }
   ]
 }

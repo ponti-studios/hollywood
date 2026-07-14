@@ -327,6 +327,7 @@ export class IngestService {
           titleId: r.titleEntityId,
           sourceId: r.sourceId,
           role: r.role,
+          creditType: r.creditCategory,
           billing: r.billing,
         });
       }

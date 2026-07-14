@@ -489,8 +489,6 @@ export class EntityRepository {
     this.db.delete(schema.credits).where(eq(schema.credits.personId, id)).run();
     this.db.delete(schema.credits).where(eq(schema.credits.titleId, id)).run();
     this.db.delete(schema.articleEntities).where(eq(schema.articleEntities.entityId, id)).run();
-    this.db.delete(schema.collaborations).where(eq(schema.collaborations.personAId, id)).run();
-    this.db.delete(schema.collaborations).where(eq(schema.collaborations.personBId, id)).run();
 
     if (existing.entityType === "person") {
       this.db.delete(people).where(eq(people.id, id)).run();

@@ -161,6 +161,8 @@ export interface CreditRow {
   personEntityId?: string;
   titleEntityId?: string;
   role: string;
+  /** "cast" or "crew" — which side of the credit this row represents. */
+  creditCategory?: string;
   billing?: number;
   metadataJson: string;
 }

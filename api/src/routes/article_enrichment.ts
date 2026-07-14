@@ -4,6 +4,7 @@ import { ArticleEnrichmentService } from "../db/services/ArticleEnrichmentServic
 
 const EnrichSummarySchema = z.object({
   articles_processed: z.number().int(),
+  articles_failed: z.number().int(),
   people_created: z.number().int(),
   people_matched: z.number().int(),
   titles_created: z.number().int(),
@@ -21,6 +22,7 @@ const EnrichArticlesInputSchema = z.object({
   limit: z.number().int().optional().openapi({ example: 5 }),
   model: z.string().optional(),
   prompt_version: z.string().optional(),
+  provider: z.enum(["openrouter", "ollama"]).optional(),
 });
 
 const enrichArticlesRoute = createRoute({
@@ -37,13 +39,14 @@ const enrichArticlesRoute = createRoute({
 const router = new OpenAPIHono();
 
 router.openapi(enrichArticlesRoute, async (c) => {
-  const { limit, model, prompt_version } = c.req.valid("json");
+  const { limit, model, prompt_version, provider } = c.req.valid("json");
   try {
     const service = new ArticleEnrichmentService();
-    const summary = await service.enrichNext({ limit: limit ?? 5, model, promptVersion: prompt_version });
+    const summary = await service.enrichNext({ limit: limit ?? 5, model, promptVersion: prompt_version, provider });
     return c.json(
       {
         articles_processed: summary.articlesProcessed,
+        articles_failed: summary.articlesFailed,
         people_created: summary.peopleCreated,
         people_matched: summary.peopleMatched,
         titles_created: summary.titlesCreated,

@@ -1,5 +1,14 @@
 # Ingestion Pipeline Architecture
 
+> **Status (2026-07-13): silver layer not implemented.** The MVP
+> direct-writes bronze (`runs`/`raw_records`/`extraction_results`) straight
+> to gold (`people`/`titles`/`companies`/`credits`/...), skipping entity
+> resolution entirely. The `entities`, `entity_match_decisions`,
+> `staged_facts`, and `source_facts` tables described below were removed
+> from `schema.ts` and the live database on 2026-07-13 since nothing read
+> or wrote them — this doc is the design to resurrect from (as a new Drizzle
+> migration) once entity resolution actually needs to be built.
+
 How data moves from a source (a scrape, an RSS feed, a manual submission)
 into the domain model described in
 [`domain-schema-v2.md`](./domain-schema-v2.md). This doc covers the pipeline

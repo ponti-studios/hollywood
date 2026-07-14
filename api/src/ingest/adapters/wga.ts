@@ -125,6 +125,7 @@ export function buildWgaCreditRows(text: string, personEntityId: string): { cred
         personEntityId,
         titleEntityId,
         role: parsed.role,
+        creditCategory: "crew",
         billing: parsed.count,
         metadataJson: JSON.stringify({ source: "wga_profile_text" }),
       },

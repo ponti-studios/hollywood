@@ -3,9 +3,10 @@ import { EntityRepository, makeStableId } from "../repositories/EntityRepository
 import { CreditRepository } from "../repositories/CreditRepository.js";
 import { CompanyRelationRepository } from "../repositories/CompanyRelationRepository.js";
 import { ExtractionRepository } from "../repositories/ExtractionRepository.js";
-import { SCHEMA_VERSION_V1, PROMPT_VERSION_V1 } from "../../ingest/article-mentions.js";
+import { SCHEMA_VERSION_V2, PROMPT_VERSION_V2 } from "../../ingest/article-mentions.js";
 import { callOpenRouterForArticleMentions } from "../../ingest/article-mentions-llm.js";
 import type { ArticleMentions } from "../../ingest/article-mentions.js";
+import type { LlmProvider } from "../../ingest/article-mentions-llm.js";
 
 const LLM_TRUST_STATE = "llm_extracted";
 
@@ -36,10 +37,12 @@ export interface EnrichNextOptions {
   limit: number;
   promptVersion?: string;
   model?: string;
+  provider?: LlmProvider;
 }
 
 export interface EnrichNextSummary extends MaterializeMentionsResult {
   articlesProcessed: number;
+  articlesFailed: number;
 }
 
 type LlmCall = typeof callOpenRouterForArticleMentions;
@@ -152,11 +155,15 @@ export class ArticleEnrichmentService {
         if (rel.type === "title") {
           const titleId = titleIds.get(targetCanonicalName);
           if (!titleId) continue;
+          const isCast = rel.relationship === "actor";
           this.creditRepo.upsert({
             personId,
             titleId,
             sourceId: params.sourceId,
-            role: rel.relationship,
+            // Mirrors the TMDB convention: role holds the character name for
+            // cast credits, the job title for crew credits.
+            role: isCast ? (rel.character ?? "actor") : rel.relationship,
+            creditType: isCast ? "cast" : "crew",
             trustState: LLM_TRUST_STATE,
           });
           result.creditsCreated++;
@@ -190,10 +197,10 @@ export class ArticleEnrichmentService {
     }
 
     this.extractionRepo.save({
-      id: makeStableId("extraction", params.rawRecordId, SCHEMA_VERSION_V1),
+      id: makeStableId("extraction", params.rawRecordId, SCHEMA_VERSION_V2),
       documentId: params.rawRecordId,
       jobId: params.jobId ?? null,
-      schemaVersion: SCHEMA_VERSION_V1,
+      schemaVersion: SCHEMA_VERSION_V2,
       promptVersion: params.promptVersion,
       modelName: params.modelName,
       status: "succeeded",
@@ -206,11 +213,12 @@ export class ArticleEnrichmentService {
 
   /** Fetches unprocessed article content, runs LLM extraction, and materializes results. */
   async enrichNext(options: EnrichNextOptions): Promise<EnrichNextSummary> {
-    const promptVersion = options.promptVersion ?? PROMPT_VERSION_V1;
-    const pending = this.articleRepo.findUnextractedContent(SCHEMA_VERSION_V1, options.limit);
+    const promptVersion = options.promptVersion ?? PROMPT_VERSION_V2;
+    const pending = this.articleRepo.findUnextractedContent(SCHEMA_VERSION_V2, options.limit);
 
     const totals: EnrichNextSummary = {
       articlesProcessed: 0,
+      articlesFailed: 0,
       peopleCreated: 0,
       peopleMatched: 0,
       titlesCreated: 0,
@@ -226,7 +234,17 @@ export class ArticleEnrichmentService {
       const article = this.articleRepo.findArticleById(item.articleId);
       if (!article) continue;
 
-      const response = await this.llmCall(item.text, promptVersion, options.model);
+      let response: Awaited<ReturnType<LlmCall>>;
+      try {
+        response = await this.llmCall(item.text, promptVersion, options.model, options.provider);
+      } catch (e) {
+        // One bad LLM response (malformed JSON, empty content, timeout)
+        // shouldn't abort the rest of the batch.
+        console.error(`article enrichment failed for ${item.articleId}: ${(e as Error).message}`);
+        totals.articlesFailed++;
+        continue;
+      }
+
       const result = this.materializeMentions({
         articleId: item.articleId,
         rawRecordId: item.rawRecordId,

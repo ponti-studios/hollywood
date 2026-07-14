@@ -42,71 +42,10 @@ export const extractionResults = sqliteTable("extraction_results", {
   createdAt: text("created_at").notNull(),
 });
 
-export const sourceFacts = sqliteTable("source_facts", {
-  id: text("id").primaryKey(),
-  sourceTable: text("source_table").notNull(),
-  sourceRowId: text("source_row_id").notNull(),
-  documentId: text("document_id").references(() => rawRecords.id),
-  extractionId: text("extraction_id").references(() => extractionResults.id),
-  jsonPath: text("json_path"),
-  sourceText: text("source_text"),
-  trustState: text("trust_state").notNull().default("machine_extracted"),
-  confidence: text("confidence").notNull().default("machine_extracted"),
-  createdAt: text("created_at").notNull(),
-});
-
-// ── Pipeline: silver (entity resolution) ─────────────────────────────────────
-
-export const entities = sqliteTable("entities", {
-  id: text("id").primaryKey(),
-  sourceId: text("source_id").notNull(),
-  externalId: text("external_id"),
-  entityType: text("entity_type").notNull(),
-  name: text("name").notNull(),
-  canonicalName: text("canonical_name").notNull(),
-  bio: text("bio"),
-  position: text("position"),
-  titleType: text("title_type"),
-  format: text("format"),
-  companyType: text("company_type"),
-  status: text("status").notNull().default("active"),
-  licenseClass: text("license_class").notNull(),
-  metadataJson: text("metadata_json").notNull().default("{}"),
-  canonicalId: text("canonical_id"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
-
-export const entityMatchDecisions = sqliteTable("entity_match_decisions", {
-  id: text("id").primaryKey(),
-  entityAId: text("entity_a_id").notNull().references(() => entities.id),
-  entityBId: text("entity_b_id").notNull().references(() => entities.id),
-  entityType: text("entity_type").notNull(),
-  decision: text("decision").notNull(),
-  confidence: real("confidence"),
-  reason: text("reason").notNull(),
-  decidedBy: text("decided_by").notNull(),
-  decidedAt: text("decided_at").notNull(),
-  createdAt: text("created_at").notNull(),
-});
-
-// ── Pipeline: silver (staged relationship facts) ─────────────────────────────
-
-export const stagedFacts = sqliteTable("staged_facts", {
-  id: text("id").primaryKey(),
-  factType: text("fact_type").notNull(),
-  entityRefsJson: text("entity_refs_json").notNull(),
-  payloadJson: text("payload_json").notNull(),
-  status: text("status").notNull().default("pending"),
-  materializedTable: text("materialized_table"),
-  materializedRowId: text("materialized_row_id"),
-  sourceId: text("source_id").notNull(),
-  documentId: text("document_id").references(() => rawRecords.id),
-  extractionId: text("extraction_id").references(() => extractionResults.id),
-  trustState: text("trust_state").notNull().default("machine_extracted"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+// Silver-layer entity-resolution tables (entities, entity_match_decisions,
+// staged_facts, source_facts) were deferred and removed on 2026-07-13 —
+// nothing read or wrote them under the MVP's direct-write-to-gold model.
+// Design lives in docs/ingestion-pipeline-architecture.md if resurrected.
 
 // ── Gold: core entities ───────────────────────────────────────────────────────
 
@@ -211,44 +150,9 @@ export const representation = sqliteTable("representation", {
   createdAt: text("created_at").notNull(),
 });
 
-export const deals = sqliteTable("deals", {
-  id: text("id").primaryKey(),
-  dealType: text("deal_type").notNull(),
-  personId: text("person_id").references(() => people.id),
-  companyId: text("company_id").references(() => companies.id),
-  titleId: text("title_id").references(() => titles.id),
-  counterpartyId: text("counterparty_id").references(() => companies.id),
-  status: text("status").notNull().default("negotiating"),
-  compensationMin: integer("compensation_min"),
-  compensationMax: integer("compensation_max"),
-  backendPoints: real("backend_points"),
-  optionPeriods: integer("option_periods"),
-  exclusivity: text("exclusivity"),
-  territory: text("territory"),
-  dateSigned: text("date_signed"),
-  dateStart: text("date_start"),
-  dateEnd: text("date_end"),
-  creditObligations: text("credit_obligations"),
-  notes: text("notes"),
-  sourceId: text("source_id").notNull(),
-  trustState: text("trust_state").notNull().default("machine_extracted"),
-  sourceFactId: text("source_fact_id"),
-  createdAt: text("created_at").notNull(),
-});
-
-export const awards = sqliteTable("awards", {
-  id: text("id").primaryKey(),
-  awardName: text("award_name").notNull(),
-  category: text("category").notNull(),
-  year: integer("year").notNull(),
-  personId: text("person_id").references(() => people.id),
-  titleId: text("title_id").references(() => titles.id),
-  outcome: text("outcome").notNull(),
-  sourceId: text("source_id").notNull(),
-  trustState: text("trust_state").notNull().default("machine_extracted"),
-  sourceFactId: text("source_fact_id"),
-  createdAt: text("created_at").notNull(),
-});
+// `deals` and `awards` were designed but never wired to any repository or
+// route — removed on 2026-07-13. Re-add from git history if the product
+// needs them.
 
 // ── Gold: identity (polymorphic — entity_type + entity_id, no FK) ────────────
 
@@ -345,22 +249,11 @@ export const articleEntities = sqliteTable("article_entities", {
   metadataJson: text("metadata_json").notNull().default("{}"),
 });
 
-// ── Gold: collaboration network ──────────────────────────────────────────────
+// `collaborations` was designed but never wired to any repository or
+// route (only ever appeared in a delete-cascade) — removed on 2026-07-13.
+// Re-add from git history if the product needs it.
 
-export const collaborations = sqliteTable("collaborations", {
-  id: text("id").primaryKey(),
-  personAId: text("person_a_id").notNull().references(() => people.id),
-  personBId: text("person_b_id").notNull().references(() => people.id),
-  titleId: text("title_id").references(() => titles.id),
-  relationship: text("relationship").notNull(),
-  yearStart: integer("year_start"),
-  yearEnd: integer("year_end"),
-  projectCount: integer("project_count"),
-  sourceId: text("source_id").notNull(),
-  trustState: text("trust_state").notNull().default("machine_extracted"),
-  sourceFactId: text("source_fact_id"),
-  createdAt: text("created_at").notNull(),
-});
+// ── Gold: company relations ───────────────────────────────────────────────────
 
 export const companyRelations = sqliteTable("company_relations", {
   id: text("id").primaryKey(),
@@ -390,6 +283,6 @@ export const entityTaggings = sqliteTable("entity_taggings", {
   entityId: text("entity_id").notNull(),
   sourceId: text("source_id").notNull(),
   trustState: text("trust_state").notNull().default("machine_extracted"),
-  sourceFactId: text("source_fact_id").references(() => sourceFacts.id),
+  sourceFactId: text("source_fact_id"),
   createdAt: text("created_at").notNull(),
 });

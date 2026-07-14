@@ -184,6 +184,7 @@ export class TmdbAdapter implements Adapter {
         personEntityId,
         titleEntityId,
         role: String(castMember["character"] ?? "cast"),
+        creditCategory: "cast",
         billing: castMember["order"] !== undefined && castMember["order"] !== null ? Number(castMember["order"]) : undefined,
         metadataJson: JSON.stringify({ credit_type: "cast" }),
       };
@@ -214,6 +215,7 @@ export class TmdbAdapter implements Adapter {
         personEntityId,
         titleEntityId,
         role: String(crewMember["job"] ?? crewMember["department"] ?? "crew"),
+        creditCategory: "crew",
         billing: undefined,
         metadataJson: JSON.stringify({ credit_type: "crew" }),
       };

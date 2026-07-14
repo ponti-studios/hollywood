@@ -18,6 +18,7 @@ import type { Adapter } from "./base.js";
 import type { DbRow } from "../../db/index.js";
 
 const NULL_VALUE = "\\N";
+const IMDB_CAST_CATEGORIES = new Set(["self", "actor", "actress", "archive_footage", "archive_sound"]);
 const IMDB_TITLE_TYPE_TO_FORMAT: Record<string, string> = {
   movie: "feature",
   tvMovie: "feature",
@@ -191,25 +192,14 @@ export class ImdbAdapter implements Adapter {
 
       const personEid = makeStableId("imdb", nconst);
       const titleEid = makeStableId("imdb", tconst);
-      for (const [eid, ename, etype] of [
-        [personEid, nconst, "person"],
-        [titleEid, tconst, "title"],
-      ] as const) {
-        if (!seenEntities.has(eid)) {
-          seenEntities.add(eid);
-          const entityRow: EntityRow = {
-            entityId: eid,
-            sourceId: this.source.sourceId,
-            externalId: ename,
-            entityType: etype,
-            name: ename,
-            canonicalName: ename.toLowerCase(),
-            licenseClass: this.source.licenseClass,
-            metadataJson: JSON.stringify({ stub: true }),
-          };
-          bundle.entities.push(entityRow);
-        }
-      }
+
+      // Skip credits whose person or title never arrived with a real name
+      // (from name.basics / title.basics) rather than inventing a stub
+      // entity whose "name" is just the raw nconst/tconst id. This can
+      // legitimately happen on limited/partial ingests where the datasets
+      // aren't row-aligned; the credit will materialize on a later, fuller
+      // ingest once both sides are known.
+      if (!seenEntities.has(personEid) || !seenEntities.has(titleEid)) continue;
 
       const row2: CreditRow = {
         creditId: makeStableId("imdb", tconst, nconst, role, String(ordering ?? "")),
@@ -217,6 +207,7 @@ export class ImdbAdapter implements Adapter {
         personEntityId: personEid,
         titleEntityId: titleEid,
         role,
+        creditCategory: IMDB_CAST_CATEGORIES.has(role) ? "cast" : "crew",
         billing: ordering ? Number(ordering) : undefined,
         metadataJson: JSON.stringify({ job: row["job"] ?? null, characters: row["characters"] ?? null }),
       };

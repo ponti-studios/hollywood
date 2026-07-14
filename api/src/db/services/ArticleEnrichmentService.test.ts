@@ -12,7 +12,7 @@ import type { ArticleMentions } from "../../ingest/article-mentions.js";
 
 function makeMentions(overrides: Partial<ArticleMentions> = {}): ArticleMentions {
   return {
-    schemaVersion: "v1_article_mentions",
+    schemaVersion: "v2_article_mentions",
     people: [],
     titles: [],
     companies: [],
@@ -105,11 +105,11 @@ describe("ArticleEnrichmentService", () => {
     expect(found!.id).toBe(existingId);
   });
 
-  it("creates a credit when a person's related_to targets a title", () => {
+  it("creates a crew credit when a person's related_to targets a title", () => {
     const mentions = makeMentions({
       people: [{
         name: "Jane Doe", roleHint: "director",
-        relatedTo: [{ name: "The Crown", type: "title", relationship: "attached to direct" }],
+        relatedTo: [{ name: "The Crown", type: "title", relationship: "director", character: null }],
       }],
       titles: [{ name: "The Crown", formatHint: "series" }],
     });
@@ -120,15 +120,35 @@ describe("ArticleEnrichmentService", () => {
     const personId = entityRepo.findByCanonicalName("person", "jane doe")!.id;
     const credits = creditRepo.findByPerson(personId);
     expect(credits).toHaveLength(1);
-    expect(credits[0]!.role).toBe("attached to direct");
+    expect(credits[0]!.role).toBe("director");
+    expect(credits[0]!.creditType).toBe("crew");
     expect(credits[0]!.titleName).toBe("The Crown");
+  });
+
+  it("creates a cast credit with the character name as role when relationship is actor", () => {
+    const mentions = makeMentions({
+      people: [{
+        name: "Jane Doe", roleHint: "actor",
+        relatedTo: [{ name: "The Crown", type: "title", relationship: "actor", character: "Queen Elizabeth" }],
+      }],
+      titles: [{ name: "The Crown", formatHint: "series" }],
+    });
+
+    const result = svc.materializeMentions(baseParams(mentions));
+    expect(result.creditsCreated).toBe(1);
+
+    const personId = entityRepo.findByCanonicalName("person", "jane doe")!.id;
+    const credits = creditRepo.findByPerson(personId);
+    expect(credits).toHaveLength(1);
+    expect(credits[0]!.role).toBe("Queen Elizabeth");
+    expect(credits[0]!.creditType).toBe("cast");
   });
 
   it("creates a company_relations row when a person's related_to targets a company", () => {
     const mentions = makeMentions({
       people: [{
         name: "Jane Doe", roleHint: null,
-        relatedTo: [{ name: "Netflix", type: "company", relationship: "signed with" }],
+        relatedTo: [{ name: "Netflix", type: "company", relationship: "signed with", character: null }],
       }],
       companies: [{ name: "Netflix", typeHint: "streamer" }],
     });
@@ -161,7 +181,7 @@ describe("ArticleEnrichmentService", () => {
   it("does not create a structured record for a person-to-person relationship", () => {
     const mentions = makeMentions({
       people: [
-        { name: "Jane Doe", roleHint: null, relatedTo: [{ name: "John Smith", type: "person", relationship: "co-writing with" }] },
+        { name: "Jane Doe", roleHint: null, relatedTo: [{ name: "John Smith", type: "person", relationship: "co-writing with", character: null }] },
         { name: "John Smith", roleHint: null, relatedTo: [] },
       ],
     });
@@ -178,7 +198,7 @@ describe("ArticleEnrichmentService", () => {
     const mentions = makeMentions({
       people: [{
         name: "Jane Doe", roleHint: null,
-        relatedTo: [{ name: "The Crown", type: "title", relationship: "attached to direct" }],
+        relatedTo: [{ name: "The Crown", type: "title", relationship: "director", character: null }],
       }],
       titles: [{ name: "The Crown", formatHint: "series" }],
     });
