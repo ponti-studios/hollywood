@@ -4,28 +4,12 @@
 .build
 data/
 
-# Python
-.venv
-__pycache__
-*.egg-info
-
 # IDE
 .vscode/
 .idea/
 
 # OS
 .DS_Store
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Type checking
-.mypy_cache/
-
-# Linting
-.ruff_cache/
 
 # Build
 dist/
@@ -35,7 +19,6 @@ build/
 node_modules/
 
 **/.cache/
-**/.venv/
 **/.work/
 **/cache/
 **/outputs/

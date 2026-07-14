@@ -1,29 +1,7 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { OpenAPIHono } from '@hono/zod-openapi';
 
-import { SearchService } from '../db/services/SearchService.js';
-
-const CreditSchema = z.object({
-  id: z.string(),
-  role: z.string(),
-  type: z.string().nullable(),
-  production: z.string(),
-  network: z.string().nullable(),
-});
-
-const SearchResultEntitySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  agencyBio: z.string().nullable(),
-  position: z.string(),
-  status: z.string(),
-  credits: z.array(CreditSchema),
-});
-
-const SearchResultsSchema = z.object({
-  total: z.number().int(),
-  entities: z.array(SearchResultEntitySchema),
-});
+import { SearchResultsSchema, SearchService } from '../db/services/SearchService.js';
 
 const searchRoute = createRoute({
   method: 'get',

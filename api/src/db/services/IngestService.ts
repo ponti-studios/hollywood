@@ -9,12 +9,11 @@ import type {
   ArticleEntityRow,
   CreditRow,
 } from '../../ingest/models.js';
-import type { DbRow } from '../index.js';
 import { ArticleRepository } from '../repositories/ArticleRepository.js';
 import { CreditRepository } from '../repositories/CreditRepository.js';
 import { EntityRepository, makeStableId } from '../repositories/EntityRepository.js';
 import { ExtractionRepository } from '../repositories/ExtractionRepository.js';
-import { RawRecordRepository } from '../repositories/RawRecordRepository.js';
+import { RawRecordRepository, type RawRecordRow } from '../repositories/RawRecordRepository.js';
 import { RunRepository, type RunStatus } from '../repositories/RunRepository.js';
 import { TagRepository } from '../repositories/TagRepository.js';
 
@@ -58,7 +57,7 @@ export class IngestService {
   finishRun(
     runId: string,
     status: RunStatus,
-    summary: Record<string, unknown>,
+    summary: object,
     errorText?: string,
   ): void {
     this.runRepo.finish(runId, status, summary, errorText);
@@ -213,33 +212,8 @@ export class IngestService {
     this.rawRecordRepo.insertBatch(records);
   }
 
-  loadRawRecords(opts: { sourceId?: string; runId?: string } = {}): DbRow[] {
-    // Drizzle returns camelCase keys; adapters expect snake_case keys
-    const rows = this.rawRecordRepo.find(opts);
-    return rows.map((r) => this.toSnakeCase(r)) as unknown as DbRow[];
-  }
-
-  /** Convert Drizzle camelCase raw record to snake_case for adapter compatibility. */
-  private toSnakeCase(r: Record<string, unknown>): Record<string, unknown> {
-    const map: Record<string, string> = {
-      id: 'id',
-      runId: 'run_id',
-      sourceId: 'source_id',
-      sourceKind: 'source_kind',
-      payloadType: 'payload_type',
-      contentPath: 'content_path',
-      contentHash: 'content_hash',
-      contentType: 'content_type',
-      sourceUrl: 'source_url',
-      canonicalUrl: 'canonical_url',
-      fetchedAt: 'fetched_at',
-      metadataJson: 'metadata_json',
-    };
-    const result: Record<string, unknown> = {};
-    for (const [camel, snake] of Object.entries(map)) {
-      if (camel in r) result[snake] = r[camel];
-    }
-    return result;
+  loadRawRecords(opts: { sourceId?: string; runId?: string } = {}): RawRecordRow[] {
+    return this.rawRecordRepo.find(opts);
   }
 
   // ── Normalized bundle ─────────────────────────────────────────────────────

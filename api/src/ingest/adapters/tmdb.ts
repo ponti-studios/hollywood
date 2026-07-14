@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-import type { DbRow } from '../../db/index.js';
+import type { RawRecordRow } from '../../db/repositories/RawRecordRepository.js';
 import { env } from '../../env.js';
 import { emptyBundle, makeStableId } from '../models.js';
 import type {
@@ -82,7 +82,7 @@ export class TmdbAdapter implements Adapter {
         contentType: 'application/json',
         sourceUrl: `${TMDB_BASE_URL}${endpoint}`,
         fetchedAt: new Date(),
-        metadata: { endpoint, media_type: mediaType },
+        metadata: { endpoint, mediaType },
         extension: '.json',
       });
     }
@@ -90,20 +90,20 @@ export class TmdbAdapter implements Adapter {
     return payloads;
   }
 
-  async normalizeRawRecords(_runId: string, rawRecords: DbRow[]): Promise<NormalizedBundle> {
+  async normalizeRawRecords(_runId: string, rawRecords: RawRecordRow[]): Promise<NormalizedBundle> {
     const bundle = emptyBundle();
     const seenEntities = new Set<string>();
 
     for (const record of rawRecords) {
-      if (String(record['payload_type']) !== 'api_json') continue;
-      const metadata = JSON.parse(String(record['metadata_json'] ?? '{}'));
+      if (record.payloadType !== 'api_json') continue;
+      const metadata = JSON.parse(record.metadataJson ?? '{}');
       if (metadata.endpoint === '/trending/all/day') continue;
 
-      const document = JSON.parse(readFileSync(String(record['content_path']), 'utf-8')) as Record<
+      const document = JSON.parse(readFileSync(record.contentPath, 'utf-8')) as Record<
         string,
         unknown
       >;
-      const mediaType = metadata.media_type ?? document['media_type'];
+      const mediaType = metadata.mediaType ?? document['media_type'];
 
       if (mediaType === 'person') {
         this.normalizePerson(bundle, document, seenEntities);
@@ -133,8 +133,8 @@ export class TmdbAdapter implements Adapter {
         name,
         canonicalName: name.toLowerCase(),
         metadataJson: JSON.stringify({
-          known_for_department: document['known_for_department'] ?? null,
-          external_ids: document['external_ids'] ?? {},
+          knownForDepartment: document['known_for_department'] ?? null,
+          externalIds: document['external_ids'] ?? {},
         }),
       };
       bundle.entities.push(row);
@@ -171,8 +171,8 @@ export class TmdbAdapter implements Adapter {
         name: titleName,
         canonicalName: titleName.toLowerCase(),
         metadataJson: JSON.stringify({
-          media_type: mediaType,
-          external_ids: document['external_ids'] ?? {},
+          mediaType,
+          externalIds: document['external_ids'] ?? {},
         }),
         titleType: TMDB_MEDIA_TYPE_TO_FORMAT[mediaType],
       };
@@ -198,7 +198,7 @@ export class TmdbAdapter implements Adapter {
           name: personName,
           canonicalName: personName.toLowerCase(),
           metadataJson: JSON.stringify({
-            known_for_department: castMember['known_for_department'] ?? null,
+            knownForDepartment: castMember['known_for_department'] ?? null,
           }),
         });
       }
@@ -218,7 +218,7 @@ export class TmdbAdapter implements Adapter {
           castMember['order'] !== undefined && castMember['order'] !== null
             ? Number(castMember['order'])
             : undefined,
-        metadataJson: JSON.stringify({ credit_type: 'cast' }),
+        metadataJson: JSON.stringify({ creditType: 'cast' }),
       };
       bundle.credits.push(row);
     }
@@ -253,7 +253,7 @@ export class TmdbAdapter implements Adapter {
         role: String(crewMember['job'] ?? crewMember['department'] ?? 'crew'),
         creditCategory: 'crew',
         billing: undefined,
-        metadataJson: JSON.stringify({ credit_type: 'crew' }),
+        metadataJson: JSON.stringify({ creditType: 'crew' }),
       };
       bundle.credits.push(row);
     }

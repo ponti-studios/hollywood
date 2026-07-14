@@ -5,7 +5,6 @@ default:
 
 clean:
     rm -rf dist/ data/
-    find . -name "*.pyc" -delete
 
 help:
     @just --list

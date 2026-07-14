@@ -1,51 +1,7 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { OpenAPIHono } from '@hono/zod-openapi';
 
-import { SubmissionService } from '../db/services/SubmissionService.js';
-
-// ── Schemas ─────────────────────────────────────────────────────────────────
-
-const SubmissionCreditSchema = z.object({
-  role: z.string().nullable(),
-  type: z.string().nullable(),
-  production: z.string().nullable(),
-  network: z.string().nullable(),
-});
-
-const SubmissionRepresentativeSchema = z.object({
-  name: z.string().nullable(),
-  title: z.string().nullable(),
-  agency: z.string().nullable(),
-  email: z.string().nullable(),
-});
-
-const SubmissionLinkSchema = z.object({
-  url: z.string().nullable(),
-  type: z.string().nullable(),
-});
-
-const SubmissionJsonSchema = z.object({
-  name: z.string(),
-  bio: z.string().nullable(),
-  email: z.string().nullable(),
-  phoneNumber: z.string().nullable(),
-  tags: z.array(z.string()).nullable(),
-  organizations: z.array(z.string()).nullable(),
-  credits: z.array(SubmissionCreditSchema).nullable(),
-  representatives: z.array(SubmissionRepresentativeSchema).nullable(),
-  links: z.array(SubmissionLinkSchema).nullable(),
-  attachments: z.array(z.string()).nullable(),
-});
-
-const SubmissionSchema = z.object({
-  id: z.string(),
-  projectId: z.string(),
-  candidateId: z.string().nullable(),
-  created: z.string(),
-  submissionJson: SubmissionJsonSchema,
-  samples: z.array(z.unknown()),
-  rawSamples: z.array(z.unknown()),
-});
+import { SubmissionSchema, SubmissionService } from '../db/services/SubmissionService.js';
 
 // ── Routes ──────────────────────────────────────────────────────────────────
 
@@ -108,7 +64,7 @@ const submissionService = new SubmissionService();
 router.openapi(listRoute, (c) => {
   const projectId = c.req.query('projectId') ?? undefined;
   const result = submissionService.list(projectId);
-  return c.json(result as any, 200);
+  return c.json(result, 200);
 });
 
 router.openapi(deleteRoute, (c) => {

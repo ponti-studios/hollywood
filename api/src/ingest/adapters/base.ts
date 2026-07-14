@@ -1,4 +1,4 @@
-import type { DbRow } from '../../db/index.js';
+import type { RawRecordRow } from '../../db/repositories/RawRecordRepository.js';
 import type {
   DoctorCheck,
   IngestOptions,
@@ -10,7 +10,7 @@ import type {
 export interface Adapter {
   source: SourceDefinition;
   fetchRawPayloads(options: IngestOptions): Promise<RawPayload[]>;
-  normalizeRawRecords(runId: string, rawRecords: DbRow[]): Promise<NormalizedBundle>;
+  normalizeRawRecords(runId: string, rawRecords: RawRecordRow[]): Promise<NormalizedBundle>;
   doctorChecks?(): DoctorCheck[];
 }
 

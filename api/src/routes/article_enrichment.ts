@@ -2,6 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { OpenAPIHono } from '@hono/zod-openapi';
 
 import { ArticleEnrichmentService } from '../db/services/ArticleEnrichmentService.js';
+import { errorResponse } from './errors.js';
 
 const EnrichSummarySchema = z.object({
   articles_processed: z.number().int(),
@@ -36,7 +37,7 @@ const enrichArticlesRoute = createRoute({
       content: { 'application/json': { schema: EnrichSummarySchema } },
       description: 'Article enrichment summary',
     },
-    500: { description: 'Enrichment failed' },
+    500: { ...errorResponse, description: 'Enrichment failed' },
   },
 });
 
@@ -70,7 +71,7 @@ router.openapi(enrichArticlesRoute, async (c) => {
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return c.json({ error: 'Enrichment failed', detail: msg } as any, 500);
+    return c.json({ error: 'Enrichment failed', detail: msg }, 500);
   }
 });
 

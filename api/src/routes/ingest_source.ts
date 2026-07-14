@@ -4,6 +4,7 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { normalizePrefixes } from '../ingest/adapters/wga.js';
 import { runIngestGroup, runIngestSource } from '../ingest/flows.js';
 import type { IngestOptions, RunSummary } from '../ingest/models.js';
+import { errorResponse } from './errors.js';
 
 const RunSummarySchema = z.object({
   run_id: z.string(),
@@ -65,7 +66,7 @@ const ingestSourceRoute = createRoute({
       content: { 'application/json': { schema: RunSummarySchema } },
       description: 'Ingest run summary',
     },
-    500: { description: 'Ingest failed' },
+    500: { ...errorResponse, description: 'Ingest failed' },
   },
 });
 
@@ -88,7 +89,7 @@ const ingestGroupRoute = createRoute({
       content: { 'application/json': { schema: z.array(RunSummarySchema) } },
       description: 'Ingest run summaries',
     },
-    500: { description: 'Ingest failed' },
+    500: { ...errorResponse, description: 'Ingest failed' },
   },
 });
 
@@ -101,7 +102,7 @@ router.openapi(ingestSourceRoute, async (c) => {
     return c.json(toApiSummary(summary), 200);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return c.json({ error: 'Ingest failed', detail: msg } as any, 500);
+    return c.json({ error: 'Ingest failed', detail: msg }, 500);
   }
 });
 
@@ -112,7 +113,7 @@ router.openapi(ingestGroupRoute, async (c) => {
     return c.json(summaries.map(toApiSummary), 200);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return c.json({ error: 'Ingest failed', detail: msg } as any, 500);
+    return c.json({ error: 'Ingest failed', detail: msg }, 500);
   }
 });
 

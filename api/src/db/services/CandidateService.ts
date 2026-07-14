@@ -1,48 +1,88 @@
+import { z } from '@hono/zod-openapi';
 import { CreditRepository } from '../repositories/CreditRepository.js';
 import { EntityRepository, makeStableId } from '../repositories/EntityRepository.js';
 import { TagRepository } from '../repositories/TagRepository.js';
 
-export interface CandidateDetail {
-  id: string;
-  name: string;
-  agencyBio: string | null;
-  position: string;
-  status: string;
-  credits: Array<{
-    id: string;
-    role: string;
-    type: string | null;
-    production: string;
-    network: string | null;
-  }>;
-  emails: Array<{ address: string; contactType: string | null }>;
-  phoneNumbers: Array<{ number: string; contactType: string | null }>;
-  tags: Array<{ id: string; label: string; tagger: string }>;
-  representatives: Array<{
-    id: string;
-    name: string;
-    organization: string;
-    representationType: string | null;
-    emails: Array<{ address: string; contactType: string }>;
-    phoneNumbers: Array<{ number: string; contactType: string }>;
-  }>;
-  links: Array<{ url: string; linkType: string }>;
-}
+// ── API schemas (source of truth for both the OpenAPI route and this service) ─
 
-export interface CreateCandidateInput {
-  name: string;
-  agencyBio?: string;
-  position?: string;
-  tags?: string[];
-  supportingLinks?: Array<{ url: string; description?: string; linkType?: string }>;
-}
+export const CandidateCreditSchema = z.object({
+  id: z.string(),
+  role: z.string(),
+  type: z.string().nullable(),
+  production: z.string(),
+  network: z.string().nullable(),
+});
 
-export interface UpdateCandidateInput {
-  name?: string;
-  agencyBio?: string;
-  position?: string;
-  status?: string;
-}
+export const CandidateEmailSchema = z.object({
+  address: z.string(),
+  contactType: z.string().nullable(),
+});
+
+export const CandidatePhoneNumberSchema = z.object({
+  number: z.string(),
+  contactType: z.string().nullable(),
+});
+
+export const CandidateRepresentativeSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  organization: z.string(),
+  representationType: z.string().nullable(),
+  emails: z.array(CandidateEmailSchema),
+  phoneNumbers: z.array(CandidatePhoneNumberSchema),
+});
+
+export const CandidateTagSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  tagger: z.string(),
+});
+
+export const CandidateLinkSchema = z.object({
+  url: z.string(),
+  linkType: z.string(),
+});
+
+export const CandidateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  agencyBio: z.string().nullable(),
+  position: z.string(),
+  status: z.string(),
+  credits: z.array(CandidateCreditSchema),
+  emails: z.array(CandidateEmailSchema),
+  phoneNumbers: z.array(CandidatePhoneNumberSchema),
+  tags: z.array(CandidateTagSchema),
+  representatives: z.array(CandidateRepresentativeSchema),
+  links: z.array(CandidateLinkSchema),
+});
+
+export const CreateCandidateInputSchema = z.object({
+  name: z.string().min(1),
+  agencyBio: z.string().optional(),
+  position: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  supportingLinks: z
+    .array(
+      z.object({
+        url: z.string(),
+        description: z.string().optional(),
+        linkType: z.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
+export const UpdateCandidateInputSchema = z.object({
+  name: z.string().optional(),
+  agencyBio: z.string().optional(),
+  position: z.string().optional(),
+  status: z.string().optional(),
+});
+
+export type CandidateDetail = z.infer<typeof CandidateSchema>;
+export type CreateCandidateInput = z.infer<typeof CreateCandidateInputSchema>;
+export type UpdateCandidateInput = z.infer<typeof UpdateCandidateInputSchema>;
 
 export class CandidateService {
   private entityRepo: EntityRepository;
@@ -107,7 +147,7 @@ export class CandidateService {
           bio: input.agencyBio ?? null,
           position: input.position ?? '',
           status: 'active',
-        } as any),
+        }),
       );
     }
     return results;

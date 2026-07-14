@@ -7,10 +7,6 @@ import * as schema from './schema.js';
 let _db: BetterSqlite3.Database | null = null;
 let _drizzle: ReturnType<typeof createDrizzle> | null = null;
 
-export interface DbRow {
-  [key: string]: unknown;
-}
-
 function createDrizzle(sqlite: BetterSqlite3.Database) {
   return drizzle(sqlite, { schema });
 }

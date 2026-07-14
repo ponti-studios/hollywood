@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import Parser from 'rss-parser';
 
-import type { DbRow } from '../../db/index.js';
+import type { RawRecordRow } from '../../db/repositories/RawRecordRepository.js';
 import { env } from '../../env.js';
 import { stripHtmlFragment, extractTextFromHtml } from '../extractors.js';
 import {
@@ -90,7 +90,7 @@ export class RssAdapter implements Adapter {
         contentType: response.headers.get('content-type') ?? 'application/rss+xml',
         sourceUrl: feedUrl,
         fetchedAt: new Date(),
-        metadata: { feed_url: feedUrl, selected_urls: selectedUrls },
+        metadata: { feedUrl, selectedUrls },
         extension: '.xml',
       });
 
@@ -112,7 +112,7 @@ export class RssAdapter implements Adapter {
             sourceUrl: entry.link,
             canonicalUrl,
             fetchedAt: new Date(),
-            metadata: { feed_url: feedUrl, title: entry.title ?? '' },
+            metadata: { feedUrl, title: entry.title ?? '' },
             extension: '.html',
           });
         }
@@ -124,12 +124,12 @@ export class RssAdapter implements Adapter {
     return payloads;
   }
 
-  async normalizeRawRecords(runId: string, rawRecords: DbRow[]): Promise<NormalizedBundle> {
+  async normalizeRawRecords(runId: string, rawRecords: RawRecordRow[]): Promise<NormalizedBundle> {
     const bundle = emptyBundle();
     for (const record of rawRecords) {
-      const payloadType = String(record['payload_type']);
-      const path = String(record['content_path']);
-      const metadata = JSON.parse(String(record['metadata_json'] ?? '{}'));
+      const payloadType = record.payloadType;
+      const path = record.contentPath;
+      const metadata = JSON.parse(record.metadataJson ?? '{}');
 
       if (payloadType === 'feed_xml') {
         extendBundle(bundle, await this.normalizeFeedXml(runId, record, path, metadata));
@@ -142,14 +142,14 @@ export class RssAdapter implements Adapter {
 
   private async normalizeFeedXml(
     runId: string,
-    record: DbRow,
+    record: RawRecordRow,
     path: string,
-    metadata: { feed_url?: string; selected_urls?: string[] },
+    metadata: { feedUrl?: string; selectedUrls?: string[] },
   ): Promise<NormalizedBundle> {
     const bundle = emptyBundle();
     const xml = readFileSync(path, 'utf-8');
     const feed = await this.parser.parseString(xml);
-    const selectedUrls = new Set(metadata.selected_urls ?? []);
+    const selectedUrls = new Set(metadata.selectedUrls ?? []);
 
     for (const entry of feed.items ?? []) {
       if (!entry.link) continue;
@@ -173,7 +173,7 @@ export class RssAdapter implements Adapter {
         summary: stripHtmlFragment(entry.summary ?? entry.contentSnippet),
         feedGuid: entry.guid || canonicalUrl,
         runId,
-        metadataJson: JSON.stringify({ feed_url: metadata.feed_url, categories }),
+        metadataJson: JSON.stringify({ feedUrl: metadata.feedUrl, categories }),
       };
       bundle.articles.push(article);
 
@@ -185,8 +185,8 @@ export class RssAdapter implements Adapter {
           sourceId: this.source.sourceId,
           contentKind: 'feed_description',
           text: descriptionText,
-          rawRecordId: String(record['id']),
-          contentHash: String(record['content_hash']),
+          rawRecordId: record.id,
+          contentHash: record.contentHash,
           metadataJson: '{}',
         };
         bundle.articleContent.push(row);
@@ -201,8 +201,8 @@ export class RssAdapter implements Adapter {
             sourceId: this.source.sourceId,
             contentKind: 'feed_content',
             text: encodedText,
-            rawRecordId: String(record['id']),
-            contentHash: String(record['content_hash']),
+            rawRecordId: record.id,
+            contentHash: record.contentHash,
             metadataJson: '{}',
           };
           bundle.articleContent.push(row);
@@ -241,9 +241,9 @@ export class RssAdapter implements Adapter {
     return bundle;
   }
 
-  private normalizeArticleHtml(record: DbRow, path: string): NormalizedBundle {
+  private normalizeArticleHtml(record: RawRecordRow, path: string): NormalizedBundle {
     const bundle = emptyBundle();
-    const articleUrl = String(record['canonical_url'] ?? record['source_url']);
+    const articleUrl = record.canonicalUrl ?? record.sourceUrl ?? '';
     const articleId = makeStableId(this.source.sourceId, canonicalizeUrl(articleUrl));
     const html = readFileSync(path, 'utf-8');
     const extracted = extractTextFromHtml(html);
@@ -254,9 +254,9 @@ export class RssAdapter implements Adapter {
         sourceId: this.source.sourceId,
         contentKind: 'page_extract',
         text: extracted,
-        rawRecordId: String(record['id']),
-        contentHash: String(record['content_hash']),
-        metadataJson: JSON.stringify({ source_url: record['source_url'] }),
+        rawRecordId: record.id,
+        contentHash: record.contentHash,
+        metadataJson: JSON.stringify({ sourceUrl: record.sourceUrl }),
       };
       bundle.articleContent.push(row);
     }

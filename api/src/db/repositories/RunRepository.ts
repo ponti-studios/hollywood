@@ -55,7 +55,7 @@ export class RunRepository {
   finish(
     runId: string,
     status: RunStatus,
-    summary: Record<string, unknown>,
+    summary: object,
     errorText?: string,
   ): void {
     this.db

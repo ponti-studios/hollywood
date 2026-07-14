@@ -5,7 +5,7 @@ import { createGunzip } from 'node:zlib';
 
 import { parse } from 'csv-parse/sync';
 
-import type { DbRow } from '../../db/index.js';
+import type { RawRecordRow } from '../../db/repositories/RawRecordRepository.js';
 import { env } from '../../env.js';
 import { emptyBundle, makeStableId } from '../models.js';
 import type {
@@ -20,6 +20,13 @@ import type {
 import type { Adapter } from './base.js';
 
 const NULL_VALUE = '\\N';
+
+// IMDb's real datasets (name.basics ~13M rows, uncompressed hundreds of MB+)
+// blow past V8's max string length once joined into one payload body/parsed
+// in memory — unlike RSS/TMDB, "no limit" here can never mean "the whole
+// real dataset" under this adapter's in-memory design. Cap it when the
+// caller doesn't pass one, instead of crashing on `Invalid string length`.
+const DEFAULT_ROW_LIMIT = 100_000;
 const IMDB_CAST_CATEGORIES = new Set([
   'self',
   'actor',
@@ -75,7 +82,7 @@ export class ImdbAdapter implements Adapter {
     const payloads: RawPayload[] = [];
     for (const url of this.source.defaultUrls) {
       const datasetName = url.split('/').pop()!.replace('.tsv.gz', '');
-      const rows = await downloadTsvLines(url, options.limit);
+      const rows = await downloadTsvLines(url, options.limit ?? DEFAULT_ROW_LIMIT);
       const body = Buffer.from(rows.join('\n') + '\n', 'utf-8');
       payloads.push({
         payloadType: 'dataset_tsv',
@@ -84,14 +91,14 @@ export class ImdbAdapter implements Adapter {
         contentType: 'text/tab-separated-values',
         sourceUrl: url,
         fetchedAt: new Date(),
-        metadata: { dataset_name: datasetName },
+        metadata: { datasetName },
         extension: '.tsv',
       });
     }
     return payloads;
   }
 
-  async normalizeRawRecords(_runId: string, rawRecords: DbRow[]): Promise<NormalizedBundle> {
+  async normalizeRawRecords(_runId: string, rawRecords: RawRecordRow[]): Promise<NormalizedBundle> {
     const bundle = emptyBundle();
     const seenEntities = new Set<string>();
 
@@ -102,11 +109,11 @@ export class ImdbAdapter implements Adapter {
     // (nm0005690) and the real names never arrive.
     const byDataset = new Map<string, string>();
     for (const record of rawRecords) {
-      if (String(record['payload_type']) !== 'dataset_tsv') continue;
-      const metadata = JSON.parse(String(record['metadata_json'] ?? '{}'));
-      const datasetName = metadata.dataset_name as string;
+      if (record.payloadType !== 'dataset_tsv') continue;
+      const metadata = JSON.parse(record.metadataJson ?? '{}');
+      const datasetName = metadata.datasetName as string;
       if (!datasetName) continue;
-      byDataset.set(datasetName, String(record['content_path']));
+      byDataset.set(datasetName, record.contentPath);
     }
 
     const order = ['name.basics', 'title.basics', 'title.principals'];

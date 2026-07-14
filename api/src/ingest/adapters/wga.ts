@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import type { Locator, Page } from 'playwright';
 
-import type { DbRow } from '../../db/index.js';
+import type { RawRecordRow } from '../../db/repositories/RawRecordRepository.js';
 import { env } from '../../env.js';
 import { canonicalizeUrl, emptyBundle, makeStableId } from '../models.js';
 import type {
@@ -196,9 +196,9 @@ export class WgaAdapter implements Adapter {
             const canonicalUrl = canonicalizeUrl(url);
             const writerId = writerKey(canonicalUrl);
             const metadata = {
-              profile_url: canonicalUrl,
-              writer_id: writerId,
-              writer_name: name,
+              profileUrl: canonicalUrl,
+              writerId,
+              writerName: name,
               prefix,
             };
 
@@ -240,16 +240,16 @@ export class WgaAdapter implements Adapter {
     return payloads;
   }
 
-  async normalizeRawRecords(_runId: string, rawRecords: DbRow[]): Promise<NormalizedBundle> {
+  async normalizeRawRecords(_runId: string, rawRecords: RawRecordRow[]): Promise<NormalizedBundle> {
     const bundle = emptyBundle();
     for (const record of rawRecords) {
-      if (String(record['payload_type']) !== 'browser_text') continue;
-      const path = String(record['content_path']);
-      const metadata = JSON.parse(String(record['metadata_json'] ?? '{}'));
+      if (record.payloadType !== 'browser_text') continue;
+      const path = record.contentPath;
+      const metadata = JSON.parse(record.metadataJson ?? '{}');
       const text = readFileSync(path, 'utf-8');
-      const writerName = metadata.writer_name ?? 'Unknown Writer';
+      const writerName = metadata.writerName ?? 'Unknown Writer';
       const writerId =
-        metadata.writer_id ?? writerKey(String(record['canonical_url'] ?? record['source_url']));
+        metadata.writerId ?? writerKey(record.canonicalUrl ?? record.sourceUrl ?? '');
       const entityId = makeStableId('wga', 'person', String(writerId));
 
       const entityRow: EntityRow = {
@@ -260,8 +260,8 @@ export class WgaAdapter implements Adapter {
         name: String(writerName),
         canonicalName: String(writerName).toLowerCase(),
         metadataJson: JSON.stringify({
-          profile_url: metadata.profile_url ?? null,
-          raw_record_id: record['id'],
+          profileUrl: metadata.profileUrl ?? null,
+          rawRecordId: record.id,
         }),
       };
       bundle.entities.push(entityRow);

@@ -2,6 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { OpenAPIHono } from '@hono/zod-openapi';
 
 import { normalizeFlow } from '../ingest/flows.js';
+import { errorResponse } from './errors.js';
 
 const NormalizeInputSchema = z.object({
   source_id: z.string().optional().openapi({ example: 'variety' }),
@@ -19,7 +20,7 @@ const normalizeRoute = createRoute({
       content: { 'application/json': { schema: z.record(z.string(), z.number()) } },
       description: 'Row counts by table',
     },
-    500: { description: 'Normalization failed' },
+    500: { ...errorResponse, description: 'Normalization failed' },
   },
 });
 
@@ -32,7 +33,7 @@ router.openapi(normalizeRoute, async (c) => {
     return c.json(counts, 200);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return c.json({ error: 'Normalization failed', detail: msg } as any, 500);
+    return c.json({ error: 'Normalization failed', detail: msg }, 500);
   }
 });
 

@@ -1,18 +1,55 @@
+import { z } from '@hono/zod-openapi';
 import { EntityRepository, makeStableId } from '../repositories/EntityRepository.js';
 import {
   SubmissionRepository,
   type SubmissionFields,
 } from '../repositories/SubmissionRepository.js';
 
-export interface SubmissionDetail {
-  id: string;
-  projectId: string;
-  candidateId: string | null;
-  created: string;
-  submissionJson: Record<string, unknown>;
-  samples: unknown[];
-  rawSamples: unknown[];
-}
+// ── API schemas (source of truth for both the OpenAPI route and this service) ─
+
+export const SubmissionCreditSchema = z.object({
+  role: z.string().nullable(),
+  type: z.string().nullable(),
+  production: z.string().nullable(),
+  network: z.string().nullable(),
+});
+
+export const SubmissionRepresentativeSchema = z.object({
+  name: z.string().nullable(),
+  title: z.string().nullable(),
+  agency: z.string().nullable(),
+  email: z.string().nullable(),
+});
+
+export const SubmissionLinkSchema = z.object({
+  url: z.string().nullable(),
+  type: z.string().nullable(),
+});
+
+export const SubmissionJsonSchema = z.object({
+  name: z.string(),
+  bio: z.string().nullable(),
+  email: z.string().nullable(),
+  phoneNumber: z.string().nullable(),
+  tags: z.array(z.string()).nullable(),
+  organizations: z.array(z.string()).nullable(),
+  credits: z.array(SubmissionCreditSchema).nullable(),
+  representatives: z.array(SubmissionRepresentativeSchema).nullable(),
+  links: z.array(SubmissionLinkSchema).nullable(),
+  attachments: z.array(z.string()).nullable(),
+});
+
+export const SubmissionSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  candidateId: z.string().nullable(),
+  created: z.string(),
+  submissionJson: SubmissionJsonSchema,
+  samples: z.array(z.unknown()),
+  rawSamples: z.array(z.unknown()),
+});
+
+export type SubmissionDetail = z.infer<typeof SubmissionSchema>;
 
 export class SubmissionService {
   private submissionRepo: SubmissionRepository;
@@ -30,7 +67,12 @@ export class SubmissionService {
       projectId: projectId ?? 'default',
       candidateId: null,
       created: r.createdAt,
-      submissionJson: this.parseResultJson(r.resultJson),
+      // parseResultJson is a best-effort passthrough of whatever JSON the
+      // extraction actually stored — it doesn't strictly conform to
+      // SubmissionJsonSchema in every branch (e.g. the non-candidate-packet
+      // fallback returns the raw parsed object as-is). Pre-existing
+      // behavior, not introduced by this cast.
+      submissionJson: this.parseResultJson(r.resultJson) as SubmissionDetail['submissionJson'],
       samples: [],
       rawSamples: [],
     }));

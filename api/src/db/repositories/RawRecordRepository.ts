@@ -8,6 +8,7 @@ import * as schema from '../schema.js';
 type Db = BetterSQLite3Database<typeof schema>;
 
 export type RawRecordInsert = typeof rawRecords.$inferInsert;
+export type RawRecordRow = typeof rawRecords.$inferSelect;
 
 export class RawRecordRepository {
   constructor(private db: Db = getDrizzle()) {}

@@ -6,6 +6,7 @@ import { parseEml } from '../ingest/eml.js';
 import { PROMPT_VERSION_V1 } from '../ingest/extraction.js';
 import type { Candidate } from '../ingest/extraction.js';
 import { ExtractionError, callOpenRouter } from '../ingest/llm.js';
+import { errorResponse } from './errors.js';
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -57,8 +58,8 @@ const ingestRoute = createRoute({
       content: { 'application/json': { schema: IngestResultSchema } },
       description: 'Ingestion result with materialized candidates',
     },
-    400: { description: 'Missing text, documents, or file' },
-    500: { description: 'Extraction failed' },
+    400: { ...errorResponse, description: 'Missing text, documents, or file' },
+    500: { ...errorResponse, description: 'Extraction failed' },
   },
 });
 
@@ -108,7 +109,7 @@ router.openapi(ingestRoute, async (c) => {
   }
 
   if (!texts.length) {
-    return c.json({ error: "Provide either 'text', 'documents', or 'file'" } as any, 400);
+    return c.json({ error: "Provide either 'text', 'documents', or 'file'" }, 400);
   }
 
   const runId = ingestService.startRunRaw('extraction', { source: 'api_ingest' });
@@ -144,7 +145,7 @@ router.openapi(ingestRoute, async (c) => {
   } catch (e) {
     const msg = e instanceof ExtractionError || e instanceof Error ? e.message : String(e);
     console.error('Ingest failed:', msg);
-    return c.json({ error: 'Extraction failed', detail: msg } as any, 500);
+    return c.json({ error: 'Extraction failed', detail: msg }, 500);
   }
 
   return c.json({ run_id: runId, model_name: modelName, candidates: candidatesOut }, 200);

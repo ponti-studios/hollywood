@@ -1,4 +1,4 @@
-import type { DbRow } from '../db/index.js';
+import type { RawRecordRow } from '../db/repositories/RawRecordRepository.js';
 import { ExportService } from '../db/services/ExportService.js';
 import { IngestService } from '../db/services/IngestService.js';
 import type { Adapter } from './adapters/base.js';
@@ -27,9 +27,9 @@ function getAdapter(sourceId: string): Adapter {
 
 export async function normalizeFlow(sourceId?: string): Promise<Record<string, number>> {
   const rawRecords = ingestService.loadRawRecords(sourceId ? { sourceId } : {});
-  const grouped = new Map<string, DbRow[]>();
+  const grouped = new Map<string, RawRecordRow[]>();
   for (const record of rawRecords) {
-    const key = String(record['source_id']);
+    const key = record.sourceId;
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key)!.push(record);
   }
@@ -104,7 +104,7 @@ export async function runIngestSource(
       rawRecords: archivedPayloads.length,
       normalized: bundleCounts(bundle),
     };
-    ingestService.finishRun(runId, 'succeeded', summary as unknown as Record<string, unknown>);
+    ingestService.finishRun(runId, 'succeeded', summary);
     return summary;
   } catch (exc) {
     const error = exc instanceof Error ? exc.message : String(exc);

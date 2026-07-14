@@ -1,5 +1,14 @@
 # Hollywood Domain Schema v2 — First Principles
 
+> **Status (2026-07-13): the "Pipeline Tables" section below (`entities`,
+> `entity_match_decisions`, `staged_facts`, `source_facts`) describes a
+> resolution design that was never implemented. Those tables were removed
+> from `schema.ts` and the live database on 2026-07-13 — see
+> [`ingestion-pipeline-architecture.md`](./ingestion-pipeline-architecture.md)
+> for the current MVP state (direct-write to gold, no resolution) and the
+> design to resurrect from if/when it's needed. Sections 1–7 below (the
+> `people`/`titles`/`companies`/join tables) are current.
+
 The pipeline tables (`runs`, `raw_records`, `extraction_results`,
 `source_facts`, `entities`, `entity_match_decisions`, `staged_facts`) are
 intentionally omitted from the domain model below. They live in a separate

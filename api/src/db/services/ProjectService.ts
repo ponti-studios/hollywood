@@ -1,30 +1,37 @@
+import { z } from '@hono/zod-openapi';
 import { EntityRepository, makeStableId } from '../repositories/EntityRepository.js';
 
-export interface ProjectDetail {
-  id: string;
-  title: string;
-  season: number;
-  genres: string[];
-  format: string | null;
-  imdbLink: string | null;
-  posterLink: string | null;
-}
+// ── API schemas (source of truth for both the OpenAPI route and this service) ─
 
-export interface CreateProjectInput {
-  title: string;
-  format?: string;
-  genres?: string[];
-  season?: number;
-  imdbLink?: string;
-}
+export const ProjectSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  season: z.number().int(),
+  genres: z.array(z.string()),
+  format: z.string().nullable(),
+  imdbLink: z.string().nullable(),
+  posterLink: z.string().nullable(),
+});
 
-export interface UpdateProjectInput {
-  title?: string;
-  format?: string;
-  genres?: string[];
-  season?: number;
-  imdbLink?: string;
-}
+export const CreateProjectSchema = z.object({
+  title: z.string().min(1),
+  format: z.string().optional(),
+  genres: z.array(z.string()).optional(),
+  season: z.number().int().optional(),
+  imdbLink: z.string().optional(),
+});
+
+export const UpdateProjectSchema = z.object({
+  title: z.string().optional(),
+  format: z.string().optional(),
+  genres: z.array(z.string()).optional(),
+  season: z.number().int().optional(),
+  imdbLink: z.string().optional(),
+});
+
+export type ProjectDetail = z.infer<typeof ProjectSchema>;
+export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
+export type UpdateProjectInput = z.infer<typeof UpdateProjectSchema>;
 
 export class ProjectService {
   private entityRepo: EntityRepository;
@@ -68,7 +75,7 @@ export class ProjectService {
       name: input.title,
       titleType: input.format ?? null,
       metadataJson: meta,
-    } as any);
+    });
   }
 
   update(id: string, input: UpdateProjectInput): ProjectDetail | null {

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-import type { DbRow } from '../../db/index.js';
+import type { RawRecordRow } from '../../db/repositories/RawRecordRepository.js';
 import { env } from '../../env.js';
 import { emptyBundle, makeStableId } from '../models.js';
 import type {
@@ -65,11 +65,11 @@ export class WikidataAdapter implements Adapter {
     ];
   }
 
-  async normalizeRawRecords(_runId: string, rawRecords: DbRow[]): Promise<NormalizedBundle> {
+  async normalizeRawRecords(_runId: string, rawRecords: RawRecordRow[]): Promise<NormalizedBundle> {
     const bundle = emptyBundle();
     for (const record of rawRecords) {
-      if (String(record['payload_type']) !== 'api_json') continue;
-      const document = JSON.parse(readFileSync(String(record['content_path']), 'utf-8')) as {
+      if (record.payloadType !== 'api_json') continue;
+      const document = JSON.parse(readFileSync(record.contentPath, 'utf-8')) as {
         results?: { bindings?: SparqlBinding[] };
       };
       const bindings = document.results?.bindings ?? [];
@@ -90,7 +90,7 @@ export class WikidataAdapter implements Adapter {
           entityType: 'person',
           name: label,
           canonicalName: label.toLowerCase(),
-          metadataJson: JSON.stringify({ occupation, imdb_id: imdbId }),
+          metadataJson: JSON.stringify({ occupation, imdbId }),
         };
         bundle.entities.push(entityRow);
 
