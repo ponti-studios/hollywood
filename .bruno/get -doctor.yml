@@ -1,11 +1,11 @@
 info:
-  name: get /sources
+  name: get /doctor
   type: http
-  seq: 9
+  seq: 10
 
 http:
   method: GET
-  url: "{{baseUrl}}/sources"
+  url: "{{baseUrl}}/doctor"
   auth: inherit
 
 settings:
@@ -16,9 +16,9 @@ settings:
 
 examples:
   - name: 200 Response
-    description: Built-in ingest sources
+    description: Health checks
     request:
-      url: "{{baseUrl}}/sources"
+      url: "{{baseUrl}}/doctor"
       method: GET
     response:
       status: 200
@@ -31,12 +31,8 @@ examples:
         data: |-
           [
             {
-              "source_id": "",
               "name": "",
-              "kind": "",
-              "groups": [],
-              "license_class": "",
-              "default_full_text": false,
-              "api_key_env": ""
+              "ok": false,
+              "detail": ""
             }
           ]

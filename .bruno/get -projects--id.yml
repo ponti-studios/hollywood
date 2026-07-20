@@ -38,14 +38,11 @@ examples:
         type: json
         data: |-
           {
-            "id": "878f1f90-a9da-497b-85f8-ce8dddf5989d",
-            "title": "THE NEIGHBORHOOD",
-            "season": 1,
-            "genres": [
-              "comedy"
-            ],
-            "format": "tv",
-            "imdbLink": "",
+            "id": "",
+            "title": "",
+            "season": 0,
+            "genres": [],
+            "format": "",
             "posterLink": ""
           }
   - name: 404 Response
@@ -60,6 +57,13 @@ examples:
     response:
       status: 404
       statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/json
       body:
-        type: text
-        data: ""
+        type: json
+        data: |-
+          {
+            "error": "",
+            "detail": ""
+          }

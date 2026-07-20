@@ -1,7 +1,7 @@
 info:
   name: get /export
   type: http
-  seq: 10
+  seq: 9
 
 http:
   method: GET
@@ -82,9 +82,16 @@ examples:
     response:
       status: 400
       statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/json
       body:
-        type: text
-        data: ""
+        type: json
+        data: |-
+          {
+            "error": "",
+            "detail": ""
+          }
   - name: 500 Response
     description: Export failed
     request:
@@ -107,6 +114,13 @@ examples:
     response:
       status: 500
       statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
       body:
-        type: text
-        data: ""
+        type: json
+        data: |-
+          {
+            "error": "",
+            "detail": ""
+          }

@@ -1,0 +1,91 @@
+info:
+  name: post /articles/enrich
+  type: http
+  seq: 12
+  tags:
+    - mutating
+
+http:
+  method: POST
+  url: "{{baseUrl}}/articles/enrich"
+  body:
+    type: json
+    data: |-
+      {
+        "limit": 5,
+        "model": "",
+        "prompt_version": "",
+        "provider": "openrouter"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Article enrichment summary
+    request:
+      url: "{{baseUrl}}/articles/enrich"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "limit": 5,
+            "model": "",
+            "prompt_version": "",
+            "provider": "openrouter"
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "articles_processed": 0,
+            "articles_failed": 0,
+            "people_created": 0,
+            "people_matched": 0,
+            "titles_created": 0,
+            "titles_matched": 0,
+            "companies_created": 0,
+            "companies_matched": 0,
+            "credits_created": 0,
+            "company_relations_created": 0,
+            "mentions_recorded": 0
+          }
+  - name: 500 Response
+    description: Enrichment failed
+    request:
+      url: "{{baseUrl}}/articles/enrich"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "limit": 5,
+            "model": "",
+            "prompt_version": "",
+            "provider": "openrouter"
+          }
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "",
+            "detail": ""
+          }

@@ -1,7 +1,7 @@
 info:
   name: get /search
   type: http
-  seq: 7
+  seq: 6
 
 http:
   method: GET
@@ -64,11 +64,7 @@ examples:
                     "role": "",
                     "type": "",
                     "production": "",
-                    "network": "",
-                    "season": 0,
-                    "seasons": [],
-                    "year": 0,
-                    "years": []
+                    "network": ""
                   }
                 ]
               }

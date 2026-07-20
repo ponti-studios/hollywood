@@ -1,11 +1,11 @@
 info:
-  name: get /projects
+  name: get /sources
   type: http
-  seq: 3
+  seq: 8
 
 http:
   method: GET
-  url: "{{baseUrl}}/projects"
+  url: "{{baseUrl}}/sources"
   auth: inherit
 
 settings:
@@ -16,9 +16,9 @@ settings:
 
 examples:
   - name: 200 Response
-    description: List of projects
+    description: Built-in ingest sources
     request:
-      url: "{{baseUrl}}/projects"
+      url: "{{baseUrl}}/sources"
       method: GET
     response:
       status: 200
@@ -31,14 +31,12 @@ examples:
         data: |-
           [
             {
-              "id": "878f1f90-a9da-497b-85f8-ce8dddf5989d",
-              "title": "THE NEIGHBORHOOD",
-              "season": 1,
-              "genres": [
-                "comedy"
-              ],
-              "format": "tv",
-              "imdbLink": "",
-              "posterLink": ""
+              "source_id": "",
+              "name": "",
+              "kind": "",
+              "groups": [],
+              "license_class": "",
+              "default_full_text": false,
+              "api_key_env": ""
             }
           ]

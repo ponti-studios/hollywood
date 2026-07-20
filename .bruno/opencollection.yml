@@ -1,7 +1,7 @@
 opencollection: 1.0.0
 
 info:
-  name: Hollywood API
+  name: backlot
 bundled: false
 extensions:
   bruno:

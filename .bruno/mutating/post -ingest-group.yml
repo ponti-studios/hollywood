@@ -1,7 +1,7 @@
 info:
   name: post /ingest/group
   type: http
-  seq: 13
+  seq: 10
   tags:
     - mutating
 
@@ -55,7 +55,9 @@ examples:
               "source_id": "",
               "status": "",
               "raw_records": 0,
-              "normalized": {}
+              "normalized": {},
+              "entities_matched": 0,
+              "entities_created": 0
             }
           ]
   - name: 500 Response
@@ -75,6 +77,13 @@ examples:
     response:
       status: 500
       statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
       body:
-        type: text
-        data: ""
+        type: json
+        data: |-
+          {
+            "error": "",
+            "detail": ""
+          }
