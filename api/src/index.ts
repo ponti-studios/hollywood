@@ -29,7 +29,7 @@ const app = new OpenAPIHono();
 app.doc('/openapi', {
   openapi: '3.0.0',
   info: {
-    title: 'Hollywood API',
+    title: 'backlot',
     version: '0.1.0',
     description: 'Entertainment graph API — unified entity database for TV/film industry',
   },
@@ -57,7 +57,7 @@ app.route('/', articleEnrichmentRouter);
 // ── Server ──────────────────────────────────────────────────────────────────
 
 const server = serve({ fetch: app.fetch, port: PORT, hostname: HOST }, (info) => {
-  console.log(`🎬 Hollywood API running at http://${HOST}:${info.port}`);
+  console.log(`🎬 backlot running at http://${HOST}:${info.port}`);
   console.log(`   Database: ${DB_PATH}`);
   console.log(`   OpenAPI:  http://${HOST}:${info.port}/openapi`);
 });

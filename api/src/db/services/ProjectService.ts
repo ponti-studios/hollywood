@@ -9,7 +9,6 @@ export const ProjectSchema = z.object({
   season: z.number().int(),
   genres: z.array(z.string()),
   format: z.string().nullable(),
-  imdbLink: z.string().nullable(),
   posterLink: z.string().nullable(),
 });
 
@@ -18,7 +17,6 @@ export const CreateProjectSchema = z.object({
   format: z.string().optional(),
   genres: z.array(z.string()).optional(),
   season: z.number().int().optional(),
-  imdbLink: z.string().optional(),
 });
 
 export const UpdateProjectSchema = z.object({
@@ -26,7 +24,6 @@ export const UpdateProjectSchema = z.object({
   format: z.string().optional(),
   genres: z.array(z.string()).optional(),
   season: z.number().int().optional(),
-  imdbLink: z.string().optional(),
 });
 
 export type ProjectDetail = z.infer<typeof ProjectSchema>;
@@ -41,7 +38,7 @@ export class ProjectService {
   }
 
   list(): ProjectDetail[] {
-    const rows = this.entityRepo.findByTypes(['title', 'project']);
+    const rows = this.entityRepo.findByType('title');
     return rows.map((row) => this.enrich(row));
   }
 
@@ -56,13 +53,12 @@ export class ProjectService {
     const meta = JSON.stringify({
       genres: input.genres ?? [],
       season: input.season ?? 1,
-      imdb_link: input.imdbLink ?? null,
     });
     const now = new Date().toISOString();
 
     this.entityRepo.insertWithId(entityId, {
       sourceId: 'hollywood-api',
-      externalId: input.imdbLink ?? null,
+      externalId: null,
       entityType: 'title',
       name: input.title,
       canonicalName: input.title.toLowerCase(),
@@ -82,17 +78,14 @@ export class ProjectService {
     const existing = this.entityRepo.findById(id);
     if (!existing || existing.entityType !== 'title') return null;
 
-    // Parse existing metadata
     const existingMeta = existing.metadataJson ? JSON.parse(existing.metadataJson) : {};
 
     const inputGenres = input.genres ?? existingMeta.genres ?? [];
     const inputSeason = input.season ?? existingMeta.season ?? 1;
-    const inputImdb = input.imdbLink ?? existingMeta.imdb_link ?? null;
 
     const meta = JSON.stringify({
       genres: inputGenres,
       season: inputSeason,
-      imdb_link: inputImdb,
     });
 
     this.entityRepo.update(id, {
@@ -121,7 +114,6 @@ export class ProjectService {
       season: meta.season ?? 1,
       genres: meta.genres ?? [],
       format: row.titleType ?? null,
-      imdbLink: meta.imdb_link ?? null,
       posterLink: meta.poster_link ?? null,
     };
   }

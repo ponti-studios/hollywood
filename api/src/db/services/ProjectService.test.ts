@@ -115,7 +115,6 @@ describe('ProjectService', () => {
     const created = svc.create({ title: 'Minimal Show' });
     expect(created.season).toBe(1);
     expect(created.genres).toEqual([]);
-    expect(created.imdbLink).toBeNull();
     expect(created.posterLink).toBeNull();
   });
 });

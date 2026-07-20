@@ -12,6 +12,8 @@ const RunSummarySchema = z.object({
   status: z.string(),
   raw_records: z.number().int(),
   normalized: z.record(z.string(), z.number()),
+  entities_matched: z.number().int(),
+  entities_created: z.number().int(),
 });
 
 function toApiSummary(summary: RunSummary) {
@@ -21,6 +23,8 @@ function toApiSummary(summary: RunSummary) {
     status: summary.status,
     raw_records: summary.rawRecords,
     normalized: summary.normalized,
+    entities_matched: summary.entitiesMatched,
+    entities_created: summary.entitiesCreated,
   };
 }
 

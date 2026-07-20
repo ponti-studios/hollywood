@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { and, count, eq, like } from 'drizzle-orm';
+import { and, count, eq, like, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import { getDrizzle } from '../index.js';
@@ -222,6 +222,9 @@ export class EntityRepository {
 
   findByTypes(entityTypes: string[], limit = 50, offset = 0): EntityLikeRow[] {
     const kinds = new Set(entityTypes.map(kindFor));
+    if (kinds.size === 1) {
+      return this.findByType([...kinds][0], limit, offset);
+    }
     let rows: EntityLikeRow[] = [];
     if (kinds.has('person'))
       rows = rows.concat(this.db.select().from(people).all().map(toPersonRow));
@@ -242,18 +245,56 @@ export class EntityRepository {
 
   searchByName(query: string, limit = 20, offset = 0): { rows: EntityLikeRow[]; total: number } {
     const pattern = `%${query}%`;
-    const allRows = [
-      ...this.db.select().from(people).where(like(people.name, pattern)).all().map(toPersonRow),
-      ...this.db.select().from(titles).where(like(titles.title, pattern)).all().map(toTitleRow),
+    const bound = limit + offset;
+
+    const candidateRows = [
+      ...this.db
+        .select()
+        .from(people)
+        .where(like(people.name, pattern))
+        .orderBy(people.name)
+        .limit(bound)
+        .all()
+        .map(toPersonRow),
+      ...this.db
+        .select()
+        .from(titles)
+        .where(like(titles.title, pattern))
+        .orderBy(titles.title)
+        .limit(bound)
+        .all()
+        .map(toTitleRow),
       ...this.db
         .select()
         .from(companies)
         .where(like(companies.name, pattern))
+        .orderBy(companies.name)
+        .limit(bound)
         .all()
         .map(toCompanyRow),
     ];
-    allRows.sort((a, b) => a.name.localeCompare(b.name));
-    return { rows: allRows.slice(offset, offset + limit), total: allRows.length };
+    candidateRows.sort((a, b) => a.name.localeCompare(b.name));
+
+    const [{ value: peopleCount }] = this.db
+      .select({ value: count() })
+      .from(people)
+      .where(like(people.name, pattern))
+      .all();
+    const [{ value: titleCount }] = this.db
+      .select({ value: count() })
+      .from(titles)
+      .where(like(titles.title, pattern))
+      .all();
+    const [{ value: companyCount }] = this.db
+      .select({ value: count() })
+      .from(companies)
+      .where(like(companies.name, pattern))
+      .all();
+
+    return {
+      rows: candidateRows.slice(offset, offset + limit),
+      total: peopleCount + titleCount + companyCount,
+    };
   }
 
   countByType(entityType: string): number {
@@ -268,6 +309,35 @@ export class EntityRepository {
     }
     const [{ value }] = this.db.select({ value: count() }).from(companies).all();
     return value;
+  }
+
+  // ── Entity resolution ─────────────────────────────────────────────────────
+
+  /** Count of cross-source canonical_name collisions (same name from multiple sources). */
+  countCrossSourceCollisions(): number {
+    const peopleResult = this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(
+        this.db
+          .select({ canonicalName: people.canonicalName })
+          .from(people)
+          .groupBy(people.canonicalName)
+          .having((cols) => sql`count(distinct ${people.sourceId}) > 1`)
+          .as('people_collisions'),
+      )
+      .get();
+    const titleResult = this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(
+        this.db
+          .select({ canonicalName: titles.canonicalName })
+          .from(titles)
+          .groupBy(titles.canonicalName)
+          .having((cols) => sql`count(distinct ${titles.sourceId}) > 1`)
+          .as('title_collisions'),
+      )
+      .get();
+    return (peopleResult?.count ?? 0) + (titleResult?.count ?? 0);
   }
 
   // ── Create / Upsert ───────────────────────────────────────────────────────
@@ -514,7 +584,7 @@ export class EntityRepository {
 
   addAlias(entityId: string, sourceId: string, alias: string): string {
     const entity = this.findById(entityId);
-    const entityType = entity?.entityType ?? 'person';
+    const entityType = entity?.entityType ?? 'unknown';
     const aliasId = makeStableId('alias', entityId, alias);
     const now = new Date().toISOString();
     this.db
@@ -538,7 +608,7 @@ export class EntityRepository {
     contactValue: string,
   ): string {
     const entity = this.findById(entityId);
-    const entityType = entity?.entityType ?? 'person';
+    const entityType = entity?.entityType ?? 'unknown';
     const contactId = makeStableId('contact', entityId, contactValue);
     const now = new Date().toISOString();
     this.db
@@ -572,7 +642,7 @@ export class EntityRepository {
 
   addLink(entityId: string, sourceId: string, url: string, linkType: string): string {
     const entity = this.findById(entityId);
-    const entityType = entity?.entityType ?? 'person';
+    const entityType = entity?.entityType ?? 'unknown';
     const linkId = makeStableId('link', entityId, url);
     const now = new Date().toISOString();
     this.db

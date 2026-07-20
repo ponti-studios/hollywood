@@ -1,6 +1,5 @@
 import { registerAdapter } from '../flows.js';
 import { getSource } from '../registry.js';
-import { ImdbAdapter } from './imdb.js';
 import { RssAdapter } from './rss.js';
 import { TmdbAdapter } from './tmdb.js';
 import { WgaAdapter } from './wga.js';
@@ -14,5 +13,4 @@ export function registerAllAdapters(): void {
   registerAdapter('tmdb', new TmdbAdapter(getSource('tmdb')));
   registerAdapter('wikidata', new WikidataAdapter(getSource('wikidata')));
   registerAdapter('wga', new WgaAdapter(getSource('wga')));
-  registerAdapter('imdb', new ImdbAdapter(getSource('imdb')));
 }

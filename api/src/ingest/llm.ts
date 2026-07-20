@@ -374,7 +374,6 @@ function classifyOrgType(name: string): string {
 
 function normalizeLinkType(linkType: string): string {
   const mapping: Record<string, string> = {
-    imdb: 'IMDB',
     twitter: 'Twitter',
     instagram: 'Instagram',
     facebook: 'Facebook',

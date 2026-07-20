@@ -116,7 +116,7 @@ export class ArticleRepository {
       .run();
   }
 
-  /** Look up which gold table an id belongs to. Defaults to "person" if not found. */
+  /** Look up which gold table an id belongs to. Returns "unknown" if not found. */
   private resolveEntityType(entityId: string): string {
     if (
       this.db
@@ -142,7 +142,7 @@ export class ArticleRepository {
         .get()
     )
       return 'company';
-    return 'person';
+    return 'unknown';
   }
 
   /** Find article by ID. */

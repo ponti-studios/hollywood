@@ -53,7 +53,7 @@ export class TagRepository {
     return taggingId;
   }
 
-  /** Look up which gold table an id belongs to. Defaults to "person" if not found. */
+  /** Look up which gold table an id belongs to. Returns "unknown" if not found. */
   private resolveEntityType(entityId: string): string {
     if (
       this.db
@@ -79,7 +79,7 @@ export class TagRepository {
         .get()
     )
       return 'company';
-    return 'person';
+    return 'unknown';
   }
 
   /** Find all tags for an entity. */

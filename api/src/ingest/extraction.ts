@@ -7,7 +7,6 @@ const PHONE_PATTERN = /^\d{3}-\d{3}-\d{4}$/;
 
 export const ALLOWED_CREDIT_TYPES = ['tv', 'movie', 'novel', 'magazine', 'podcast'] as const;
 export const ALLOWED_LINK_TYPES = [
-  'IMDB',
   'Twitter',
   'Instagram',
   'Facebook',

@@ -218,13 +218,19 @@ export class IngestService {
 
   // ── Normalized bundle ─────────────────────────────────────────────────────
 
-  applyBundle(bundle: NormalizedBundle): void {
+  applyBundle(bundle: NormalizedBundle): { entitiesMatched: number; entitiesCreated: number } {
     this.upsertArticles(bundle.articles);
     this.upsertArticleContent(bundle.articleContent);
-    this.upsertEntities(bundle.entities);
-    this.upsertEntityAliases(bundle.entityAliases);
-    this.upsertArticleEntities(bundle.articleEntities);
-    this.upsertCredits(bundle.credits);
+    const remap = this.upsertEntities(bundle.entities);
+    this.upsertEntityAliases(bundle.entityAliases, remap);
+    this.upsertArticleEntities(bundle.articleEntities, remap);
+    this.upsertCredits(bundle.credits, remap);
+
+    let entitiesMatched = 0;
+    for (const [precomputed, resolved] of remap) {
+      if (precomputed !== resolved) entitiesMatched++;
+    }
+    return { entitiesMatched, entitiesCreated: remap.size - entitiesMatched };
   }
 
   private upsertArticles(rows: ArticleRow[]): void {
@@ -260,32 +266,43 @@ export class IngestService {
     }
   }
 
-  private upsertEntities(rows: EntityRow[]): void {
+  private upsertEntities(rows: EntityRow[]): Map<string, string> {
+    const remap = new Map<string, string>();
     for (const r of rows) {
-      this.entityRepo.insertWithId(r.entityId, {
-        sourceId: r.sourceId,
-        externalId: r.externalId,
-        entityType: r.entityType,
-        name: r.name,
-        canonicalName: r.canonicalName,
-        metadataJson: r.metadataJson,
-        titleType: r.titleType,
-      });
+      const existing = this.entityRepo.findByCanonicalName(r.entityType, r.canonicalName);
+      if (existing) {
+        remap.set(r.entityId, existing.id);
+        this.entityRepo.addAlias(existing.id, r.sourceId, r.name);
+      } else {
+        this.entityRepo.insertWithId(r.entityId, {
+          sourceId: r.sourceId,
+          externalId: r.externalId,
+          entityType: r.entityType,
+          name: r.name,
+          canonicalName: r.canonicalName,
+          metadataJson: r.metadataJson,
+          titleType: r.titleType,
+        });
+        remap.set(r.entityId, r.entityId);
+      }
+    }
+    return remap;
+  }
+
+  private upsertEntityAliases(rows: EntityAliasRow[], remap: Map<string, string>): void {
+    for (const r of rows) {
+      const resolvedId = remap.get(r.entityId) ?? r.entityId;
+      this.entityRepo.addAlias(resolvedId, r.sourceId, r.alias);
     }
   }
 
-  private upsertEntityAliases(rows: EntityAliasRow[]): void {
+  private upsertArticleEntities(rows: ArticleEntityRow[], remap: Map<string, string>): void {
     for (const r of rows) {
-      this.entityRepo.addAlias(r.entityId, r.sourceId, r.alias);
-    }
-  }
-
-  private upsertArticleEntities(rows: ArticleEntityRow[]): void {
-    for (const r of rows) {
+      const resolvedId = remap.get(r.entityId) ?? r.entityId;
       this.articleRepo.linkEntity({
         articleEntityId: r.articleEntityId,
         articleId: r.articleId,
-        entityId: r.entityId,
+        entityId: resolvedId,
         sourceId: r.sourceId,
         relation: r.relation,
         metadataJson: r.metadataJson,
@@ -293,12 +310,14 @@ export class IngestService {
     }
   }
 
-  private upsertCredits(rows: CreditRow[]): void {
+  private upsertCredits(rows: CreditRow[], remap: Map<string, string>): void {
     for (const r of rows) {
       if (r.personEntityId && r.titleEntityId) {
+        const personId = remap.get(r.personEntityId) ?? r.personEntityId;
+        const titleId = remap.get(r.titleEntityId) ?? r.titleEntityId;
         this.creditRepo.upsert({
-          personId: r.personEntityId,
-          titleId: r.titleEntityId,
+          personId,
+          titleId,
           sourceId: r.sourceId,
           role: r.role,
           creditCategory: r.creditCategory,

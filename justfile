@@ -37,10 +37,14 @@ api-docs:
 
 # ── Bruno ────────────────────────────────────────────────────────────────────
 bruno-import:
-    npx --yes @usebruno/cli import openapi --source http://localhost:4000/openapi --output bruno/hollywood-api --collection-name "Hollywood API" --group-by tags
+    rm -rf .bruno
+    npx --yes @usebruno/cli import openapi \
+    --source http://localhost:4000/openapi \
+    --output .bruno \
+    --group-by tags
 
 bruno-run:
-    cd bruno/hollywood-api && npx --yes @usebruno/cli run -r --env "Local development" --exclude-tags mutating
+    cd .bruno && npx --yes @usebruno/cli run -r --env "Local development" --exclude-tags mutating
 
 bruno-run-all:
-    cd bruno/hollywood-api && npx --yes @usebruno/cli run -r --env "Local development"
+    cd .bruno && npx --yes @usebruno/cli run -r --env "Local development"

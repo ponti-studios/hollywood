@@ -14,11 +14,10 @@ import type {
 import type { Adapter } from './base.js';
 
 const WIKIDATA_QUERY = `
-SELECT ?item ?itemLabel ?occupationLabel ?imdb WHERE {
+SELECT ?item ?itemLabel ?occupationLabel WHERE {
   VALUES ?occupation { wd:Q33999 wd:Q2526255 wd:Q28389 }
   ?item wdt:P31 wd:Q5;
         wdt:P106 ?occupation.
-  OPTIONAL { ?item wdt:P345 ?imdb. }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }
 LIMIT {limit}
@@ -27,7 +26,6 @@ LIMIT {limit}
 interface SparqlBinding {
   item?: { value?: string };
   itemLabel?: { value?: string };
-  imdb?: { value?: string };
   occupationLabel?: { value?: string };
 }
 
@@ -77,7 +75,6 @@ export class WikidataAdapter implements Adapter {
       for (const item of bindings) {
         const itemUrl = item.item?.value;
         const label = item.itemLabel?.value;
-        const imdbId = item.imdb?.value ?? null;
         const occupation = item.occupationLabel?.value ?? null;
         if (!itemUrl || !label) continue;
 
@@ -90,7 +87,7 @@ export class WikidataAdapter implements Adapter {
           entityType: 'person',
           name: label,
           canonicalName: label.toLowerCase(),
-          metadataJson: JSON.stringify({ occupation, imdbId }),
+          metadataJson: JSON.stringify({ occupation }),
         };
         bundle.entities.push(entityRow);
 

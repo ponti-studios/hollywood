@@ -5,6 +5,7 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 
 import { env } from '../env.js';
 import { sourceDoctorChecks } from '../ingest/flows.js';
+import { EntityRepository } from '../db/repositories/EntityRepository.js';
 
 const DoctorCheckSchema = z.object({
   name: z.string(),
@@ -26,9 +27,16 @@ const doctorRoute = createRoute({
 const router = new OpenAPIHono();
 
 router.openapi(doctorRoute, (c) => {
+  const entityRepo = new EntityRepository();
+  const entityCollisions = entityRepo.countCrossSourceCollisions();
   const checks = [
     { name: 'data_dir', ok: existsSync(env.HOLLYWOOD_DATA_DIR), detail: env.HOLLYWOOD_DATA_DIR },
     { name: 'db_path', ok: existsSync(env.HOLLYWOOD_DB_PATH), detail: env.HOLLYWOOD_DB_PATH },
+    {
+      name: 'entity_dedup',
+      ok: entityCollisions === 0,
+      detail: entityCollisions === 0 ? 'No cross-source name collisions' : `${entityCollisions} canonical_name collisions across sources`,
+    },
     {
       name: 'tmdb_api_key',
       ok: Boolean(env.TMDB_API_KEY),

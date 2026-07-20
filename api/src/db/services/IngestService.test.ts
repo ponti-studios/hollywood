@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
 import type { Candidate } from '../../ingest/extraction.js';
-import { emptyBundle, makeStableId, type EntityRow } from '../../ingest/models.js';
+import { emptyBundle, makeStableId, type EntityRow, type CreditRow } from '../../ingest/models.js';
 import { ArticleRepository } from '../repositories/ArticleRepository.js';
 import { CreditRepository } from '../repositories/CreditRepository.js';
 import { EntityRepository } from '../repositories/EntityRepository.js';
@@ -207,6 +207,125 @@ describe('IngestService', () => {
       const rows = entityRepo.findByName('No Format Show');
       expect(rows).toHaveLength(1);
       expect(rows[0].format).toBe('unknown');
+    });
+
+    it('dedupes cross-source entities by canonicalName and remaps credits', () => {
+      const personIdA = makeStableId('source-a', 'Jane Doe');
+
+      // First bundle from source A
+      const bundleA = emptyBundle();
+      bundleA.entities.push({
+        entityId: personIdA,
+        sourceId: 'source-a',
+        entityType: 'person',
+        name: 'Jane Doe',
+        canonicalName: 'jane doe',
+        metadataJson: '{}',
+      });
+      bundleA.credits.push({
+        creditId: makeStableId('credit', personIdA, 'title-1', 'writer'),
+        personEntityId: personIdA,
+        titleEntityId: makeStableId('source-a', 'A Show'),
+        sourceId: 'source-a',
+        role: 'writer',
+        creditCategory: 'tv',
+        metadataJson: '{}',
+      });
+
+      // Need title entities too
+      const titleIdA = makeStableId('source-a', 'A Show');
+      bundleA.entities.push({
+        entityId: titleIdA,
+        sourceId: 'source-a',
+        entityType: 'title',
+        name: 'A Show',
+        canonicalName: 'a show',
+        metadataJson: '{}',
+      });
+
+      // Apply source A
+      const resultA = svc.applyBundle(bundleA);
+      expect(resultA.entitiesCreated).toBe(2);
+      expect(resultA.entitiesMatched).toBe(0);
+
+      // Second bundle from source B — same person "Jane Doe", different title
+      const personIdB = makeStableId('source-b', 'Jane Doe');
+      const bundleB = emptyBundle();
+      bundleB.entities.push({
+        entityId: personIdB,
+        sourceId: 'source-b',
+        entityType: 'person',
+        name: 'Jane Doe',
+        canonicalName: 'jane doe',
+        metadataJson: '{}',
+      });
+      const titleIdB = makeStableId('source-b', 'B Show');
+      bundleB.entities.push({
+        entityId: titleIdB,
+        sourceId: 'source-b',
+        entityType: 'title',
+        name: 'B Show',
+        canonicalName: 'b show',
+        metadataJson: '{}',
+      });
+      bundleB.credits.push({
+        creditId: makeStableId('credit', personIdB, titleIdB, 'producer'),
+        personEntityId: personIdB,
+        titleEntityId: titleIdB,
+        sourceId: 'source-b',
+        role: 'producer',
+        creditCategory: 'tv',
+        metadataJson: '{}',
+      });
+
+      // Apply source B
+      const resultB = svc.applyBundle(bundleB);
+      expect(resultB.entitiesMatched).toBe(1); // "jane doe" matched existing
+      expect(resultB.entitiesCreated).toBe(1); // "b show" is new
+
+      // (a) Only one people row for "jane doe"
+      const people = entityRepo.findByName('Jane Doe');
+      expect(people).toHaveLength(1);
+      expect(people[0].entityType).toBe('person');
+
+      // (b) B's credit attaches to A's entity id
+      const credits = creditRepo.findByPerson(people[0].id);
+      expect(credits).toHaveLength(2);
+      expect(credits.map((c) => c.role).sort()).toEqual(['producer', 'writer']);
+
+      // (d) Free bonus: same role + same person + same title across sources → deduped
+      const bundleC = emptyBundle();
+      bundleC.entities.push({
+        entityId: personIdB,
+        sourceId: 'source-c',
+        entityType: 'person',
+        name: 'Jane Doe',
+        canonicalName: 'jane doe',
+        metadataJson: '{}',
+      });
+      bundleC.entities.push({
+        entityId: makeStableId('source-c', 'A Show'),
+        sourceId: 'source-c',
+        entityType: 'title',
+        name: 'A Show',
+        canonicalName: 'a show',
+        metadataJson: '{}',
+      });
+      bundleC.credits.push({
+        creditId: makeStableId('credit', personIdB, makeStableId('source-c', 'A Show'), 'writer'),
+        personEntityId: personIdB,
+        titleEntityId: makeStableId('source-c', 'A Show'),
+        sourceId: 'source-c',
+        role: 'writer',
+        creditCategory: 'tv',
+        metadataJson: '{}',
+      });
+      const resultC = svc.applyBundle(bundleC);
+      expect(resultC.entitiesMatched).toBe(2); // both person + title matched
+
+      // After remap, "writer" credit for same person + same title + same role collides → deduped
+      const creditsAfterC = creditRepo.findByPerson(people[0].id);
+      expect(creditsAfterC).toHaveLength(2);
     });
   });
 

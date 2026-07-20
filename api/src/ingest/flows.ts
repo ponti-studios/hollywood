@@ -2,8 +2,8 @@ import type { RawRecordRow } from '../db/repositories/RawRecordRepository.js';
 import { IngestService } from '../db/services/IngestService.js';
 import type { Adapter } from './adapters/base.js';
 import { archivePayload } from './archive.js';
-import { bundleCounts } from './models.js';
 import type { DoctorCheck, IngestOptions, RunSummary } from './models.js';
+import { bundleCounts } from './models.js';
 import { getSource, listSources } from './registry.js';
 
 const ADAPTERS = new Map<string, Adapter>();
@@ -39,8 +39,12 @@ export async function normalizeFlow(sourceId?: string): Promise<Record<string, n
     const adapter = getAdapter(groupedSourceId);
     const runId = ingestService.startRunRaw('normalize', { source_id: groupedSourceId });
     const bundle = await adapter.normalizeRawRecords(runId, records);
-    ingestService.applyBundle(bundle);
-    const counts = bundleCounts(bundle);
+    const { entitiesMatched, entitiesCreated } = ingestService.applyBundle(bundle);
+    const counts = {
+      ...bundleCounts(bundle),
+      entities_matched: entitiesMatched,
+      entities_created: entitiesCreated,
+    };
     ingestService.finishRun(runId, 'succeeded', counts);
     for (const [key, value] of Object.entries(counts)) {
       combinedCounts[key] = (combinedCounts[key] ?? 0) + value;
@@ -79,19 +83,25 @@ export async function runIngestSource(
   const source = getSource(sourceId);
   const adapter = getAdapter(sourceId);
   const runId = ingestService.startRun(source.sourceId, JSON.stringify(options));
+
   try {
     const payloads = await adapter.fetchRawPayloads(options);
     const archivedPayloads = payloads.map((p) => archivePayload(source, p));
+
+    // Insert the archived payloads into the raw records table for this run.
     ingestService.insertRawRecords(runId, archivedPayloads);
+
     const rawRecords = ingestService.loadRawRecords({ runId });
     const bundle = await adapter.normalizeRawRecords(runId, rawRecords);
-    ingestService.applyBundle(bundle);
+    const { entitiesMatched, entitiesCreated } = ingestService.applyBundle(bundle);
     const summary: RunSummary = {
       runId,
       sourceId: source.sourceId,
       status: 'succeeded',
       rawRecords: archivedPayloads.length,
       normalized: bundleCounts(bundle),
+      entitiesMatched,
+      entitiesCreated,
     };
     ingestService.finishRun(runId, 'succeeded', summary);
     return summary;
@@ -106,9 +116,8 @@ export async function runIngestGroup(
   groupName: string,
   options: IngestOptions,
 ): Promise<RunSummary[]> {
-  const summaries: RunSummary[] = [];
-  for (const source of listSources(groupName)) {
-    summaries.push(await runIngestSource(source.sourceId, options));
-  }
+  const summaries: RunSummary[] = await Promise.all(
+    listSources(groupName).map((source) => runIngestSource(source.sourceId, options)),
+  );
   return summaries;
 }

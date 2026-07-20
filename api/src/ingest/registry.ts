@@ -67,23 +67,6 @@ const BUILTIN_SOURCES: readonly SourceDefinition[] = [
     metadata: { default_prefixes: 'abcdefghijklmnopqrstuvwxyz' },
   },
   {
-    sourceId: 'imdb',
-    name: 'IMDb Datasets',
-    kind: 'dataset',
-    description: 'IMDb non-commercial datasets sliced into raw archives and normalized entities.',
-    groups: ['entities', 'all'],
-    defaultUrls: [
-      'https://datasets.imdbws.com/name.basics.tsv.gz',
-      'https://datasets.imdbws.com/title.basics.tsv.gz',
-      'https://datasets.imdbws.com/title.principals.tsv.gz',
-    ],
-    licenseClass: 'research_non_commercial',
-    archiveModes: ['dataset_tsv'],
-    fetchStrategy: 'streamed_dataset',
-    defaultFullText: true,
-    metadata: {},
-  },
-  {
     sourceId: 'tmdb',
     name: 'TMDb API',
     kind: 'api',

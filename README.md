@@ -2,7 +2,7 @@
 
 Local-first entertainment data platform for research corpus building. A Hono REST API
 ingests entertainment RSS feeds, browser-only directories like WGA, and structured
-metadata sources (TMDB, Wikidata, IMDb) into a unified SQLite database, with raw-payload
+metadata sources (TMDB, Wikidata) into a unified SQLite database, with raw-payload
 archiving and JSONL exports.
 
 ## Run
@@ -18,7 +18,7 @@ The API starts at `http://localhost:4000`. OpenAPI docs are at `/openapi`.
 
 - `GET /sources` — list built-in ingest sources
 - `POST /ingest` — LLM extraction from raw submission text (single doc or batch)
-- `POST /ingest/source` — ingest a single source (`variety`, `deadline`, `hollywood_reporter`, `the_wrap`, `tmdb`, `wikidata`, `wga`, `imdb`)
+- `POST /ingest/source` — ingest a single source (`variety`, `deadline`, `hollywood_reporter`, `the_wrap`, `tmdb`, `wikidata`, `wga`)
 - `POST /ingest/group` — ingest all sources in a named group (`news`, `entities`, `directories`, `all`)
 - `POST /normalize` — re-derive normalized tables from already-archived raw records
 - `GET /export` — export normalized tables as JSONL

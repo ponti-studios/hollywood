@@ -221,6 +221,8 @@ export interface RunSummary {
   status: RunStatus;
   rawRecords: number;
   normalized: Record<string, number>;
+  entitiesMatched: number;
+  entitiesCreated: number;
 }
 
 export interface DoctorCheck {
