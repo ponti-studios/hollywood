@@ -1,0 +1,117 @@
+{
+  "schema_version": "v2_article_mentions",
+  "people": [
+    {
+      "name": "Jane Doe",
+      "role_hint": null,
+      "related_to": [
+        {
+          "name": "The Long Winter",
+          "type": "title",
+          "relationship": "director",
+          "character": null
+        },
+        {
+          "name": "CAA",
+          "type": "company",
+          "relationship": "repped by",
+          "character": null
+        },
+        {
+          "name": "The Crown",
+          "type": "title",
+          "relationship": "actor",
+          "character": "Detective Reyes"
+        },
+        {
+          "name": "Tudor Court",
+          "type": "title",
+          "relationship": "actor",
+          "character": "Cardinal Thomas Wolsey"
+        }
+      ]
+    },
+    {
+      "name": "John Smith",
+      "role_hint": null,
+      "related_to": [
+        {
+          "name": "Sputnik Films",
+          "type": "company",
+          "relationship": "producer at",
+          "character": null
+        },
+        {
+          "name": "The Long Winter",
+          "type": "title",
+          "relationship": "producer",
+          "character": null
+        }
+      ]
+    },
+    {
+      "name": "Nicole Kidman",
+      "role_hint": null,
+      "related_to": [
+        {
+          "name": "The Long Winter",
+          "type": "title",
+          "relationship": "actor",
+          "character": null
+        }
+      ]
+    },
+    {
+      "name": "Judy Davis",
+      "role_hint": null,
+      "related_to": [
+        {
+          "name": "The Long Winter",
+          "type": "title",
+          "relationship": "actor",
+          "character": null
+        }
+      ]
+    }
+  ],
+  "titles": [
+    {
+      "name": "The Long Winter",
+      "format_hint": "limited series"
+    },
+    {
+      "name": "The Crown",
+      "format_hint": null
+    },
+    {
+      "name": "Tudor Court",
+      "format_hint": null
+    }
+  ],
+  "companies": [
+    {
+      "name": "Warner Bros. Television",
+      "type_hint": null
+    },
+    {
+      "name": "HBO Max",
+      "type_hint": null
+    },
+    {
+      "name": "CAA",
+      "type_hint": null
+    },
+    {
+      "name": "Netflix",
+      "type_hint": null
+    },
+    {
+      "name": "BBC",
+      "type_hint": null
+    },
+    {
+      "name": "Sputnik Films",
+      "type_hint": null
+    }
+  ]
+}

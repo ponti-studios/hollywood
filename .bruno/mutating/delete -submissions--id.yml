@@ -1,0 +1,59 @@
+info:
+  name: delete /submissions/:id
+  type: http
+  seq: 6
+  tags:
+    - mutating
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/submissions/:id"
+  params:
+    - name: id
+      value: ""
+      type: path
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Deleted submission
+    request:
+      url: "{{baseUrl}}/submissions/:id"
+      method: DELETE
+      params:
+        - name: id
+          value: ""
+          type: path
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "deleted": false
+          }
+  - name: 404 Response
+    description: Submission not found
+    request:
+      url: "{{baseUrl}}/submissions/:id"
+      method: DELETE
+      params:
+        - name: id
+          value: ""
+          type: path
+    response:
+      status: 404
+      statusText: Not Found
+      body:
+        type: text
+        data: ""

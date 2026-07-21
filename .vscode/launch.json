@@ -10,7 +10,7 @@
 			"request": "launch",
 			"runtimeExecutable": "npx",
 			"runtimeArgs": ["tsx", "watch", "src/index.ts"],
-			"cwd": "${workspaceFolder}/api",
+			"cwd": "${workspaceFolder}",
 			"console": "integratedTerminal",
 			"skipFiles": ["<node_internals>/**"]
 		}

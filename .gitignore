@@ -4,28 +4,8 @@
 .build
 data/
 
-# Python
-.venv
-__pycache__
-*.egg-info
-
-# IDE
-.vscode/
-.idea/
-
 # OS
 .DS_Store
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Type checking
-.mypy_cache/
-
-# Linting
-.ruff_cache/
 
 # Build
 dist/
@@ -33,15 +13,3 @@ build/
 
 # Node
 node_modules/
-
-**/.cache/
-**/.venv/
-**/.work/
-**/cache/
-**/outputs/
-**/runtime/
-**/transcripts/
-
-# Local project OS state
-.kernel/state/
-.env

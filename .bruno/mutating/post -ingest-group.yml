@@ -1,0 +1,89 @@
+info:
+  name: post /ingest/group
+  type: http
+  seq: 10
+  tags:
+    - mutating
+
+http:
+  method: POST
+  url: "{{baseUrl}}/ingest/group"
+  body:
+    type: json
+    data: |-
+      {
+        "group_name": "news",
+        "limit": 1,
+        "since": "",
+        "full_text": false
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Ingest run summaries
+    request:
+      url: "{{baseUrl}}/ingest/group"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "group_name": "news",
+            "limit": 1,
+            "since": "",
+            "full_text": false
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          [
+            {
+              "run_id": "",
+              "source_id": "",
+              "status": "",
+              "raw_records": 0,
+              "normalized": {},
+              "entities_matched": 0,
+              "entities_created": 0
+            }
+          ]
+  - name: 500 Response
+    description: Ingest failed
+    request:
+      url: "{{baseUrl}}/ingest/group"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "group_name": "news",
+            "limit": 1,
+            "since": "",
+            "full_text": false
+          }
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "",
+            "detail": ""
+          }

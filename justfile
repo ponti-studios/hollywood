@@ -5,37 +5,53 @@ default:
 
 clean:
     rm -rf dist/ data/
-    find . -name "*.pyc" -delete
 
 help:
     @just --list
 
 # ── API ──────────────────────────────────────────────────────────────────────
 api-setup:
-    cd api && npm install
+    npm install
 
 api-dev:
-    cd api && npx tsx watch src/index.ts
+    npx tsx watch src/index.ts
 
 api-typecheck:
-    cd api && npx tsc --noEmit
+    npx tsc --noEmit
+
+api-lint:
+    npx oxlint
+
+api-lint-fix:
+    npx oxlint --fix
 
 api-build:
-    cd api && npx tsc
+    npx tsc
 
 api-start:
-    cd api && node dist/index.js
+    node dist/index.js
 
 api-docs:
     @echo "OpenAPI spec available at http://localhost:4000/openapi"
     @echo "Start the server with: just api-dev"
 
+# Wipes the dev SQLite db, recreates it from the Drizzle migrations, then
+# ingests every source from scratch, capped at `limit` records per source
+# (default 3 — enough to prove the pipeline works, not a mass ingest). Pass
+# 0 for an unbounded full ingest. Destructive — dev use only.
+db-refresh limit="3":
+    npx tsx src/scripts/refresh-db.ts --limit={{limit}}
+
 # ── Bruno ────────────────────────────────────────────────────────────────────
 bruno-import:
-    npx --yes @usebruno/cli import openapi --source http://localhost:4000/openapi --output bruno/hollywood-api --collection-name "Hollywood API" --group-by tags
+    rm -rf .bruno
+    npx --yes @usebruno/cli import openapi \
+    --source http://localhost:4000/openapi \
+    --output .bruno \
+    --group-by tags
 
 bruno-run:
-    cd bruno/hollywood-api && npx --yes @usebruno/cli run -r --env "Local development" --exclude-tags mutating
+    cd .bruno && npx --yes @usebruno/cli run -r --env "Local development" --exclude-tags mutating
 
 bruno-run-all:
-    cd bruno/hollywood-api && npx --yes @usebruno/cli run -r --env "Local development"
+    cd .bruno && npx --yes @usebruno/cli run -r --env "Local development"

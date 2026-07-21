@@ -2,7 +2,7 @@
 
 Local-first entertainment data platform for research corpus building. A Hono REST API
 ingests entertainment RSS feeds, browser-only directories like WGA, and structured
-metadata sources (TMDB, Wikidata, IMDb) into a unified SQLite database, with raw-payload
+metadata sources (TMDB, Wikidata) into a unified SQLite database, with raw-payload
 archiving and JSONL exports.
 
 ## Run
@@ -18,12 +18,12 @@ The API starts at `http://localhost:4000`. OpenAPI docs are at `/openapi`.
 
 - `GET /sources` — list built-in ingest sources
 - `POST /ingest` — LLM extraction from raw submission text (single doc or batch)
-- `POST /ingest/source` — ingest a single source (`variety`, `deadline`, `hollywood_reporter`, `the_wrap`, `tmdb`, `wikidata`, `wga`, `imdb`)
+- `POST /ingest/source` — ingest a single source (`variety`, `deadline`, `hollywood_reporter`, `the_wrap`, `tmdb`, `wikidata`, `wga`)
 - `POST /ingest/group` — ingest all sources in a named group (`news`, `entities`, `directories`, `all`)
 - `POST /normalize` — re-derive normalized tables from already-archived raw records
 - `GET /export` — export normalized tables as JSONL
 - `GET /doctor` — health checks (data dir, DB, API keys, per-source config)
-- `GET /candidates`, `/projects`, `/submissions`, `/search`, `/tags`, `/users` — entity graph CRUD/search
+- `GET /candidates`, `/projects`, `/submissions`, `/search`, `/tags` — entity graph CRUD/search
 
 ## Environment
 
@@ -51,3 +51,15 @@ just api-typecheck
 just api-build
 just api-start       # run the compiled build
 ```
+
+To wipe the dev database and rebuild it from scratch (recreates the schema from
+the Drizzle migrations, then ingests every source):
+
+```bash
+just db-refresh        # capped at 3 records per source — a pipeline smoke test
+just db-refresh 20     # override the per-source limit
+just db-refresh 0      # unbounded full ingest (slow — WGA crawls every a-z prefix)
+```
+
+This is destructive — it deletes `HOLLYWOOD_DB_PATH` before recreating it. Don't
+run it against a database with data you want to keep.
