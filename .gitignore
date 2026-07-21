@@ -4,10 +4,6 @@
 .build
 data/
 
-# IDE
-.vscode/
-.idea/
-
 # OS
 .DS_Store
 
@@ -17,14 +13,3 @@ build/
 
 # Node
 node_modules/
-
-**/.cache/
-**/.work/
-**/cache/
-**/outputs/
-**/runtime/
-**/transcripts/
-
-# Local project OS state
-.kernel/state/
-.env

@@ -51,3 +51,15 @@ just api-typecheck
 just api-build
 just api-start       # run the compiled build
 ```
+
+To wipe the dev database and rebuild it from scratch (recreates the schema from
+the Drizzle migrations, then ingests every source):
+
+```bash
+just db-refresh        # capped at 3 records per source — a pipeline smoke test
+just db-refresh 20     # override the per-source limit
+just db-refresh 0      # unbounded full ingest (slow — WGA crawls every a-z prefix)
+```
+
+This is destructive — it deletes `HOLLYWOOD_DB_PATH` before recreating it. Don't
+run it against a database with data you want to keep.

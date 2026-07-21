@@ -5,7 +5,7 @@
       "name": "hollywood-api",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "cwd": "api",
+      "cwd": ".",
       "port": 4000
     }
   ]
