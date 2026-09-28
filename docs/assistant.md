@@ -28,10 +28,14 @@ or its in-memory "memory" store.
   `run(directorAgent, query)` and returns `{ agent, response }` from the
   result's `lastAgent`/`finalOutput`. Also logs every run via `costLog.ts`.
 - `assistant/costLog.ts` — appends one entry per `chat()` call to
-  `${HOLLYWOOD_DATA_DIR}/assistant-runs.json` (a JSON array; read-modify-write,
-  not built for concurrent writers — this is a local investigation tool, not
-  production telemetry): timestamp, model, query, responding agent, response
-  text, and `metrics` (aggregated `requests`/`inputTokens`/`outputTokens`/
+  `${HOLLYWOOD_DATA_DIR}/assistant-runs.jsonl` as JSON Lines (`appendFileSync`,
+  one `JSON.parse`-able object per line — not a JSON array file, on purpose:
+  an array requires reading, parsing, and rewriting the entire file on every
+  call, which is quadratic I/O as history grows and runs synchronously on the
+  request thread; a caught bug in review before this shipped). Read it back
+  with `jq -s . assistant-runs.jsonl` for a proper array. Each entry:
+  timestamp, model, query, responding agent, response text, and `metrics`
+  (aggregated `requests`/`inputTokens`/`outputTokens`/
   `totalTokens` from `RunResult.runContext.usage`, plus `costUsd` summed from
   OpenRouter's per-request `cost` field). That `cost` field is an
   OpenRouter-specific extension to the OpenAI-compatible response, only

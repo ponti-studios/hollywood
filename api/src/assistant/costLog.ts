@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { Agent, ModelResponse, RunResult } from "@openai/agents";
 import { env } from "../env.js";
@@ -53,27 +53,22 @@ export function extractRunMetrics(result: RunResultLike): RunMetrics {
 }
 
 function defaultLogPath(): string {
-  return resolve(env.HOLLYWOOD_DATA_DIR, "assistant-runs.json");
+  return resolve(env.HOLLYWOOD_DATA_DIR, "assistant-runs.jsonl");
 }
 
 /**
- * Appends one entry to a JSON array file for manual cost/quality investigation.
- * Read-modify-write, not append-only — fine for this tool's actual usage
- * (a person running a handful of test queries locally), not built for
- * concurrent writers.
+ * Appends one entry as a single JSON Lines record for manual cost/quality
+ * investigation (one `JSON.parse`-able object per line). Deliberately
+ * append-only, not a read-modify-write JSON array: this used to read, parse,
+ * and rewrite the entire file on every chat call, which is quadratic I/O as
+ * history grows and runs synchronously on the request thread — appendFileSync
+ * is a single O(1) write per call regardless of prior history size.
+ * Read it back with `jq -c . assistant-runs.jsonl` or
+ * `jq -s . assistant-runs.jsonl` to get a proper JSON array.
  */
 export function recordRun(entry: AssistantRunLogEntry, logPath: string = defaultLogPath()): void {
   mkdirSync(dirname(logPath), { recursive: true });
-
-  let entries: AssistantRunLogEntry[] = [];
-  try {
-    entries = JSON.parse(readFileSync(logPath, "utf-8"));
-  } catch {
-    entries = [];
-  }
-
-  entries.push(entry);
-  writeFileSync(logPath, JSON.stringify(entries, null, 2) + "\n");
+  appendFileSync(logPath, JSON.stringify(entry) + "\n");
 }
 
 export function buildLogEntry(params: {

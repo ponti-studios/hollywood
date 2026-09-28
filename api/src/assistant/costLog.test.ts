@@ -1,14 +1,23 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildLogEntry, extractRunMetrics, recordRun } from "./costLog.js";
+import type { AssistantRunLogEntry } from "./costLog.js";
 
 function fakeResult(overrides: { usage?: object; rawResponses?: object[] } = {}) {
   return {
     runContext: { usage: { requests: 1, inputTokens: 10, outputTokens: 5, totalTokens: 15, ...overrides.usage } } as any,
     rawResponses: (overrides.rawResponses ?? []) as any,
   };
+}
+
+function readEntries(logPath: string): AssistantRunLogEntry[] {
+  const text = readFileSync(logPath, "utf-8");
+  return text
+    .split("\n")
+    .filter((line) => line.trim())
+    .map((line) => JSON.parse(line));
 }
 
 describe("extractRunMetrics", () => {
@@ -39,7 +48,7 @@ describe("recordRun", () => {
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "hollywood-costlog-test-"));
-    logPath = join(dir, "nested", "assistant-runs.json");
+    logPath = join(dir, "nested", "assistant-runs.jsonl");
   });
 
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -55,31 +64,29 @@ describe("recordRun", () => {
 
     recordRun(entry, logPath);
 
-    const written = JSON.parse(readFileSync(logPath, "utf-8"));
-    expect(written).toEqual([entry]);
+    expect(readEntries(logPath)).toEqual([entry]);
   });
 
-  it("appends subsequent entries instead of overwriting", () => {
+  it("appends subsequent entries as new lines instead of rewriting the file", () => {
     const first = buildLogEntry({ model: "m", query: "q1", agent: undefined, response: "r1", result: fakeResult() });
     const second = buildLogEntry({ model: "m", query: "q2", agent: undefined, response: "r2", result: fakeResult() });
 
     recordRun(first, logPath);
     recordRun(second, logPath);
 
-    const written = JSON.parse(readFileSync(logPath, "utf-8"));
-    expect(written).toEqual([first, second]);
+    expect(readEntries(logPath)).toEqual([first, second]);
   });
 
-  it("recovers instead of throwing if the existing file isn't valid JSON", () => {
+  it("never reads the existing file back, so a malformed earlier line can't break a later append", () => {
+    mkdirSync(dirname(logPath), { recursive: true });
+    appendFileSync(logPath, "not json\n");
+
     const entry = buildLogEntry({ model: "m", query: "q", agent: undefined, response: "r", result: fakeResult() });
     recordRun(entry, logPath);
-    writeFileSync(logPath, "not json");
 
-    const second = buildLogEntry({ model: "m", query: "q2", agent: undefined, response: "r2", result: fakeResult() });
-    recordRun(second, logPath);
-
-    const written = JSON.parse(readFileSync(logPath, "utf-8"));
-    expect(written).toEqual([second]);
+    const lines = readFileSync(logPath, "utf-8").trim().split("\n");
+    expect(lines[0]).toBe("not json");
+    expect(JSON.parse(lines[1]!)).toEqual(entry);
   });
 });
 
