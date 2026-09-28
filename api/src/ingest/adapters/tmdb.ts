@@ -141,6 +141,16 @@ export class TmdbAdapter implements Adapter {
     const titleEntityId = makeStableId("tmdb", mediaType, titleId);
     if (!seenEntities.has(titleEntityId)) {
       seenEntities.add(titleEntityId);
+
+      // TMDb's /movie/{id} detail response includes `budget`/`revenue` in USD, but
+      // TMDb uses 0 to mean "unknown," not zero dollars — a real $0 budget/revenue
+      // essentially never occurs. Treat 0 (and non-finite values) as unknown and
+      // omit the field rather than persist a misleading 0. TV has no budget/revenue.
+      const rawBudget = mediaType === "movie" ? Number(document["budget"]) : undefined;
+      const rawRevenue = mediaType === "movie" ? Number(document["revenue"]) : undefined;
+      const budget = rawBudget !== undefined && Number.isFinite(rawBudget) && rawBudget > 0 ? rawBudget : undefined;
+      const revenue = rawRevenue !== undefined && Number.isFinite(rawRevenue) && rawRevenue > 0 ? rawRevenue : undefined;
+
       const row: EntityRow = {
         entityId: titleEntityId,
         sourceId: this.source.sourceId,
@@ -149,7 +159,13 @@ export class TmdbAdapter implements Adapter {
         name: titleName,
         canonicalName: titleName.toLowerCase(),
         licenseClass: this.source.licenseClass,
-        metadataJson: JSON.stringify({ media_type: mediaType, external_ids: document["external_ids"] ?? {} }),
+        metadataJson: JSON.stringify({
+          media_type: mediaType,
+          external_ids: document["external_ids"] ?? {},
+          ...(budget !== undefined ? { budget } : {}),
+          ...(revenue !== undefined ? { revenue } : {}),
+          ...(budget !== undefined || revenue !== undefined ? { budgetCurrency: "USD" } : {}),
+        }),
       };
       bundle.entities.push(row);
     }

@@ -387,6 +387,23 @@ Bandsintown for tour dates, Pollstar, music trade RSS) follow the same
 adapter interface and write into the same `entities`/`credits`/
 `title_companies` tables.
 
+## Film vertical extension
+
+Financial facts about a movie release piggyback on the same genre-agnostic
+`entities.metadata_json` column — no new tables.
+
+| Concept | Modeled as |
+|---|---|
+| Production budget | `entities.metadata_json.budget` (USD, movie only) |
+| Box office revenue | `entities.metadata_json.revenue` (USD, movie only) |
+| Currency | `entities.metadata_json.budgetCurrency` (`"USD"`, present only when budget or revenue is present) |
+
+TMDb's `/movie/{id}` detail response uses `0` to mean "unknown," not a real
+zero-dollar budget or revenue — the `tmdb` adapter
+(`api/src/ingest/adapters/tmdb.ts`) treats `0` as unknown and omits the field
+rather than persisting a misleading `0`. TV titles have no budget/revenue
+field in TMDb's API and never get these keys.
+
 ## Migration Steps
 
 1. **Create the unified migration** — single 00001_initial_schema.sql in hollywood with all tables above
