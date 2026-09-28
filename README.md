@@ -24,6 +24,7 @@ The API starts at `http://localhost:4000`. OpenAPI docs are at `/openapi`.
 - `GET /export` — export normalized tables as JSONL
 - `GET /doctor` — health checks (data dir, DB, API keys, per-source config)
 - `GET /candidates`, `/projects`, `/submissions`, `/search`, `/tags`, `/users` — entity graph CRUD/search
+- `POST /assistant/chat` — Director-routed assistant (calendar/financial/marketing/touring), grounded in the entity graph
 
 ## Environment
 
