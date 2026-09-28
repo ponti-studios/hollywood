@@ -1,59 +1,33 @@
+import { run } from "@openai/agents";
+import type { Agent, RunResult } from "@openai/agents";
 import { EntityRepository } from "../db/repositories/EntityRepository.js";
-import { AGENT_DEFINITIONS } from "./agents.js";
-import type { AgentId } from "./agents.js";
-import { routeQuery } from "./director.js";
-import { findGroundedEntities, formatGroundedContext } from "./grounding.js";
-import { chatCompletion } from "./llm.js";
-import type { ChatMessage } from "./llm.js";
-
-const DIRECTOR_FALLBACK_PROMPT =
-  "You are the Director of an entertainment-industry assistant. Answer the user's query directly and concisely.";
+import { buildDirectorAgent } from "./agents.js";
+import { configureOpenRouter } from "./model.js";
 
 export interface AssistantChatResult {
   agent: string;
   response: string;
 }
 
+type RunAgentFn = (agent: Agent<any, any>, query: string) => Promise<Pick<RunResult<any, any>, "finalOutput" | "lastAgent">>;
+
 export class AssistantService {
+  private directorAgent: Agent;
+
   constructor(
-    private entityRepo: EntityRepository = new EntityRepository(),
-    private chatFn: (messages: ChatMessage[]) => Promise<string> = chatCompletion,
-  ) {}
-
-  async chat(query: string): Promise<AssistantChatResult> {
-    const decision = await routeQuery(query, this.chatFn);
-
-    if (decision.kind === "agent") {
-      return this.runSubAgent(decision.agentId, query);
-    }
-
-    if (decision.kind === "none") {
-      const response = await this.chatFn([
-        { role: "system", content: DIRECTOR_FALLBACK_PROMPT },
-        { role: "user", content: query },
-      ]);
-      return { agent: "director", response };
-    }
-
-    throw new Error("Director could not route or respond to the query.");
+    entityRepo: EntityRepository = new EntityRepository(),
+    private runAgent: RunAgentFn = run,
+  ) {
+    // Only configure the real OpenRouter client when actually running against
+    // it — tests inject their own runAgent and never need OPENROUTER_API_KEY.
+    if (runAgent === run) configureOpenRouter();
+    this.directorAgent = buildDirectorAgent(entityRepo);
   }
 
-  private async runSubAgent(agentId: AgentId, query: string): Promise<AssistantChatResult> {
-    const definition = AGENT_DEFINITIONS[agentId];
-    const grounded = findGroundedEntities(query, this.entityRepo);
-    const groundedContext = formatGroundedContext(grounded);
-
-    const systemLines = [
-      `You are the ${definition.name}. Role: ${definition.role}. Goal: ${definition.goal}`,
-      definition.backstory,
-    ];
-    if (groundedContext) systemLines.push(groundedContext);
-
-    const response = await this.chatFn([
-      { role: "system", content: systemLines.join("\n\n") },
-      { role: "user", content: query },
-    ]);
-
-    return { agent: definition.name, response };
+  async chat(query: string): Promise<AssistantChatResult> {
+    const result = await this.runAgent(this.directorAgent, query);
+    const response = typeof result.finalOutput === "string" ? result.finalOutput : JSON.stringify(result.finalOutput ?? "");
+    const agent = result.lastAgent?.name ?? this.directorAgent.name;
+    return { agent, response };
   }
 }

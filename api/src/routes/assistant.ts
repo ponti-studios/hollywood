@@ -23,12 +23,20 @@ const chatRoute = createRoute({
 });
 
 const router = new OpenAPIHono();
-const assistantService = new AssistantService();
+
+// Constructed lazily (not at module load) so the whole API doesn't fail to
+// start when OPENROUTER_API_KEY is unset — only this endpoint does, on the
+// first request that hits it.
+let assistantService: AssistantService | null = null;
+function getAssistantService(): AssistantService {
+  if (!assistantService) assistantService = new AssistantService();
+  return assistantService;
+}
 
 router.openapi(chatRoute, async (c) => {
   const { query } = c.req.valid("json");
   try {
-    const result = await assistantService.chat(query);
+    const result = await getAssistantService().chat(query);
     return c.json(result, 200);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
