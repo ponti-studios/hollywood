@@ -55,7 +55,7 @@ describe("SpotifyAdapter", () => {
     const record = {
       payload_type: "api_json",
       content_path: "/dev/null",
-      metadata_json: JSON.stringify({ endpoint: "/browse/new-releases", kind: "new_releases_list" }),
+      metadata_json: JSON.stringify({ endpoint: "/search", kind: "new_releases_list" }),
     } as unknown as DbRow;
 
     const bundle = await adapter.normalizeRawRecords("run1", [record]);

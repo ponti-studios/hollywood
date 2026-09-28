@@ -60,15 +60,26 @@ export class SpotifyAdapter implements Adapter {
     const limit = options.limit ?? 5;
     const token = await this.getAccessToken();
 
-    const newReleases = await this.get(token, "/browse/new-releases", { limit: String(Math.min(limit, 50)) });
+    // GET /browse/new-releases returns 403 for standard-quota apps as of
+    // Spotify's Nov 2024 API policy change (several Browse-category endpoints
+    // were restricted to apps with extended-quota approval). /search with
+    // Spotify's `tag:new` filter (albums/singles released in the last ~2
+    // weeks) works under plain client-credentials auth and returns the same
+    // { albums: { items: [...] } } response shape.
+    const searchEndpoint = "/search";
+    const newReleases = await this.get(token, searchEndpoint, {
+      q: "tag:new",
+      type: "album",
+      limit: String(Math.min(limit, 50)),
+    });
     payloads.push({
       payloadType: "api_json",
       logicalId: "new_releases",
       body: Buffer.from(JSON.stringify(newReleases), "utf-8"),
       contentType: "application/json",
-      sourceUrl: `${SPOTIFY_API_BASE}/browse/new-releases`,
+      sourceUrl: `${SPOTIFY_API_BASE}${searchEndpoint}?q=tag:new&type=album`,
       fetchedAt: new Date(),
-      metadata: { endpoint: "/browse/new-releases", kind: "new_releases_list" },
+      metadata: { endpoint: searchEndpoint, kind: "new_releases_list" },
       extension: ".json",
     });
 

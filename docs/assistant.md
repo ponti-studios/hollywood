@@ -80,13 +80,13 @@ submission extraction) — the two are independent and can move separately.
 
 ## Known gaps from manual testing
 
-- `search_entity_graph`'s output (`tools.ts`) only ever includes each
-  matched entity's name and type/kind — never `metadataJson` (bio, genre,
-  external links, etc.). A live test against a seeded artist with
-  `metadata_json: {"genre": "synth-pop"}` got "the available information
-  doesn't specify a genre" back — an honest non-hallucination, but the tool
-  really could have answered correctly if it surfaced metadata. Not fixed
-  yet.
+- ~~`search_entity_graph`'s output only ever includes each matched entity's
+  name and type/kind, never `metadataJson`~~ — fixed: `tools.ts`'s
+  `formatMetadata` now renders metadata's flat key/value pairs (dropping
+  nested objects/arrays, capped at 300 chars, line breaks stripped same as
+  entity names). Re-tested live against the same seeded artist
+  (`metadata_json: {"genre": "synth-pop"}`) — the assistant now correctly
+  answers "synth-pop" instead of "doesn't specify a genre."
 - Earlier manual testing (on `openai/gpt-4o-mini`) showed the model
   confidently hallucinating facts about both real and fabricated entities
   instead of calling `search_entity_graph` at all. The same test prompts
