@@ -2,6 +2,7 @@ import { RunRepository, type RunStatus } from "../repositories/RunRepository.js"
 import { RawRecordRepository } from "../repositories/RawRecordRepository.js";
 import { EntityRepository, makeStableId } from "../repositories/EntityRepository.js";
 import { CreditRepository } from "../repositories/CreditRepository.js";
+import { TitleCompanyRepository } from "../repositories/TitleCompanyRepository.js";
 import { TagRepository } from "../repositories/TagRepository.js";
 import { ArticleRepository } from "../repositories/ArticleRepository.js";
 import { ExtractionRepository } from "../repositories/ExtractionRepository.js";
@@ -18,6 +19,7 @@ import type {
   EntityAliasRow,
   ArticleEntityRow,
   CreditRow,
+  TitleCompanyRow,
 } from "../../ingest/models.js";
 import type { DbRow } from "../index.js";
 
@@ -26,6 +28,7 @@ export class IngestService {
   private rawRecordRepo: RawRecordRepository;
   private entityRepo: EntityRepository;
   private creditRepo: CreditRepository;
+  private titleCompanyRepo: TitleCompanyRepository;
   private tagRepo: TagRepository;
   private articleRepo: ArticleRepository;
   private extractionRepo: ExtractionRepository;
@@ -35,6 +38,7 @@ export class IngestService {
     rawRecordRepo?: RawRecordRepository;
     entityRepo?: EntityRepository;
     creditRepo?: CreditRepository;
+    titleCompanyRepo?: TitleCompanyRepository;
     tagRepo?: TagRepository;
     articleRepo?: ArticleRepository;
     extractionRepo?: ExtractionRepository;
@@ -43,6 +47,7 @@ export class IngestService {
     this.rawRecordRepo = opts?.rawRecordRepo ?? new RawRecordRepository();
     this.entityRepo = opts?.entityRepo ?? new EntityRepository();
     this.creditRepo = opts?.creditRepo ?? new CreditRepository();
+    this.titleCompanyRepo = opts?.titleCompanyRepo ?? new TitleCompanyRepository();
     this.tagRepo = opts?.tagRepo ?? new TagRepository();
     this.articleRepo = opts?.articleRepo ?? new ArticleRepository();
     this.extractionRepo = opts?.extractionRepo ?? new ExtractionRepository();
@@ -248,6 +253,7 @@ export class IngestService {
     this.upsertEntityAliases(bundle.entityAliases, entityIdMap);
     this.upsertArticleEntities(bundle.articleEntities, entityIdMap);
     this.upsertCredits(bundle.credits, entityIdMap);
+    this.upsertTitleCompanies(bundle.titleCompanies, entityIdMap);
   }
 
   private upsertArticles(rows: ArticleRow[]): void {
@@ -339,6 +345,17 @@ export class IngestService {
           billing: r.billing,
         });
       }
+    }
+  }
+
+  private upsertTitleCompanies(rows: TitleCompanyRow[], entityIdMap: Map<string, string>): void {
+    for (const r of rows) {
+      this.titleCompanyRepo.upsert({
+        titleId: entityIdMap.get(r.titleEntityId) ?? r.titleEntityId,
+        companyId: entityIdMap.get(r.companyEntityId) ?? r.companyEntityId,
+        sourceId: r.sourceId,
+        relationship: r.relationship,
+      });
     }
   }
 }

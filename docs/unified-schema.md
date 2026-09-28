@@ -397,12 +397,27 @@ Financial facts about a movie release piggyback on the same genre-agnostic
 | Production budget | `entities.metadata_json.budget` (USD, movie only) |
 | Box office revenue | `entities.metadata_json.revenue` (USD, movie only) |
 | Currency | `entities.metadata_json.budgetCurrency` (`"USD"`, present only when budget or revenue is present) |
+| Production company / studio | `entities.entity_type = 'company'`, `metadata_json.company_type = 'production_company'` |
+| Company credited on a title | `title_companies` row, `relationship = 'production'` |
 
 TMDb's `/movie/{id}` detail response uses `0` to mean "unknown," not a real
 zero-dollar budget or revenue — the `tmdb` adapter
 (`api/src/ingest/adapters/tmdb.ts`) treats `0` as unknown and omits the field
 rather than persisting a misleading `0`. TV titles have no budget/revenue
 field in TMDb's API and never get these keys.
+
+TMDb's `production_companies` field (present on both `/movie/{id}` and
+`/tv/{id}`) is the closest structured proxy for "who financed this" — TMDb
+has no concept of an equity investor, and neither Wikidata's `investor`
+(`P1951`) nor `funder` (`P8324`) properties have usable film/TV coverage
+(checked live: 2 films with `P1951`, both miscategorized; 382 with
+`P8324`, almost all Finnish public-broadcaster grants, not commercial
+investors). The `tmdb` adapter persists each production company as a
+`company` entity and links it via `title_companies` with
+`relationship = 'production'`. This was the first adapter to write to
+`title_companies` — see `TitleCompanyRow` in `api/src/ingest/models.ts`,
+`TitleCompanyRepository`, and `IngestService.upsertTitleCompanies()` for
+the (newly built) persistence path any future adapter can reuse.
 
 ## Migration Steps
 

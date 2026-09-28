@@ -95,6 +95,48 @@ describe("TmdbAdapter", () => {
     expect(meta.budgetCurrency).toBeUndefined();
   });
 
+  it("maps production companies to company entities and title_companies rows for a movie", async () => {
+    const record = writeTitleRecord("movie", {
+      id: 5,
+      title: "Studio Movie",
+      external_ids: {},
+      production_companies: [
+        { id: 420, name: "Marvel Studios", origin_country: "US" },
+        { id: 7505, name: "Marvel Entertainment", origin_country: "US" },
+      ],
+    });
+
+    const bundle = await adapter.normalizeRawRecords("run1", [record]);
+    const title = bundle.entities.find((e) => e.entityType === "title");
+    const companies = bundle.entities.filter((e) => e.entityType === "company");
+
+    expect(companies.map((c) => c.name).sort()).toEqual(["Marvel Entertainment", "Marvel Studios"]);
+    for (const company of companies) {
+      expect(JSON.parse(company.metadataJson).company_type).toBe("production_company");
+    }
+
+    expect(bundle.titleCompanies).toHaveLength(2);
+    for (const tc of bundle.titleCompanies) {
+      expect(tc.relationship).toBe("production");
+      expect(tc.titleEntityId).toBe(title!.entityId);
+    }
+  });
+
+  it("maps production companies for a tv show too", async () => {
+    const record = writeTitleRecord("tv", {
+      id: 6,
+      name: "Studio Show",
+      external_ids: {},
+      production_companies: [{ id: 3268, name: "HBO", origin_country: "US" }],
+    });
+
+    const bundle = await adapter.normalizeRawRecords("run1", [record]);
+    const companies = bundle.entities.filter((e) => e.entityType === "company");
+
+    expect(companies.map((c) => c.name)).toEqual(["HBO"]);
+    expect(bundle.titleCompanies).toHaveLength(1);
+  });
+
   it("skips raw records that are not api_json trending payloads", async () => {
     const record = {
       payload_type: "api_json",

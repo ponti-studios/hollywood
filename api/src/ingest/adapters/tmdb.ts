@@ -9,6 +9,7 @@ import type {
   NormalizedBundle,
   RawPayload,
   SourceDefinition,
+  TitleCompanyRow,
 } from "../models.js";
 import type { Adapter } from "./base.js";
 import type { DbRow } from "../../db/index.js";
@@ -168,6 +169,35 @@ export class TmdbAdapter implements Adapter {
         }),
       };
       bundle.entities.push(row);
+    }
+
+    const productionCompanies = (document["production_companies"] as Record<string, unknown>[] | undefined) ?? [];
+    for (const company of productionCompanies) {
+      const companyName = company["name"] as string | undefined;
+      const companyId = company["id"];
+      if (!companyName || companyId === undefined || companyId === null) continue;
+      const companyEntityId = makeStableId("tmdb", "company", String(companyId));
+      if (!seenEntities.has(companyEntityId)) {
+        seenEntities.add(companyEntityId);
+        bundle.entities.push({
+          entityId: companyEntityId,
+          sourceId: this.source.sourceId,
+          externalId: String(companyId),
+          entityType: "company",
+          name: companyName,
+          canonicalName: companyName.toLowerCase(),
+          licenseClass: this.source.licenseClass,
+          metadataJson: JSON.stringify({ company_type: "production_company", origin_country: company["origin_country"] ?? null }),
+        });
+      }
+      const titleCompanyRow: TitleCompanyRow = {
+        titleCompanyId: makeStableId("tmdb", titleEntityId, companyEntityId, "production"),
+        sourceId: this.source.sourceId,
+        titleEntityId,
+        companyEntityId,
+        relationship: "production",
+      };
+      bundle.titleCompanies.push(titleCompanyRow);
     }
 
     const credits = (document["credits"] as Record<string, unknown>) ?? {};
