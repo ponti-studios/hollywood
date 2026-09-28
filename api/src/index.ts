@@ -3,6 +3,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { closeDb } from "./db/index.js";
 import { HOST, PORT, env } from "./env.js";
 import { registerAllAdapters } from "./ingest/adapters/index.js";
+import assistantRouter from "./routes/assistant.js";
 import candidatesRouter from "./routes/candidates.js";
 import doctorRouter from "./routes/doctor.js";
 import exportRouter from "./routes/export.js";
@@ -50,6 +51,7 @@ app.route("/", sourcesRouter);
 app.route("/", normalizeRouter);
 app.route("/", exportRouter);
 app.route("/", doctorRouter);
+app.route("/", assistantRouter);
 
 // ── Server ──────────────────────────────────────────────────────────────────
 
