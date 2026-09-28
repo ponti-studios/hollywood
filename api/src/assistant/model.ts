@@ -1,9 +1,24 @@
+import type { ModelSettings } from "@openai/agents";
 import OpenAI from "openai";
 import { setDefaultOpenAIClient, setOpenAIAPI, setTracingDisabled } from "@openai/agents";
 import { env } from "../env.js";
-import { DEFAULT_MODEL, OPENROUTER_BASE_URL } from "../ingest/llm.js";
+import { OPENROUTER_BASE_URL } from "../ingest/llm.js";
 
-export { DEFAULT_MODEL };
+/** Model the assistant runs on, as an OpenRouter model id. */
+export const ASSISTANT_MODEL = "openai/gpt-5.6-luna";
+
+/**
+ * Applied to every assistant Agent's `modelSettings`. `providerData.usage.include`
+ * is an OpenRouter-specific extension to the OpenAI-compatible chat completions
+ * request that makes OpenRouter return per-request dollar cost; `preserveRawUsage`
+ * tells the SDK to keep that raw (pre-normalization) usage object on
+ * ModelResponse.rawUsage instead of discarding it, which is where costLog.ts reads
+ * the cost back out.
+ */
+export const COST_TRACKING_MODEL_SETTINGS: ModelSettings = {
+  providerData: { usage: { include: true } },
+  preserveRawUsage: true,
+};
 
 let configured = false;
 
