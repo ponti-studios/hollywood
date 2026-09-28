@@ -82,6 +82,34 @@ submission extraction) — the two are independent and can move separately.
 - A chat UI — this ships as an API only, matching hollywood's existing
   API-only posture.
 
+## MCP server
+
+`POST /mcp` (Hono route in `src/index.ts`, server built in `mcp/server.ts`)
+exposes hollywood to any MCP-compatible chat client — Claude Desktop, a
+WhatsApp bot fronted by an MCP client, etc. — as three tools, built on
+`@modelcontextprotocol/sdk`'s `McpServer` mounted via `@hono/mcp`'s
+`StreamableHTTPTransport`:
+
+- `search_entities` — wraps `assistant/tools.ts`'s `searchEntityGraph`
+  directly (same formatting/prompt-injection stripping as the agent tool).
+- `list_sources` — read-only listing of `ingest/registry.ts`'s
+  `BUILTIN_SOURCES`.
+- `chat` — wraps `AssistantService.chat`, i.e. the same Director/sub-agent
+  routing `POST /assistant/chat` uses. Needs `OPENROUTER_API_KEY`, checked
+  lazily on first call, same as the REST route.
+
+One `McpServer`/`StreamableHTTPTransport` pair per process — `connect()` is
+a one-time bind, not per-request, so the route guards it with
+`isConnected()`. Deliberately minimal and read-safe/conversational for now:
+no ingest-triggering or write tools, and no WhatsApp-specific integration —
+that's a separate, not-yet-started piece of work that would sit in front of
+this server as its own MCP client.
+
+Tested with the MCP SDK's `InMemoryTransport` + `Client` in
+`mcp/server.test.ts` (real protocol round-trip, not just calling the
+handler functions directly), and live over real HTTP against a scratch DB
+(`initialize` → `tools/list` → `tools/call`).
+
 ## Known gaps from manual testing
 
 - ~~`search_entity_graph`'s output only ever includes each matched entity's

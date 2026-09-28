@@ -1,8 +1,10 @@
 import { serve } from "@hono/node-server";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import { StreamableHTTPTransport } from "@hono/mcp";
 import { closeDb } from "./db/index.js";
 import { HOST, PORT, env } from "./env.js";
 import { registerAllAdapters } from "./ingest/adapters/index.js";
+import { buildMcpServer } from "./mcp/server.js";
 import assistantRouter from "./routes/assistant.js";
 import candidatesRouter from "./routes/candidates.js";
 import doctorRouter from "./routes/doctor.js";
@@ -52,6 +54,19 @@ app.route("/", normalizeRouter);
 app.route("/", exportRouter);
 app.route("/", doctorRouter);
 app.route("/", assistantRouter);
+
+// MCP server — lets any MCP-compatible chat client (Claude Desktop, a
+// WhatsApp bot fronted by an MCP client, etc.) use hollywood conversationally.
+// One StreamableHTTPTransport/McpServer pair per process: the SDK's
+// McpServer.connect() is a one-time bind, not per-request.
+const mcpServer = buildMcpServer();
+const mcpTransport = new StreamableHTTPTransport();
+app.all("/mcp", async (c) => {
+  if (!mcpServer.isConnected()) {
+    await mcpServer.connect(mcpTransport);
+  }
+  return mcpTransport.handleRequest(c);
+});
 
 // ── Server ──────────────────────────────────────────────────────────────────
 
