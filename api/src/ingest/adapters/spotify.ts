@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { env } from "../../env.js";
+import { env, SPOTIFY_API_BASE, SPOTIFY_TOKEN_URL } from "../../env.js";
 import { emptyBundle, makeStableId } from "../models.js";
 import type {
   CreditRow,
@@ -11,9 +11,6 @@ import type {
 } from "../models.js";
 import type { Adapter } from "./base.js";
 import type { DbRow } from "../../db/index.js";
-
-const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
-const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 
 /**
  * Ingests Spotify's new-release albums as the seed for the music side of the

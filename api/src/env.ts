@@ -48,3 +48,5 @@ export const env = loadEnv();
 
 export const PORT = env.PORT;
 export const HOST = env.HOST;
+export const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
+export const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
