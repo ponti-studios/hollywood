@@ -8,6 +8,7 @@ import { RunRepository } from "../repositories/RunRepository.js";
 import { RawRecordRepository } from "../repositories/RawRecordRepository.js";
 import { ArticleRepository } from "../repositories/ArticleRepository.js";
 import { ExtractionRepository } from "../repositories/ExtractionRepository.js";
+import { emptyBundle, makeStableId } from "../../ingest/models.js";
 import type { Candidate } from "../../ingest/extraction.js";
 
 function makeCandidate(overrides: Partial<Candidate> = {}): Candidate {
@@ -185,6 +186,60 @@ describe("IngestService", () => {
       const candidate = makeCandidate();
       svc.saveExtractionResult(runId, "test-source", candidate, "gpt-4o", "v1", '{"raw":true}', rawId);
       expect(true).toBe(true);
+    });
+  });
+
+  describe("applyBundle", () => {
+    it("persists credits under the entity ids EntityRepository actually assigned", () => {
+      const bundle = emptyBundle();
+      const artistBundleId = makeStableId("spotify", "artist", "artist1");
+      const albumBundleId = makeStableId("spotify", "album", "album1");
+
+      bundle.entities.push(
+        {
+          entityId: artistBundleId,
+          sourceId: "spotify",
+          externalId: "artist1",
+          entityType: "artist",
+          name: "Artist One",
+          canonicalName: "artist one",
+          licenseClass: "api_terms",
+          metadataJson: "{}",
+        },
+        {
+          entityId: albumBundleId,
+          sourceId: "spotify",
+          externalId: "album1",
+          entityType: "title",
+          name: "Test Album",
+          canonicalName: "test album",
+          licenseClass: "api_terms",
+          metadataJson: "{}",
+        },
+      );
+      bundle.credits.push({
+        creditId: makeStableId("spotify", "album1", "artist1"),
+        sourceId: "spotify",
+        personEntityId: artistBundleId,
+        titleEntityId: albumBundleId,
+        role: "primary_artist",
+        metadataJson: "{}",
+      });
+
+      svc.applyBundle(bundle);
+
+      const artist = entityRepo.findByName("Artist One")[0];
+      const album = entityRepo.findByName("Test Album")[0];
+      expect(artist).toBeTruthy();
+      expect(album).toBeTruthy();
+      // The bundle's own stable ids must not have been persisted as-is —
+      // EntityRepository derives its own id from sourceId + name.
+      expect(artist!.id).not.toBe(artistBundleId);
+
+      const credits = creditRepo.findByPerson(artist!.id);
+      expect(credits).toHaveLength(1);
+      expect(credits[0]!.titleId).toBe(album!.id);
+      expect(credits[0]!.role).toBe("primary_artist");
     });
   });
 });
