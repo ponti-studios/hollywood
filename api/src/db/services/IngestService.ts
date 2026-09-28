@@ -244,10 +244,10 @@ export class IngestService {
   applyBundle(bundle: NormalizedBundle): void {
     this.upsertArticles(bundle.articles);
     this.upsertArticleContent(bundle.articleContent);
-    this.upsertEntities(bundle.entities);
-    this.upsertEntityAliases(bundle.entityAliases);
-    this.upsertArticleEntities(bundle.articleEntities);
-    this.upsertCredits(bundle.credits);
+    const entityIdMap = this.upsertEntities(bundle.entities);
+    this.upsertEntityAliases(bundle.entityAliases, entityIdMap);
+    this.upsertArticleEntities(bundle.articleEntities, entityIdMap);
+    this.upsertCredits(bundle.credits, entityIdMap);
   }
 
   private upsertArticles(rows: ArticleRow[]): void {
@@ -285,9 +285,17 @@ export class IngestService {
     }
   }
 
-  private upsertEntities(rows: EntityRow[]): void {
+  /**
+   * Upserts entities and returns a map from the bundle's own entityId (adapter-
+   * generated, e.g. via makeStableId) to the id EntityRepository actually
+   * persisted under (sourceId + name). Bundle rows that reference entities
+   * (aliases, article links, credits) must be remapped through this before
+   * being persisted, or their foreign keys point at ids that were never written.
+   */
+  private upsertEntities(rows: EntityRow[]): Map<string, string> {
+    const entityIdMap = new Map<string, string>();
     for (const r of rows) {
-      this.entityRepo.upsert({
+      const persistedId = this.entityRepo.upsert({
         sourceId: r.sourceId,
         externalId: r.externalId,
         entityType: r.entityType,
@@ -296,21 +304,23 @@ export class IngestService {
         licenseClass: r.licenseClass,
         metadataJson: r.metadataJson,
       });
+      entityIdMap.set(r.entityId, persistedId);
     }
+    return entityIdMap;
   }
 
-  private upsertEntityAliases(rows: EntityAliasRow[]): void {
+  private upsertEntityAliases(rows: EntityAliasRow[], entityIdMap: Map<string, string>): void {
     for (const r of rows) {
-      this.entityRepo.addAlias(r.entityId, r.sourceId, r.alias);
+      this.entityRepo.addAlias(entityIdMap.get(r.entityId) ?? r.entityId, r.sourceId, r.alias);
     }
   }
 
-  private upsertArticleEntities(rows: ArticleEntityRow[]): void {
+  private upsertArticleEntities(rows: ArticleEntityRow[], entityIdMap: Map<string, string>): void {
     for (const r of rows) {
       this.articleRepo.linkEntity({
         articleEntityId: r.articleEntityId,
         articleId: r.articleId,
-        entityId: r.entityId,
+        entityId: entityIdMap.get(r.entityId) ?? r.entityId,
         sourceId: r.sourceId,
         relation: r.relation,
         metadataJson: r.metadataJson,
@@ -318,12 +328,12 @@ export class IngestService {
     }
   }
 
-  private upsertCredits(rows: CreditRow[]): void {
+  private upsertCredits(rows: CreditRow[], entityIdMap: Map<string, string>): void {
     for (const r of rows) {
       if (r.personEntityId && r.titleEntityId) {
         this.creditRepo.upsert({
-          personId: r.personEntityId,
-          titleId: r.titleEntityId,
+          personId: entityIdMap.get(r.personEntityId) ?? r.personEntityId,
+          titleId: entityIdMap.get(r.titleEntityId) ?? r.titleEntityId,
           sourceId: r.sourceId,
           role: r.role,
           billing: r.billing,

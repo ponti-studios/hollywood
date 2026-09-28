@@ -18,7 +18,7 @@ The API starts at `http://localhost:4000`. OpenAPI docs are at `/openapi`.
 
 - `GET /sources` — list built-in ingest sources
 - `POST /ingest` — LLM extraction from raw submission text (single doc or batch)
-- `POST /ingest/source` — ingest a single source (`variety`, `deadline`, `hollywood_reporter`, `the_wrap`, `tmdb`, `wikidata`, `wga`, `imdb`)
+- `POST /ingest/source` — ingest a single source (`variety`, `deadline`, `hollywood_reporter`, `the_wrap`, `tmdb`, `wikidata`, `wga`, `imdb`, `spotify`)
 - `POST /ingest/group` — ingest all sources in a named group (`news`, `entities`, `directories`, `all`)
 - `POST /normalize` — re-derive normalized tables from already-archived raw records
 - `GET /export` — export normalized tables as JSONL
@@ -33,6 +33,8 @@ HOLLYWOOD_DB_PATH=~/.hominem/hollywood.db
 HOLLYWOOD_USER_AGENT=...
 HOLLYWOOD_REQUEST_TIMEOUT_SECONDS=30
 TMDB_API_KEY=...
+SPOTIFY_CLIENT_ID=...
+SPOTIFY_CLIENT_SECRET=...
 OPENROUTER_API_KEY=...
 ```
 

@@ -26,6 +26,8 @@ const EnvSchema = z.object({
   HOLLYWOOD_USER_AGENT: z.string().default("ResearchBot/0.2 contact@example.com"),
   HOLLYWOOD_REQUEST_TIMEOUT_SECONDS: z.coerce.number().int().min(5).max(300).default(30),
   TMDB_API_KEY: z.string().min(1).optional(),
+  SPOTIFY_CLIENT_ID: z.string().min(1).optional(),
+  SPOTIFY_CLIENT_SECRET: z.string().min(1).optional(),
   OPENROUTER_API_KEY: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
 });
@@ -46,3 +48,5 @@ export const env = loadEnv();
 
 export const PORT = env.PORT;
 export const HOST = env.HOST;
+export const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
+export const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
