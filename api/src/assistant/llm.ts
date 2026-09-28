@@ -8,8 +8,11 @@ export interface ChatMessage {
 
 export class AssistantLlmError extends Error {}
 
+// This client only ever calls the OpenRouter endpoint, so it must not fall
+// back to OPENAI_API_KEY (unlike ingest/llm.ts's getApiKey) — an OpenAI
+// credential sent to OpenRouter fails authentication on every request.
 function getApiKey(): string | null {
-  return env.OPENROUTER_API_KEY ?? env.OPENAI_API_KEY ?? null;
+  return env.OPENROUTER_API_KEY ?? null;
 }
 
 /** Plain chat completion (no JSON schema, no extraction pipeline) for the assistant. */
