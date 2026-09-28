@@ -363,6 +363,30 @@ CREATE VIRTUAL TABLE search_index USING fts5(
 
 ---
 
+## Music vertical extension
+
+The entity graph is genre-agnostic by design (`entity_type`, `title_type`, and
+`company_type` are free-text), so the music industry extends it additively —
+no new tables, no schema fork.
+
+| Concept | Modeled as |
+|---|---|
+| Musician (solo or band) | `entities.entity_type = 'artist'` |
+| Record label | `entities.entity_type = 'company'`, `company_type = 'label'` |
+| Album / release | `entities.entity_type = 'title'`, `metadata_json.title_type = 'album'` |
+| Tour | `entities.entity_type = 'title'`, `metadata_json.title_type = 'tour'` |
+| Venue | `entities.entity_type = 'venue'` |
+| Artist credited on a release | `credits` row, `role = 'primary_artist'` (or `songwriter`, `producer`, `featured_artist`) |
+| Label distributing a release | `title_companies` row, `relationship = 'label'` |
+| Booking agent / manager → artist | `representation` row, `rep_type = 'agent'` \| `'manager'` \| `'booking_agent'` |
+
+First adapter: `spotify` (`api/src/ingest/adapters/spotify.ts`), seeded from
+new-release albums — each album becomes a `title`, each credited artist an
+`artist`, linked by a `primary_artist` credit. Future adapters (Songkick/
+Bandsintown for tour dates, Pollstar, music trade RSS) follow the same
+adapter interface and write into the same `entities`/`credits`/
+`title_companies` tables.
+
 ## Migration Steps
 
 1. **Create the unified migration** — single 00001_initial_schema.sql in hollywood with all tables above

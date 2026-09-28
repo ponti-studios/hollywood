@@ -5,6 +5,7 @@ import { TmdbAdapter } from "./tmdb.js";
 import { WikidataAdapter } from "./wikidata.js";
 import { WgaAdapter } from "./wga.js";
 import { ImdbAdapter } from "./imdb.js";
+import { SpotifyAdapter } from "./spotify.js";
 
 /** Import this module once (e.g. from api/src/index.ts) to register all ported adapters. */
 export function registerAllAdapters(): void {
@@ -15,4 +16,5 @@ export function registerAllAdapters(): void {
   registerAdapter("wikidata", new WikidataAdapter(getSource("wikidata")));
   registerAdapter("wga", new WgaAdapter(getSource("wga")));
   registerAdapter("imdb", new ImdbAdapter(getSource("imdb")));
+  registerAdapter("spotify", new SpotifyAdapter(getSource("spotify")));
 }

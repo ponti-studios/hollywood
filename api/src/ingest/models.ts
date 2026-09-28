@@ -43,7 +43,7 @@ export type LicenseClass =
   | "web_copyright"
   | "api_terms"
   | "public_knowledge";
-export type EntityKind = "person" | "title" | "company" | "organization" | "award";
+export type EntityKind = "person" | "title" | "company" | "organization" | "award" | "artist" | "venue";
 export type RunStatus = "running" | "succeeded" | "failed";
 
 // ── Source definition ────────────────────────────────────────────────────────
