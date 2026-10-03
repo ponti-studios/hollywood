@@ -272,15 +272,19 @@ asking; there's no evidence it's wanted yet.
   assuming), monitored — merge only if/when the user says to. Now
   contains 8 commits including budget/revenue and production-company
   capture.
-- **Latent bug, not fixed**: `RawRecordRepository.insertBatch()`
-  (`api/src/db/repositories/RawRecordRepository.ts`) has no
-  `onConflictDoNothing`, so re-running ingest for a source whose fetched
-  payloads produce the same raw-record IDs (e.g. TMDb's trending list on
-  the same day) throws `UNIQUE constraint failed: raw_records.id` instead
-  of being idempotent like every other repository in this pipeline.
-  Discovered this session live-testing production-company capture;
-  worked around by deleting stale scratch-DB rows, not fixed at the
-  source. Worth fixing if ingest is ever run on a schedule.
+- **Fixed (was a latent bug)**: `RawRecordRepository.insertBatch()` used a
+  plain insert, so re-ingesting unchanged content (raw-record IDs are
+  content-hash based, e.g. TMDb's trending list on the same day) threw
+  `UNIQUE constraint failed: raw_records.id`. It now upserts and re-points
+  the existing row's `runId`/`fetchedAt` at the new run — deliberately not
+  `onConflictDoNothing`, because `runIngestSource` normalizes via
+  `loadRawRecords({ runId })` and skipped rows would keep the old runId,
+  making the new run silently normalize nothing. Covered by 2 new tests in
+  `RawRecordRepository.test.ts`; live-verified by running TMDb ingest twice
+  back to back against a fresh scratch DB (same normalized counts both times).
+- Scratch-DB note: `/tmp/hollywood-test.db` got wiped between sessions;
+  recreate by applying `api/drizzle/0000_yummy_captain_america.sql` (split
+  on `--> statement-breakpoint`) — the server does not auto-migrate.
 - P2 (a chat UI) was scoped but never started; the "where should it live
   in the hominem monorepo" question was dismissed earlier in an even
   prior session — worth checking if the user wants to revisit it, or has
