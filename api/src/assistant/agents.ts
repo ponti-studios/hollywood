@@ -1,6 +1,6 @@
 import { Agent } from "@openai/agents";
 import { EntityRepository } from "../db/repositories/EntityRepository.js";
-import { DEFAULT_MODEL } from "./model.js";
+import { ASSISTANT_MODEL, COST_TRACKING_MODEL_SETTINGS } from "./model.js";
 import { createSearchEntityGraphTool } from "./tools.js";
 
 export interface SubAgentDefinition {
@@ -65,7 +65,8 @@ export function buildDirectorAgent(entityRepo: EntityRepository = new EntityRepo
     (def) =>
       new Agent({
         name: def.name,
-        model: DEFAULT_MODEL,
+        model: ASSISTANT_MODEL,
+        modelSettings: COST_TRACKING_MODEL_SETTINGS,
         instructions: subAgentInstructions(def),
         tools: [searchEntityGraphTool],
       }),
@@ -73,7 +74,8 @@ export function buildDirectorAgent(entityRepo: EntityRepository = new EntityRepo
 
   return new Agent({
     name: "Director",
-    model: DEFAULT_MODEL,
+    model: ASSISTANT_MODEL,
+    modelSettings: COST_TRACKING_MODEL_SETTINGS,
     instructions:
       "You are the Director of an entertainment-industry assistant. Decide whether the user's query " +
       "belongs to one of your sub-agents — Touring, Financial, Marketing, or Calendar — and hand off to " +

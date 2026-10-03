@@ -164,6 +164,14 @@ export interface CreditRow {
   metadataJson: string;
 }
 
+export interface TitleCompanyRow {
+  titleCompanyId: string;
+  sourceId: string;
+  titleEntityId: string;
+  companyEntityId: string;
+  relationship: string;
+}
+
 export interface NormalizedBundle {
   articles: ArticleRow[];
   articleContent: ArticleContentRow[];
@@ -171,10 +179,19 @@ export interface NormalizedBundle {
   entityAliases: EntityAliasRow[];
   articleEntities: ArticleEntityRow[];
   credits: CreditRow[];
+  titleCompanies: TitleCompanyRow[];
 }
 
 export function emptyBundle(): NormalizedBundle {
-  return { articles: [], articleContent: [], entities: [], entityAliases: [], articleEntities: [], credits: [] };
+  return {
+    articles: [],
+    articleContent: [],
+    entities: [],
+    entityAliases: [],
+    articleEntities: [],
+    credits: [],
+    titleCompanies: [],
+  };
 }
 
 export function extendBundle(target: NormalizedBundle, other: NormalizedBundle): void {
@@ -184,6 +201,7 @@ export function extendBundle(target: NormalizedBundle, other: NormalizedBundle):
   target.entityAliases.push(...other.entityAliases);
   target.articleEntities.push(...other.articleEntities);
   target.credits.push(...other.credits);
+  target.titleCompanies.push(...other.titleCompanies);
 }
 
 export function bundleCounts(bundle: NormalizedBundle): Record<string, number> {
@@ -194,6 +212,7 @@ export function bundleCounts(bundle: NormalizedBundle): Record<string, number> {
     entity_aliases: bundle.entityAliases.length,
     article_entities: bundle.articleEntities.length,
     credits: bundle.credits.length,
+    title_companies: bundle.titleCompanies.length,
   };
 }
 

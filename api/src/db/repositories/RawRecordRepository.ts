@@ -1,6 +1,6 @@
 import { getDrizzle } from "../index.js";
 import { rawRecords } from "../schema.js";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../schema.js";
 
@@ -24,7 +24,12 @@ export interface RawRecordInsert {
 export class RawRecordRepository {
   constructor(private db: Db = getDrizzle()) {}
 
-  /** Insert a batch of raw records. */
+  /**
+   * Insert a batch of raw records. IDs are content-hash based, so re-fetching
+   * unchanged content collides; on conflict the existing row is re-pointed at
+   * the new run (and fetch time) so the run's normalize step, which loads by
+   * runId, still sees it.
+   */
   insertBatch(records: RawRecordInsert[]): void {
     if (!records.length) return;
     const stmt = this.db.insert(rawRecords).values(
@@ -42,7 +47,10 @@ export class RawRecordRepository {
         fetchedAt: r.fetchedAt,
         metadataJson: r.metadataJson,
       })),
-    );
+    ).onConflictDoUpdate({
+      target: rawRecords.id,
+      set: { runId: sql`excluded.run_id`, fetchedAt: sql`excluded.fetched_at` },
+    });
     stmt.run();
   }
 

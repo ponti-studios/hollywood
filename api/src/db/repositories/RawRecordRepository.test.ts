@@ -95,6 +95,27 @@ describe("RawRecordRepository", () => {
     expect(repo.findBySourceId("no-such-source")).toHaveLength(0);
   });
 
+  it("re-points a re-fetched record at the new run instead of throwing", () => {
+    const secondRunId = runRepo.start("test-source", "{}");
+    repo.insertBatch([makeRecord(runId, { id: "dup", fetchedAt: "2025-01-01T00:00:00.000Z" })]);
+
+    expect(() =>
+      repo.insertBatch([makeRecord(secondRunId, { id: "dup", fetchedAt: "2025-02-01T00:00:00.000Z" })]),
+    ).not.toThrow();
+
+    expect(repo.findByRunId(runId)).toHaveLength(0);
+    const moved = repo.findByRunId(secondRunId);
+    expect(moved).toHaveLength(1);
+    expect(moved[0].fetchedAt).toBe("2025-02-01T00:00:00.000Z");
+  });
+
+  it("tolerates duplicate ids within a single batch", () => {
+    expect(() =>
+      repo.insertBatch([makeRecord(runId, { id: "same" }), makeRecord(runId, { id: "same" })]),
+    ).not.toThrow();
+    expect(repo.findByRunId(runId)).toHaveLength(1);
+  });
+
   it("orders by fetchedAt ascending", () => {
     repo.insertBatch([
       makeRecord(runId, { id: "r1", fetchedAt: "2025-01-03T00:00:00.000Z" }),
